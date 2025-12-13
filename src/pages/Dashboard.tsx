@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { GraduationCap, UserCircle, Calendar, TrendingUp } from "lucide-react";
 import Sidebar from "@/components/dashboard/Sidebar";
 import StatsCard from "@/components/dashboard/StatsCard";
@@ -6,6 +7,7 @@ import GradesTable from "@/components/dashboard/GradesTable";
 import UpcomingEvents from "@/components/dashboard/UpcomingEvents";
 import QuickActions from "@/components/dashboard/QuickActions";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/useAuth";
 
 // Demo data
 const mockGrades = [
@@ -25,6 +27,16 @@ const mockEvents = [
 
 const Dashboard = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const { user, profile, userRole, loading } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!loading && user && userRole?.role === 'profesor') {
+      navigate('/teacher');
+    }
+  }, [user, userRole, loading, navigate]);
+
+  const displayName = profile?.full_name || user?.email?.split('@')[0] || 'Utilizator';
 
   return (
     <div className="min-h-screen bg-background">
@@ -37,12 +49,12 @@ const Dashboard = () => {
         {/* Header */}
         <header className="h-16 border-b border-border bg-card/50 backdrop-blur-sm flex items-center justify-between px-8 sticky top-0 z-30">
           <div>
-            <h1 className="text-xl font-semibold text-foreground">Bună ziua, Alexandru! 👋</h1>
+            <h1 className="text-xl font-semibold text-foreground">Bună ziua, {displayName}! 👋</h1>
             <p className="text-sm text-muted-foreground">Clasa a X-a B • Liceul Teoretic „Nicolae Bălcescu"</p>
           </div>
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-gradient-primary flex items-center justify-center text-primary-foreground font-semibold">
-              AP
+              {displayName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
             </div>
           </div>
         </header>
