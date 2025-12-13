@@ -3,15 +3,18 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { AuthProvider } from "@/hooks/useAuth";
 import Index from "./pages/Index";
-import Login from "./pages/Login";
+import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
+import TeacherDashboard from "./pages/TeacherDashboard";
 import Grades from "./pages/Grades";
 import Attendance from "./pages/Attendance";
 import SchoolCalendar from "./pages/SchoolCalendar";
 import Lessons from "./pages/Lessons";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
 
@@ -21,17 +24,49 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/dashboard/grades" element={<Grades />} />
-          <Route path="/dashboard/attendance" element={<Attendance />} />
-          <Route path="/dashboard/calendar" element={<SchoolCalendar />} />
-          <Route path="/dashboard/lessons" element={<Lessons />} />
-          <Route path="/dashboard/settings" element={<Settings />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        <AuthProvider>
+          <Routes>
+            <Route path="/" element={<Index />} />
+            <Route path="/auth" element={<Auth />} />
+            <Route path="/login" element={<Auth />} />
+            <Route path="/dashboard" element={
+              <ProtectedRoute allowedRoles={['elev', 'parinte']}>
+                <Dashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/teacher" element={
+              <ProtectedRoute allowedRoles={['profesor']}>
+                <TeacherDashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/dashboard/grades" element={
+              <ProtectedRoute>
+                <Grades />
+              </ProtectedRoute>
+            } />
+            <Route path="/dashboard/attendance" element={
+              <ProtectedRoute>
+                <Attendance />
+              </ProtectedRoute>
+            } />
+            <Route path="/dashboard/calendar" element={
+              <ProtectedRoute>
+                <SchoolCalendar />
+              </ProtectedRoute>
+            } />
+            <Route path="/dashboard/lessons" element={
+              <ProtectedRoute>
+                <Lessons />
+              </ProtectedRoute>
+            } />
+            <Route path="/dashboard/settings" element={
+              <ProtectedRoute>
+                <Settings />
+              </ProtectedRoute>
+            } />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

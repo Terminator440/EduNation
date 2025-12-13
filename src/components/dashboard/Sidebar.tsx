@@ -1,4 +1,4 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { 
   BookOpen, 
   LayoutDashboard, 
@@ -8,17 +8,19 @@ import {
   Settings,
   LogOut,
   ChevronLeft,
-  UserCircle
+  UserCircle,
+  Users
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/hooks/useAuth";
 
 interface SidebarProps {
   isCollapsed: boolean;
   onToggle: () => void;
 }
 
-const menuItems = [
+const studentMenuItems = [
   { icon: LayoutDashboard, label: "Panou principal", href: "/dashboard" },
   { icon: GraduationCap, label: "Note", href: "/dashboard/grades" },
   { icon: UserCircle, label: "Prezență", href: "/dashboard/attendance" },
@@ -26,8 +28,24 @@ const menuItems = [
   { icon: BookText, label: "Lecții", href: "/dashboard/lessons" },
 ];
 
+const teacherMenuItems = [
+  { icon: LayoutDashboard, label: "Panou principal", href: "/teacher" },
+  { icon: Users, label: "Elevii mei", href: "/teacher" },
+  { icon: Calendar, label: "Calendar", href: "/dashboard/calendar" },
+];
+
 const Sidebar = ({ isCollapsed, onToggle }: SidebarProps) => {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { signOut, userRole } = useAuth();
+
+  const menuItems = userRole?.role === 'profesor' ? teacherMenuItems : studentMenuItems;
+  const homeHref = userRole?.role === 'profesor' ? '/teacher' : '/dashboard';
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/');
+  };
 
   return (
     <aside className={cn(
@@ -36,7 +54,7 @@ const Sidebar = ({ isCollapsed, onToggle }: SidebarProps) => {
     )}>
       {/* Logo */}
       <div className="h-16 flex items-center justify-between px-4 border-b border-sidebar-border">
-        <Link to="/dashboard" className="flex items-center gap-3">
+        <Link to={homeHref} className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-gradient-primary flex items-center justify-center shadow-md flex-shrink-0">
             <BookOpen className="w-5 h-5 text-primary-foreground" />
           </div>
@@ -63,7 +81,7 @@ const Sidebar = ({ isCollapsed, onToggle }: SidebarProps) => {
           {menuItems.map((item) => {
             const isActive = location.pathname === item.href;
             return (
-              <li key={item.href}>
+              <li key={item.href + item.label}>
                 <Link
                   to={item.href}
                   className={cn(
@@ -96,13 +114,13 @@ const Sidebar = ({ isCollapsed, onToggle }: SidebarProps) => {
           <Settings className="w-5 h-5 text-muted-foreground" />
           {!isCollapsed && <span className="font-medium">Setări</span>}
         </Link>
-        <Link
-          to="/"
-          className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sidebar-foreground hover:bg-destructive/10 hover:text-destructive transition-colors mt-1"
+        <button
+          onClick={handleSignOut}
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sidebar-foreground hover:bg-destructive/10 hover:text-destructive transition-colors mt-1"
         >
           <LogOut className="w-5 h-5" />
           {!isCollapsed && <span className="font-medium">Deconectare</span>}
-        </Link>
+        </button>
       </div>
     </aside>
   );
