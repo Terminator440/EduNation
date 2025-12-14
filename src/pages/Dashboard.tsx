@@ -7,6 +7,7 @@ import GradesTable from "@/components/dashboard/GradesTable";
 import UpcomingEvents from "@/components/dashboard/UpcomingEvents";
 import QuickActions from "@/components/dashboard/QuickActions";
 import RoleSwitcher from "@/components/RoleSwitcher";
+import ThemeToggle from "@/components/ThemeToggle";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -34,8 +35,9 @@ const Dashboard = () => {
   useEffect(() => {
     if (!loading && user && activeRole) {
       const roleRoutes: Record<string, string> = {
+        parent: '/parent',
         teacher: '/teacher',
-        homeroom_teacher: '/teacher',
+        homeroom_teacher: '/homeroom',
         secretariat: '/secretariat',
         director: '/director',
       };
@@ -63,6 +65,7 @@ const Dashboard = () => {
             <p className="text-sm text-muted-foreground">Clasa a X-a B • Liceul Teoretic „Nicolae Bălcescu"</p>
           </div>
           <div className="flex items-center gap-4">
+            <ThemeToggle />
             <RoleSwitcher />
             <div className="w-10 h-10 rounded-full bg-gradient-primary flex items-center justify-center text-primary-foreground font-semibold">
               {displayName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
