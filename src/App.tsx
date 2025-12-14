@@ -8,6 +8,10 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import TeacherDashboard from "./pages/TeacherDashboard";
+import SecretariatDashboard from "./pages/SecretariatDashboard";
+import DirectorDashboard from "./pages/DirectorDashboard";
+import HomeroomDashboard from "./pages/HomeroomDashboard";
+import ParentDashboard from "./pages/ParentDashboard";
 import Grades from "./pages/Grades";
 import Attendance from "./pages/Attendance";
 import SchoolCalendar from "./pages/SchoolCalendar";
@@ -30,13 +34,33 @@ const App = () => (
             <Route path="/auth" element={<Auth />} />
             <Route path="/login" element={<Auth />} />
             <Route path="/dashboard" element={
-              <ProtectedRoute allowedRoles={['student', 'parent']}>
+              <ProtectedRoute allowedRoles={['student']}>
                 <Dashboard />
               </ProtectedRoute>
             } />
+            <Route path="/parent" element={
+              <ProtectedRoute allowedRoles={['parent']}>
+                <ParentDashboard />
+              </ProtectedRoute>
+            } />
             <Route path="/teacher" element={
-              <ProtectedRoute allowedRoles={['teacher', 'homeroom_teacher']}>
+              <ProtectedRoute allowedRoles={['teacher']}>
                 <TeacherDashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/homeroom" element={
+              <ProtectedRoute allowedRoles={['homeroom_teacher']}>
+                <HomeroomDashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/secretariat" element={
+              <ProtectedRoute allowedRoles={['secretariat']}>
+                <SecretariatDashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/director" element={
+              <ProtectedRoute allowedRoles={['director']}>
+                <DirectorDashboard />
               </ProtectedRoute>
             } />
             <Route path="/dashboard/grades" element={

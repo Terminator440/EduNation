@@ -23,7 +23,7 @@ const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) => {
           student: '/dashboard',
           parent: '/parent',
           teacher: '/teacher',
-          homeroom_teacher: '/teacher',
+          homeroom_teacher: '/homeroom',
           secretariat: '/secretariat',
           director: '/director',
           uat_admin: '/admin',

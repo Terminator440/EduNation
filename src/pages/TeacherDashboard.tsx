@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { Users, GraduationCap, UserCircle, TrendingUp, Plus, Search } from "lucide-react";
 import Sidebar from "@/components/dashboard/Sidebar";
 import StatsCard from "@/components/dashboard/StatsCard";
+import RoleSwitcher from "@/components/RoleSwitcher";
+import ThemeToggle from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -312,6 +314,10 @@ const TeacherDashboard = () => {
           <div>
             <h1 className="text-xl font-semibold text-foreground">Panou Profesor</h1>
             <p className="text-sm text-muted-foreground">Gestionează elevii clasei tale</p>
+          </div>
+          <div className="flex items-center gap-4">
+            <ThemeToggle />
+            <RoleSwitcher />
           </div>
         </header>
 

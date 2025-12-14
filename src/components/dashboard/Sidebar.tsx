@@ -9,38 +9,88 @@ import {
   LogOut,
   ChevronLeft,
   UserCircle,
-  Users
+  Users,
+  FileText,
+  Shield,
+  Bell,
+  Key
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth, AppRole } from "@/hooks/useAuth";
 
 interface SidebarProps {
   isCollapsed: boolean;
   onToggle: () => void;
 }
 
-const studentMenuItems = [
-  { icon: LayoutDashboard, label: "Panou principal", href: "/dashboard" },
-  { icon: GraduationCap, label: "Note", href: "/dashboard/grades" },
-  { icon: UserCircle, label: "Prezență", href: "/dashboard/attendance" },
-  { icon: Calendar, label: "Calendar", href: "/dashboard/calendar" },
-  { icon: BookText, label: "Lecții", href: "/dashboard/lessons" },
-];
+const menuItemsByRole: Record<AppRole, { icon: any; label: string; href: string }[]> = {
+  student: [
+    { icon: LayoutDashboard, label: "Panou principal", href: "/dashboard" },
+    { icon: GraduationCap, label: "Note", href: "/dashboard/grades" },
+    { icon: UserCircle, label: "Prezență", href: "/dashboard/attendance" },
+    { icon: Calendar, label: "Calendar", href: "/dashboard/calendar" },
+    { icon: BookText, label: "Lecții", href: "/dashboard/lessons" },
+  ],
+  parent: [
+    { icon: LayoutDashboard, label: "Panou principal", href: "/parent" },
+    { icon: Users, label: "Copiii mei", href: "/parent" },
+    { icon: GraduationCap, label: "Note", href: "/dashboard/grades" },
+    { icon: UserCircle, label: "Prezență", href: "/dashboard/attendance" },
+    { icon: Calendar, label: "Calendar", href: "/dashboard/calendar" },
+  ],
+  teacher: [
+    { icon: LayoutDashboard, label: "Panou principal", href: "/teacher" },
+    { icon: Users, label: "Elevii mei", href: "/teacher" },
+    { icon: GraduationCap, label: "Catalog", href: "/teacher" },
+    { icon: BookText, label: "Lecții", href: "/dashboard/lessons" },
+    { icon: Calendar, label: "Calendar", href: "/dashboard/calendar" },
+  ],
+  homeroom_teacher: [
+    { icon: LayoutDashboard, label: "Panou principal", href: "/homeroom" },
+    { icon: Key, label: "Clasa mea", href: "/homeroom" },
+    { icon: Users, label: "Elevii mei", href: "/teacher" },
+    { icon: GraduationCap, label: "Catalog", href: "/teacher" },
+    { icon: Calendar, label: "Calendar", href: "/dashboard/calendar" },
+  ],
+  secretariat: [
+    { icon: LayoutDashboard, label: "Panou principal", href: "/secretariat" },
+    { icon: Users, label: "Elevi", href: "/secretariat" },
+    { icon: GraduationCap, label: "Clase", href: "/secretariat" },
+    { icon: FileText, label: "Rapoarte", href: "/secretariat" },
+    { icon: Calendar, label: "Calendar", href: "/dashboard/calendar" },
+  ],
+  director: [
+    { icon: LayoutDashboard, label: "Panou principal", href: "/director" },
+    { icon: FileText, label: "Rapoarte", href: "/director" },
+    { icon: Users, label: "Utilizatori", href: "/director" },
+    { icon: Shield, label: "Audit", href: "/director" },
+    { icon: Bell, label: "Anunțuri", href: "/director" },
+  ],
+  uat_admin: [
+    { icon: LayoutDashboard, label: "Panou principal", href: "/admin" },
+    { icon: Users, label: "Utilizatori", href: "/admin" },
+    { icon: Settings, label: "Configurare", href: "/admin" },
+  ],
+};
 
-const teacherMenuItems = [
-  { icon: LayoutDashboard, label: "Panou principal", href: "/teacher" },
-  { icon: Users, label: "Elevii mei", href: "/teacher" },
-  { icon: Calendar, label: "Calendar", href: "/dashboard/calendar" },
-];
+const homeRoutes: Record<AppRole, string> = {
+  student: '/dashboard',
+  parent: '/parent',
+  teacher: '/teacher',
+  homeroom_teacher: '/homeroom',
+  secretariat: '/secretariat',
+  director: '/director',
+  uat_admin: '/admin',
+};
 
 const Sidebar = ({ isCollapsed, onToggle }: SidebarProps) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { signOut, activeRole } = useAuth();
 
-  const menuItems = activeRole === 'teacher' || activeRole === 'homeroom_teacher' ? teacherMenuItems : studentMenuItems;
-  const homeHref = activeRole === 'teacher' || activeRole === 'homeroom_teacher' ? '/teacher' : '/dashboard';
+  const menuItems = activeRole ? menuItemsByRole[activeRole] : menuItemsByRole.student;
+  const homeHref = activeRole ? homeRoutes[activeRole] : '/dashboard';
 
   const handleSignOut = async () => {
     await signOut();
