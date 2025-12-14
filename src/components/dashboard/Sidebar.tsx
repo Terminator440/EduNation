@@ -37,10 +37,10 @@ const teacherMenuItems = [
 const Sidebar = ({ isCollapsed, onToggle }: SidebarProps) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { signOut, userRole } = useAuth();
+  const { signOut, activeRole } = useAuth();
 
-  const menuItems = userRole?.role === 'profesor' ? teacherMenuItems : studentMenuItems;
-  const homeHref = userRole?.role === 'profesor' ? '/teacher' : '/dashboard';
+  const menuItems = activeRole === 'teacher' || activeRole === 'homeroom_teacher' ? teacherMenuItems : studentMenuItems;
+  const homeHref = activeRole === 'teacher' || activeRole === 'homeroom_teacher' ? '/teacher' : '/dashboard';
 
   const handleSignOut = async () => {
     await signOut();

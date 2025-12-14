@@ -6,6 +6,7 @@ import StatsCard from "@/components/dashboard/StatsCard";
 import GradesTable from "@/components/dashboard/GradesTable";
 import UpcomingEvents from "@/components/dashboard/UpcomingEvents";
 import QuickActions from "@/components/dashboard/QuickActions";
+import RoleSwitcher from "@/components/RoleSwitcher";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -27,14 +28,23 @@ const mockEvents = [
 
 const Dashboard = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const { user, profile, userRole, loading } = useAuth();
+  const { user, profile, activeRole, loading } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!loading && user && userRole?.role === 'profesor') {
-      navigate('/teacher');
+    if (!loading && user && activeRole) {
+      const roleRoutes: Record<string, string> = {
+        teacher: '/teacher',
+        homeroom_teacher: '/teacher',
+        secretariat: '/secretariat',
+        director: '/director',
+      };
+      
+      if (roleRoutes[activeRole]) {
+        navigate(roleRoutes[activeRole]);
+      }
     }
-  }, [user, userRole, loading, navigate]);
+  }, [user, activeRole, loading, navigate]);
 
   const displayName = profile?.full_name || user?.email?.split('@')[0] || 'Utilizator';
 
@@ -52,7 +62,8 @@ const Dashboard = () => {
             <h1 className="text-xl font-semibold text-foreground">Bună ziua, {displayName}! 👋</h1>
             <p className="text-sm text-muted-foreground">Clasa a X-a B • Liceul Teoretic „Nicolae Bălcescu"</p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
+            <RoleSwitcher />
             <div className="w-10 h-10 rounded-full bg-gradient-primary flex items-center justify-center text-primary-foreground font-semibold">
               {displayName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
             </div>
