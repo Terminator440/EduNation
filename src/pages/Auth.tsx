@@ -1,20 +1,27 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { BookOpen, Mail, Lock, Eye, EyeOff, GraduationCap, Users, UserCircle, User } from "lucide-react";
+import { BookOpen, Mail, Lock, Eye, EyeOff, GraduationCap, Users, UserCircle, User, Key } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth, AppRole } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 import { z } from "zod";
 
-type UserRole = "elev" | "profesor" | "parinte";
-
-const roleInfo = {
-  elev: { label: "Elev", icon: GraduationCap, color: "primary" },
-  profesor: { label: "Profesor", icon: Users, color: "accent" },
-  parinte: { label: "Părinte", icon: UserCircle, color: "success" },
+const roleInfo: Record<AppRole, { label: string; icon: typeof GraduationCap; color: string }> = {
+  student: { label: "Elev", icon: GraduationCap, color: "primary" },
+  parent: { label: "Părinte", icon: UserCircle, color: "success" },
+  teacher: { label: "Profesor", icon: Users, color: "accent" },
+  homeroom_teacher: { label: "Diriginte", icon: Users, color: "accent" },
+  secretariat: { label: "Secretariat", icon: Users, color: "accent" },
+  director: { label: "Director", icon: Users, color: "accent" },
+  uat_admin: { label: "Admin", icon: Users, color: "accent" },
 };
+
+// Only show these roles in signup
+const signupRoles: AppRole[] = ['parent', 'teacher'];
 
 const emailSchema = z.string().email("Email invalid");
 const passwordSchema = z.string().min(6, "Parola trebuie să aibă cel puțin 6 caractere");
@@ -25,9 +32,13 @@ const Auth = () => {
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [selectedRole, setSelectedRole] = useState<UserRole>("elev");
+  const [selectedRole, setSelectedRole] = useState<AppRole>("parent");
   const [isLoading, setIsLoading] = useState(false);
-  const [errors, setErrors] = useState<{ email?: string; password?: string; fullName?: string }>({});
+  const [errors, setErrors] = useState<{ email?: string; password?: string; fullName?: string; activationCode?: string }>({});
+  
+  // Activation code for students/parents linking
+  const [activationCode, setActivationCode] = useState("");
+  const [showActivation, setShowActivation] = useState(false);
   
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -40,7 +51,7 @@ const Auth = () => {
   }, [user, loading, navigate]);
 
   const validateForm = () => {
-    const newErrors: { email?: string; password?: string; fullName?: string } = {};
+    const newErrors: { email?: string; password?: string; fullName?: string; activationCode?: string } = {};
     
     try {
       emailSchema.parse(email);
@@ -64,6 +75,69 @@ const Auth = () => {
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
+  };
+
+  const handleActivateAccount = async () => {
+    if (!activationCode.trim()) {
+      setErrors({ activationCode: "Codul de activare este obligatoriu" });
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      // Check if activation code is valid
+      const { data: activation, error: fetchError } = await supabase
+        .from('student_activations')
+        .select('*')
+        .eq('activation_code', activationCode.toUpperCase())
+        .eq('is_used', false)
+        .single();
+
+      if (fetchError || !activation) {
+        toast({
+          title: "Cod invalid",
+          description: "Codul de activare nu este valid sau a fost deja folosit.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Check if expired
+      if (new Date(activation.expires_at) < new Date()) {
+        toast({
+          title: "Cod expirat",
+          description: "Codul de activare a expirat. Contactează secretariatul.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Create account first
+      const { error: signUpError } = await signUp(email, password, fullName, 'student');
+      if (signUpError) {
+        toast({
+          title: "Eroare",
+          description: signUpError.message,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      toast({
+        title: "Cont creat cu succes!",
+        description: "Contul tău a fost activat și legat de profilul elevului.",
+      });
+      navigate("/dashboard");
+    } catch (error) {
+      console.error('Activation error:', error);
+      toast({
+        title: "Eroare",
+        description: "A apărut o eroare la activare.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -143,62 +217,37 @@ const Auth = () => {
             <div className="w-12 h-12 rounded-xl bg-gradient-primary flex items-center justify-center shadow-lg">
               <BookOpen className="w-6 h-6 text-primary-foreground" />
             </div>
-            <span className="text-2xl font-bold text-foreground">EduCatalog</span>
+            <span className="text-2xl font-bold text-foreground">EduRO</span>
           </Link>
 
           {/* Heading */}
           <h1 className="text-3xl font-bold text-foreground mb-2">
-            {isLogin ? "Bine ai revenit!" : "Creează un cont"}
+            {isLogin ? "Bine ai revenit!" : showActivation ? "Activare cont elev" : "Creează un cont"}
           </h1>
           <p className="text-muted-foreground mb-8">
-            {isLogin ? "Autentifică-te pentru a accesa catalogul" : "Înregistrează-te pentru a accesa catalogul"}
+            {isLogin 
+              ? "Autentifică-te pentru a accesa catalogul" 
+              : showActivation 
+              ? "Introdu codul primit de la secretariat" 
+              : "Înregistrează-te pentru a accesa catalogul"}
           </p>
 
-          {/* Role selector (only for signup) */}
-          {!isLogin && (
-            <div className="mb-6">
-              <Label className="text-sm text-muted-foreground mb-3 block">Selectează rolul</Label>
-              <div className="grid grid-cols-3 gap-3">
-                {(Object.entries(roleInfo) as [UserRole, typeof roleInfo.elev][]).map(([role, info]) => {
-                  const Icon = info.icon;
-                  const isSelected = selectedRole === role;
-                  return (
-                    <button
-                      key={role}
-                      type="button"
-                      onClick={() => setSelectedRole(role)}
-                      className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${
-                        isSelected
-                          ? info.color === "primary"
-                            ? "border-primary bg-primary/5"
-                            : info.color === "accent"
-                            ? "border-accent bg-accent/5"
-                            : "border-success bg-success/5"
-                          : "border-border hover:border-muted-foreground/30"
-                      }`}
-                    >
-                      <Icon className={`w-6 h-6 ${
-                        isSelected
-                          ? info.color === "primary"
-                            ? "text-primary"
-                            : info.color === "accent"
-                            ? "text-accent"
-                            : "text-success"
-                          : "text-muted-foreground"
-                      }`} />
-                      <span className={`text-sm font-medium ${isSelected ? "text-foreground" : "text-muted-foreground"}`}>
-                        {info.label}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+          {!isLogin && !showActivation && (
+            <Tabs defaultValue="register" className="mb-6">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="register" onClick={() => setShowActivation(false)}>
+                  Înregistrare
+                </TabsTrigger>
+                <TabsTrigger value="activate" onClick={() => setShowActivation(true)}>
+                  Activare elev
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
           )}
 
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {!isLogin && (
+          {showActivation ? (
+            // Activation form for students
+            <div className="space-y-4">
               <div>
                 <Label htmlFor="fullName">Nume complet</Label>
                 <div className="relative mt-1">
@@ -214,67 +263,211 @@ const Auth = () => {
                 </div>
                 {errors.fullName && <p className="text-sm text-destructive mt-1">{errors.fullName}</p>}
               </div>
-            )}
 
-            <div>
-              <Label htmlFor="email">Email</Label>
-              <div className="relative mt-1">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="nume@scoala.ro"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="pl-10"
-                />
+              <div>
+                <Label htmlFor="email">Email</Label>
+                <div className="relative mt-1">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="nume@scoala.ro"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+                {errors.email && <p className="text-sm text-destructive mt-1">{errors.email}</p>}
               </div>
-              {errors.email && <p className="text-sm text-destructive mt-1">{errors.email}</p>}
+
+              <div>
+                <Label htmlFor="password">Parolă</Label>
+                <div className="relative mt-1">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="pl-10 pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
+                </div>
+                {errors.password && <p className="text-sm text-destructive mt-1">{errors.password}</p>}
+              </div>
+
+              <div>
+                <Label htmlFor="activationCode">Cod de activare</Label>
+                <div className="relative mt-1">
+                  <Key className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                  <Input
+                    id="activationCode"
+                    type="text"
+                    placeholder="XXXXXXXX"
+                    value={activationCode}
+                    onChange={(e) => setActivationCode(e.target.value.toUpperCase())}
+                    className="pl-10 uppercase"
+                    maxLength={8}
+                  />
+                </div>
+                {errors.activationCode && <p className="text-sm text-destructive mt-1">{errors.activationCode}</p>}
+              </div>
+
+              <Button 
+                variant="hero" 
+                size="lg" 
+                className="w-full" 
+                disabled={isLoading}
+                onClick={handleActivateAccount}
+              >
+                {isLoading ? "Se procesează..." : "Activează contul"}
+              </Button>
+
+              <Button 
+                variant="ghost" 
+                className="w-full" 
+                onClick={() => setShowActivation(false)}
+              >
+                Înapoi la înregistrare
+              </Button>
             </div>
+          ) : (
+            <>
+              {/* Role selector (only for signup - exclude student) */}
+              {!isLogin && (
+                <div className="mb-6">
+                  <Label className="text-sm text-muted-foreground mb-3 block">Selectează rolul</Label>
+                  <div className="grid grid-cols-2 gap-3">
+                    {signupRoles.map((role) => {
+                      const info = roleInfo[role];
+                      const Icon = info.icon;
+                      const isSelected = selectedRole === role;
+                      return (
+                        <button
+                          key={role}
+                          type="button"
+                          onClick={() => setSelectedRole(role)}
+                          className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${
+                            isSelected
+                              ? info.color === "primary"
+                                ? "border-primary bg-primary/5"
+                                : info.color === "accent"
+                                ? "border-accent bg-accent/5"
+                                : "border-green-500 bg-green-500/5"
+                              : "border-border hover:border-muted-foreground/30"
+                          }`}
+                        >
+                          <Icon className={`w-6 h-6 ${
+                            isSelected
+                              ? info.color === "primary"
+                                ? "text-primary"
+                                : info.color === "accent"
+                                ? "text-accent"
+                                : "text-green-500"
+                              : "text-muted-foreground"
+                          }`} />
+                          <span className={`text-sm font-medium ${isSelected ? "text-foreground" : "text-muted-foreground"}`}>
+                            {info.label}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-3">
+                    Ești elev? <button onClick={() => setShowActivation(true)} className="text-primary hover:underline">Folosește codul de activare</button>
+                  </p>
+                </div>
+              )}
 
-            <div>
-              <Label htmlFor="password">Parolă</Label>
-              <div className="relative mt-1">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                <Input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="pl-10 pr-10"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                >
-                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                </button>
-              </div>
-              {errors.password && <p className="text-sm text-destructive mt-1">{errors.password}</p>}
-            </div>
+              {/* Form */}
+              <form onSubmit={handleSubmit} className="space-y-4">
+                {!isLogin && (
+                  <div>
+                    <Label htmlFor="fullName">Nume complet</Label>
+                    <div className="relative mt-1">
+                      <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                      <Input
+                        id="fullName"
+                        type="text"
+                        placeholder="Ion Popescu"
+                        value={fullName}
+                        onChange={(e) => setFullName(e.target.value)}
+                        className="pl-10"
+                      />
+                    </div>
+                    {errors.fullName && <p className="text-sm text-destructive mt-1">{errors.fullName}</p>}
+                  </div>
+                )}
 
-            {isLogin && (
-              <div className="flex items-center justify-between">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" className="rounded border-border" />
-                  <span className="text-sm text-muted-foreground">Ține-mă minte</span>
-                </label>
-                <a href="#" className="text-sm text-primary hover:underline">Ai uitat parola?</a>
-              </div>
-            )}
+                <div>
+                  <Label htmlFor="email">Email</Label>
+                  <div className="relative mt-1">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="nume@scoala.ro"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                  {errors.email && <p className="text-sm text-destructive mt-1">{errors.email}</p>}
+                </div>
 
-            <Button type="submit" variant="hero" size="lg" className="w-full" disabled={isLoading}>
-              {isLoading ? "Se procesează..." : isLogin ? "Autentificare" : "Creează cont"}
-            </Button>
-          </form>
+                <div>
+                  <Label htmlFor="password">Parolă</Label>
+                  <div className="relative mt-1">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                    <Input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="pl-10 pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    >
+                      {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                    </button>
+                  </div>
+                  {errors.password && <p className="text-sm text-destructive mt-1">{errors.password}</p>}
+                </div>
+
+                {isLogin && (
+                  <div className="flex items-center justify-between">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input type="checkbox" className="rounded border-border" />
+                      <span className="text-sm text-muted-foreground">Ține-mă minte</span>
+                    </label>
+                    <a href="#" className="text-sm text-primary hover:underline">Ai uitat parola?</a>
+                  </div>
+                )}
+
+                <Button type="submit" variant="hero" size="lg" className="w-full" disabled={isLoading}>
+                  {isLoading ? "Se procesează..." : isLogin ? "Autentificare" : "Creează cont"}
+                </Button>
+              </form>
+            </>
+          )}
 
           <p className="text-center text-sm text-muted-foreground mt-6">
             {isLogin ? "Nu ai cont?" : "Ai deja un cont?"}{" "}
             <button 
               onClick={() => {
                 setIsLogin(!isLogin);
+                setShowActivation(false);
                 setErrors({});
               }} 
               className="text-primary hover:underline font-medium"

@@ -59,6 +59,42 @@ export type Database = {
           },
         ]
       }
+      audit_logs: {
+        Row: {
+          action: string
+          active_role: Database["public"]["Enums"]["app_role"]
+          created_at: string | null
+          details: Json | null
+          entity_id: string | null
+          entity_type: string | null
+          id: string
+          user_id: string
+          user_name: string
+        }
+        Insert: {
+          action: string
+          active_role: Database["public"]["Enums"]["app_role"]
+          created_at?: string | null
+          details?: Json | null
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          user_id: string
+          user_name: string
+        }
+        Update: {
+          action?: string
+          active_role?: Database["public"]["Enums"]["app_role"]
+          created_at?: string | null
+          details?: Json | null
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          user_id?: string
+          user_name?: string
+        }
+        Relationships: []
+      }
       classes: {
         Row: {
           created_at: string | null
@@ -134,8 +170,41 @@ export type Database = {
           },
         ]
       }
+      parent_student_relations: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_primary: boolean | null
+          parent_user_id: string
+          student_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_primary?: boolean | null
+          parent_user_id: string
+          student_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_primary?: boolean | null
+          parent_user_id?: string
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "parent_student_relations_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
+          active_role: Database["public"]["Enums"]["app_role"] | null
           created_at: string | null
           email: string
           full_name: string
@@ -143,6 +212,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          active_role?: Database["public"]["Enums"]["app_role"] | null
           created_at?: string | null
           email: string
           full_name: string
@@ -150,6 +220,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          active_role?: Database["public"]["Enums"]["app_role"] | null
           created_at?: string | null
           email?: string
           full_name?: string
@@ -158,27 +229,77 @@ export type Database = {
         }
         Relationships: []
       }
+      student_activations: {
+        Row: {
+          activation_code: string
+          created_at: string | null
+          created_by: string
+          expires_at: string
+          id: string
+          is_used: boolean | null
+          student_id: string
+          used_at: string | null
+          used_by: string | null
+        }
+        Insert: {
+          activation_code: string
+          created_at?: string | null
+          created_by: string
+          expires_at: string
+          id?: string
+          is_used?: boolean | null
+          student_id: string
+          used_at?: string | null
+          used_by?: string | null
+        }
+        Update: {
+          activation_code?: string
+          created_at?: string | null
+          created_by?: string
+          expires_at?: string
+          id?: string
+          is_used?: boolean | null
+          student_id?: string
+          used_at?: string | null
+          used_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_activations_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       students: {
         Row: {
           class_id: string
           created_at: string | null
+          full_name: string | null
           id: string
+          is_active: boolean | null
           student_number: number | null
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           class_id: string
           created_at?: string | null
+          full_name?: string | null
           id?: string
+          is_active?: boolean | null
           student_number?: number | null
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           class_id?: string
           created_at?: string | null
+          full_name?: string | null
           id?: string
+          is_active?: boolean | null
           student_number?: number | null
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -245,6 +366,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      generate_activation_code: { Args: never; Returns: string }
       get_teacher_class_id: { Args: { _user_id: string }; Returns: string }
       has_role: {
         Args: {
@@ -253,9 +375,28 @@ export type Database = {
         }
         Returns: boolean
       }
+      log_audit: {
+        Args: {
+          _action: string
+          _active_role: Database["public"]["Enums"]["app_role"]
+          _details?: Json
+          _entity_id?: string
+          _entity_type?: string
+          _user_id: string
+          _user_name: string
+        }
+        Returns: string
+      }
     }
     Enums: {
-      app_role: "elev" | "profesor" | "parinte"
+      app_role:
+        | "student"
+        | "parent"
+        | "teacher"
+        | "homeroom_teacher"
+        | "secretariat"
+        | "director"
+        | "uat_admin"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -383,7 +524,15 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["elev", "profesor", "parinte"],
+      app_role: [
+        "student",
+        "parent",
+        "teacher",
+        "homeroom_teacher",
+        "secretariat",
+        "director",
+        "uat_admin",
+      ],
     },
   },
 } as const

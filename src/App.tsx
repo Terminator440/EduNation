@@ -30,12 +30,12 @@ const App = () => (
             <Route path="/auth" element={<Auth />} />
             <Route path="/login" element={<Auth />} />
             <Route path="/dashboard" element={
-              <ProtectedRoute allowedRoles={['elev', 'parinte']}>
+              <ProtectedRoute allowedRoles={['student', 'parent']}>
                 <Dashboard />
               </ProtectedRoute>
             } />
             <Route path="/teacher" element={
-              <ProtectedRoute allowedRoles={['profesor']}>
+              <ProtectedRoute allowedRoles={['teacher', 'homeroom_teacher']}>
                 <TeacherDashboard />
               </ProtectedRoute>
             } />

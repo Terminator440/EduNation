@@ -76,21 +76,21 @@ const TeacherDashboard = () => {
   const [newGrade, setNewGrade] = useState({ grade: "", subjectId: "", description: "" });
   const [newAttendance, setNewAttendance] = useState({ status: "prezent", subjectId: "" });
 
-  const { user, userRole, loading: authLoading } = useAuth();
+  const { user, activeRole, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
   useEffect(() => {
-    if (!authLoading && (!user || userRole?.role !== 'profesor')) {
+    if (!authLoading && (!user || (activeRole !== 'teacher' && activeRole !== 'homeroom_teacher'))) {
       navigate('/auth');
     }
-  }, [user, userRole, authLoading, navigate]);
+  }, [user, activeRole, authLoading, navigate]);
 
   useEffect(() => {
-    if (user && userRole?.role === 'profesor') {
+    if (user && (activeRole === 'teacher' || activeRole === 'homeroom_teacher')) {
       fetchData();
     }
-  }, [user, userRole]);
+  }, [user, activeRole]);
 
   const fetchData = async () => {
     setLoading(true);

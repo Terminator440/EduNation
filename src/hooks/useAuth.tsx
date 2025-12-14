@@ -2,25 +2,30 @@ import { useState, useEffect, createContext, useContext, ReactNode } from 'react
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
+export type AppRole = 'student' | 'parent' | 'teacher' | 'homeroom_teacher' | 'secretariat' | 'director' | 'uat_admin';
+
 interface UserRole {
-  role: 'elev' | 'profesor' | 'parinte';
+  role: AppRole;
 }
 
 interface Profile {
   id: string;
   full_name: string;
   email: string;
+  active_role: AppRole | null;
 }
 
 interface AuthContextType {
   user: User | null;
   session: Session | null;
   profile: Profile | null;
-  userRole: UserRole | null;
+  userRoles: AppRole[];
+  activeRole: AppRole | null;
   loading: boolean;
-  signUp: (email: string, password: string, fullName: string, role: 'elev' | 'profesor' | 'parinte') => Promise<{ error: Error | null }>;
+  signUp: (email: string, password: string, fullName: string, role: AppRole) => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
+  switchRole: (role: AppRole) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -29,7 +34,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [userRole, setUserRole] = useState<UserRole | null>(null);
+  const [userRoles, setUserRoles] = useState<AppRole[]>([]);
+  const [activeRole, setActiveRole] = useState<AppRole | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -46,7 +52,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           }, 0);
         } else {
           setProfile(null);
-          setUserRole(null);
+          setUserRoles([]);
+          setActiveRole(null);
         }
       }
     );
@@ -75,16 +82,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         .eq('id', userId)
         .maybeSingle();
       
-      setProfile(profileData);
+      setProfile(profileData as Profile | null);
+      if (profileData?.active_role) {
+        setActiveRole(profileData.active_role as AppRole);
+      }
 
-      // Fetch role
-      const { data: roleData } = await supabase
+      // Fetch all roles
+      const { data: rolesData } = await supabase
         .from('user_roles')
         .select('role')
-        .eq('user_id', userId)
-        .maybeSingle();
+        .eq('user_id', userId);
       
-      setUserRole(roleData as UserRole | null);
+      const roles = (rolesData || []).map(r => r.role as AppRole);
+      setUserRoles(roles);
+      
+      // If no active role set but user has roles, set first role as active
+      if (!profileData?.active_role && roles.length > 0) {
+        setActiveRole(roles[0]);
+        // Update profile with active role
+        await supabase
+          .from('profiles')
+          .update({ active_role: roles[0] })
+          .eq('id', userId);
+      }
     } catch (error) {
       console.error('Error fetching user data:', error);
     } finally {
@@ -92,7 +112,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const signUp = async (email: string, password: string, fullName: string, role: 'elev' | 'profesor' | 'parinte') => {
+  const signUp = async (email: string, password: string, fullName: string, role: AppRole) => {
     try {
       const redirectUrl = `${window.location.origin}/`;
       
@@ -134,7 +154,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setUser(null);
     setSession(null);
     setProfile(null);
-    setUserRole(null);
+    setUserRoles([]);
+    setActiveRole(null);
+  };
+
+  const switchRole = async (role: AppRole) => {
+    if (!user || !userRoles.includes(role)) return;
+    
+    setActiveRole(role);
+    
+    // Update profile with new active role
+    await supabase
+      .from('profiles')
+      .update({ active_role: role })
+      .eq('id', user.id);
   };
 
   return (
@@ -142,11 +175,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       user,
       session,
       profile,
-      userRole,
+      userRoles,
+      activeRole,
       loading,
       signUp,
       signIn,
       signOut,
+      switchRole,
     }}>
       {children}
     </AuthContext.Provider>

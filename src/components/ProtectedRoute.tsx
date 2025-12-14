@@ -1,14 +1,14 @@
 import { ReactNode, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth, AppRole } from '@/hooks/useAuth';
 
 interface ProtectedRouteProps {
   children: ReactNode;
-  allowedRoles?: ('elev' | 'profesor' | 'parinte')[];
+  allowedRoles?: AppRole[];
 }
 
 const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) => {
-  const { user, userRole, loading } = useAuth();
+  const { user, activeRole, loading } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -16,17 +16,22 @@ const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) => {
       navigate('/auth');
     }
 
-    if (!loading && user && allowedRoles && userRole) {
-      if (!allowedRoles.includes(userRole.role)) {
+    if (!loading && user && allowedRoles && activeRole) {
+      if (!allowedRoles.includes(activeRole)) {
         // Redirect to appropriate dashboard based on role
-        if (userRole.role === 'profesor') {
-          navigate('/teacher');
-        } else {
-          navigate('/dashboard');
-        }
+        const roleRoutes: Record<AppRole, string> = {
+          student: '/dashboard',
+          parent: '/parent',
+          teacher: '/teacher',
+          homeroom_teacher: '/teacher',
+          secretariat: '/secretariat',
+          director: '/director',
+          uat_admin: '/admin',
+        };
+        navigate(roleRoutes[activeRole] || '/dashboard');
       }
     }
-  }, [user, userRole, loading, navigate, allowedRoles]);
+  }, [user, activeRole, loading, navigate, allowedRoles]);
 
   if (loading) {
     return (
