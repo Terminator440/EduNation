@@ -1,11 +1,13 @@
-import { useState } from "react";
-import { Users, GraduationCap, TrendingUp, FileText, Shield, Bell, BarChart3 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { Users, GraduationCap, TrendingUp, FileText, Shield, Bell, BarChart3, Building } from "lucide-react";
 import Sidebar from "@/components/dashboard/Sidebar";
 import StatsCard from "@/components/dashboard/StatsCard";
 import RoleSwitcher from "@/components/RoleSwitcher";
 import ThemeToggle from "@/components/ThemeToggle";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,25 +19,141 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-const mockAuditLogs = [
-  { id: "1", user: "Prof. Ionescu Maria", role: "Profesor", action: "A adăugat notă", date: "2024-12-14 10:30", entity: "Popescu Alexandru" },
-  { id: "2", user: "Secretariat Admin", role: "Secretariat", action: "A creat cont elev", date: "2024-12-14 09:15", entity: "Marinescu Elena" },
-  { id: "3", user: "Prof. Georgescu Ion", role: "Diriginte", action: "A generat cod activare", date: "2024-12-13 16:45", entity: "Clasa X-B" },
-  { id: "4", user: "Prof. Popescu Ana", role: "Profesor", action: "A marcat absență", date: "2024-12-13 14:20", entity: "Ionescu Andrei" },
-  { id: "5", user: "Director", role: "Director", action: "A publicat anunț", date: "2024-12-13 11:00", entity: "Anunț general" },
-];
+interface SchoolStats {
+  totalStudents: number;
+  totalTeachers: number;
+  totalClasses: number;
+  totalGrades: number;
+  averageGrade: number;
+  totalAbsences: number;
+  activeUsers: number;
+}
 
-const mockReports = [
-  { id: "1", title: "Raport Prezență Decembrie", status: "Generat", date: "2024-12-14" },
-  { id: "2", title: "Statistici Note Semestrul I", status: "În procesare", date: "2024-12-13" },
-  { id: "3", title: "Raport Anual 2024", status: "Draft", date: "2024-12-10" },
-];
+interface AuditLog {
+  id: string;
+  user_name: string;
+  active_role: string;
+  action: string;
+  entity_type: string | null;
+  created_at: string;
+}
 
 const DirectorDashboard = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const { user, profile } = useAuth();
+  const [stats, setStats] = useState<SchoolStats>({
+    totalStudents: 0,
+    totalTeachers: 0,
+    totalClasses: 0,
+    totalGrades: 0,
+    averageGrade: 0,
+    totalAbsences: 0,
+    activeUsers: 0,
+  });
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const { user, profile, activeRole, loading: authLoading } = useAuth();
+  const navigate = useNavigate();
 
   const displayName = profile?.full_name || user?.email?.split('@')[0] || 'Utilizator';
+
+  useEffect(() => {
+    if (!authLoading && (!user || activeRole !== 'director')) {
+      navigate('/auth');
+    }
+  }, [user, activeRole, authLoading, navigate]);
+
+  useEffect(() => {
+    if (user && activeRole === 'director') {
+      fetchData();
+    }
+  }, [user, activeRole]);
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      // Fetch students count
+      const { count: studentsCount } = await supabase
+        .from('students')
+        .select('*', { count: 'exact', head: true });
+
+      // Fetch classes count
+      const { count: classesCount } = await supabase
+        .from('classes')
+        .select('*', { count: 'exact', head: true });
+
+      // Fetch teachers count
+      const { count: teachersCount } = await supabase
+        .from('user_roles')
+        .select('*', { count: 'exact', head: true })
+        .in('role', ['teacher', 'homeroom_teacher']);
+
+      // Fetch all grades for average
+      const { data: gradesData } = await supabase
+        .from('grades')
+        .select('grade');
+
+      const totalGrades = gradesData?.length || 0;
+      const avgGrade = gradesData && gradesData.length > 0
+        ? gradesData.reduce((sum, g) => sum + Number(g.grade), 0) / gradesData.length
+        : 0;
+
+      // Fetch absences count
+      const { count: absencesCount } = await supabase
+        .from('attendance')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'absent');
+
+      // Fetch profiles count (active users)
+      const { count: activeUsersCount } = await supabase
+        .from('profiles')
+        .select('*', { count: 'exact', head: true });
+
+      setStats({
+        totalStudents: studentsCount || 0,
+        totalTeachers: teachersCount || 0,
+        totalClasses: classesCount || 0,
+        totalGrades,
+        averageGrade: avgGrade,
+        totalAbsences: absencesCount || 0,
+        activeUsers: activeUsersCount || 0,
+      });
+
+      // Fetch audit logs
+      const { data: logsData } = await supabase
+        .from('audit_logs')
+        .select('id, user_name, active_role, action, entity_type, created_at')
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      setAuditLogs(logsData || []);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getRoleLabel = (role: string) => {
+    const labels: Record<string, string> = {
+      student: 'Elev',
+      parent: 'Părinte',
+      teacher: 'Profesor',
+      homeroom_teacher: 'Diriginte',
+      secretariat: 'Secretariat',
+      director: 'Director',
+      uat_admin: 'Admin UAT',
+    };
+    return labels[role] || role;
+  };
+
+  if (authLoading || loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -64,30 +182,29 @@ const DirectorDashboard = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <StatsCard
               title="Total Elevi"
-              value="420"
-              subtitle="12 clase"
+              value={stats.totalStudents.toString()}
+              subtitle={`${stats.totalClasses} clase`}
               icon={Users}
               variant="primary"
             />
             <StatsCard
               title="Profesori"
-              value="45"
+              value={stats.totalTeachers.toString()}
               subtitle="Activi"
               icon={GraduationCap}
               variant="success"
             />
             <StatsCard
               title="Media Generală"
-              value="8.45"
-              subtitle="Semestrul I"
+              value={stats.averageGrade > 0 ? stats.averageGrade.toFixed(2) : "-"}
+              subtitle={`Din ${stats.totalGrades} note`}
               icon={TrendingUp}
               variant="accent"
-              trend={{ value: 2, isPositive: true }}
             />
             <StatsCard
-              title="Prezență Medie"
-              value="94%"
-              subtitle="Săptămâna curentă"
+              title="Absențe"
+              value={stats.totalAbsences.toString()}
+              subtitle="Total nemotivate"
               icon={BarChart3}
               variant="warning"
             />
@@ -120,86 +237,91 @@ const DirectorDashboard = () => {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Utilizator</TableHead>
-                        <TableHead>Rol</TableHead>
-                        <TableHead>Acțiune</TableHead>
-                        <TableHead>Entitate</TableHead>
-                        <TableHead>Data/Ora</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {mockAuditLogs.map((log) => (
-                        <TableRow key={log.id}>
-                          <TableCell className="font-medium">{log.user}</TableCell>
-                          <TableCell>
-                            <span className="px-2 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary">
-                              {log.role}
-                            </span>
-                          </TableCell>
-                          <TableCell>{log.action}</TableCell>
-                          <TableCell className="text-muted-foreground">{log.entity}</TableCell>
-                          <TableCell className="text-muted-foreground text-sm">{log.date}</TableCell>
+                  {auditLogs.length === 0 ? (
+                    <p className="text-center py-8 text-muted-foreground">Nu există înregistrări în jurnalul de audit.</p>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Utilizator</TableHead>
+                          <TableHead>Rol</TableHead>
+                          <TableHead>Acțiune</TableHead>
+                          <TableHead>Entitate</TableHead>
+                          <TableHead>Data/Ora</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                      </TableHeader>
+                      <TableBody>
+                        {auditLogs.map((log) => (
+                          <TableRow key={log.id}>
+                            <TableCell className="font-medium">{log.user_name}</TableCell>
+                            <TableCell>
+                              <span className="px-2 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary">
+                                {getRoleLabel(log.active_role)}
+                              </span>
+                            </TableCell>
+                            <TableCell>{log.action}</TableCell>
+                            <TableCell className="text-muted-foreground">{log.entity_type || '-'}</TableCell>
+                            <TableCell className="text-muted-foreground text-sm">
+                              {new Date(log.created_at).toLocaleString('ro-RO')}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
                 </CardContent>
               </Card>
             </div>
 
-            {/* Reports */}
+            {/* Quick Stats */}
             <div className="space-y-6">
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <FileText className="h-5 w-5" />
-                    Rapoarte Recente
+                    <Building className="h-5 w-5" />
+                    Statistici Școală
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {mockReports.map((report) => (
-                    <div key={report.id} className="p-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="font-medium text-foreground">{report.title}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className={cn(
-                          "px-2 py-1 rounded-full text-xs font-medium",
-                          report.status === "Generat" 
-                            ? "bg-success/10 text-success"
-                            : report.status === "În procesare"
-                            ? "bg-warning/10 text-warning"
-                            : "bg-muted text-muted-foreground"
-                        )}>
-                          {report.status}
-                        </span>
-                        <span className="text-xs text-muted-foreground">{report.date}</span>
-                      </div>
-                    </div>
-                  ))}
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Clase active</span>
+                    <span className="font-semibold">{stats.totalClasses}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Utilizatori înregistrați</span>
+                    <span className="font-semibold">{stats.activeUsers}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Note acordate</span>
+                    <span className="font-semibold">{stats.totalGrades}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Absențe înregistrate</span>
+                    <span className="font-semibold">{stats.totalAbsences}</span>
+                  </div>
                 </CardContent>
               </Card>
 
               <Card>
                 <CardHeader>
-                  <CardTitle>Statistici Rapide</CardTitle>
+                  <CardTitle className="flex items-center gap-2">
+                    <FileText className="h-5 w-5" />
+                    Rapoarte Disponibile
+                  </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Absențe azi</span>
-                    <span className="font-semibold">23</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Note acordate azi</span>
-                    <span className="font-semibold">156</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Utilizatori activi</span>
-                    <span className="font-semibold">312</span>
-                  </div>
+                <CardContent className="space-y-3">
+                  <Button variant="outline" className="w-full justify-start gap-2">
+                    <FileText className="h-4 w-4" />
+                    Raport Prezență
+                  </Button>
+                  <Button variant="outline" className="w-full justify-start gap-2">
+                    <FileText className="h-4 w-4" />
+                    Raport Note
+                  </Button>
+                  <Button variant="outline" className="w-full justify-start gap-2">
+                    <FileText className="h-4 w-4" />
+                    Statistici Clase
+                  </Button>
                 </CardContent>
               </Card>
             </div>

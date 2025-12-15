@@ -13,7 +13,7 @@ const roleConfig: Record<AppRole, { label: string; icon: typeof GraduationCap; c
   student: { label: 'Elev', icon: GraduationCap, color: 'text-primary', route: '/dashboard' },
   parent: { label: 'Părinte', icon: UserCircle, color: 'text-green-500', route: '/parent' },
   teacher: { label: 'Profesor', icon: Users, color: 'text-blue-500', route: '/teacher' },
-  homeroom_teacher: { label: 'Diriginte', icon: School, color: 'text-purple-500', route: '/teacher' },
+  homeroom_teacher: { label: 'Diriginte', icon: School, color: 'text-purple-500', route: '/homeroom' },
   secretariat: { label: 'Secretariat', icon: Building, color: 'text-orange-500', route: '/secretariat' },
   director: { label: 'Director', icon: Shield, color: 'text-red-500', route: '/director' },
   uat_admin: { label: 'Admin UAT', icon: Globe, color: 'text-gray-500', route: '/admin' },
