@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { User, Bell, Shield, Palette, LogOut } from "lucide-react";
+import { useState, useEffect } from "react";
+import { User, Bell, Shield, Palette, LogOut, Sun, Moon } from "lucide-react";
 import Sidebar from "@/components/dashboard/Sidebar";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,43 @@ const Settings = () => {
   const [activeTab, setActiveTab] = useState("profile");
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  const [isDark, setIsDark] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return document.documentElement.classList.contains('dark');
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    const stored = localStorage.getItem('theme');
+    if (stored === 'dark') {
+      document.documentElement.classList.add('dark');
+      setIsDark(true);
+    } else if (stored === 'light') {
+      document.documentElement.classList.remove('dark');
+      setIsDark(false);
+    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      document.documentElement.classList.add('dark');
+      setIsDark(true);
+    }
+  }, []);
+
+  const setTheme = (dark: boolean) => {
+    if (dark) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+      setIsDark(true);
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+      setIsDark(false);
+    }
+    toast({
+      title: "Temă schimbată",
+      description: `Tema ${dark ? 'întunecată' : 'luminoasă'} a fost aplicată.`,
+    });
+  };
 
   const [notifications, setNotifications] = useState({
     grades: true,
@@ -191,13 +228,29 @@ const Settings = () => {
                             Alege între tema luminoasă și cea întunecată
                           </p>
                           <div className="flex gap-4">
-                            <button className="flex-1 p-4 rounded-xl border-2 border-primary bg-card">
-                              <div className="w-full h-8 bg-background rounded mb-2" />
-                              <p className="text-sm font-medium">Luminoasă</p>
+                            <button 
+                              onClick={() => setTheme(false)}
+                              className={cn(
+                                "flex-1 p-4 rounded-xl border-2 bg-card transition-all",
+                                !isDark ? "border-primary ring-2 ring-primary/20" : "border-border opacity-60 hover:opacity-80"
+                              )}
+                            >
+                              <div className="w-full h-12 bg-white rounded-lg mb-3 flex items-center justify-center border">
+                                <Sun className="w-6 h-6 text-amber-500" />
+                              </div>
+                              <p className="text-sm font-medium text-foreground">Luminoasă</p>
                             </button>
-                            <button className="flex-1 p-4 rounded-xl border-2 border-border bg-card opacity-50">
-                              <div className="w-full h-8 bg-foreground rounded mb-2" />
-                              <p className="text-sm font-medium">Întunecată</p>
+                            <button 
+                              onClick={() => setTheme(true)}
+                              className={cn(
+                                "flex-1 p-4 rounded-xl border-2 bg-card transition-all",
+                                isDark ? "border-primary ring-2 ring-primary/20" : "border-border opacity-60 hover:opacity-80"
+                              )}
+                            >
+                              <div className="w-full h-12 bg-slate-900 rounded-lg mb-3 flex items-center justify-center">
+                                <Moon className="w-6 h-6 text-slate-300" />
+                              </div>
+                              <p className="text-sm font-medium text-foreground">Întunecată</p>
                             </button>
                           </div>
                         </div>
