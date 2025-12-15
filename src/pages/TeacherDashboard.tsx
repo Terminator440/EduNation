@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Users, GraduationCap, UserCircle, TrendingUp, Plus, Search } from "lucide-react";
+import { Users, GraduationCap, UserCircle, TrendingUp, Plus, Search, MessageSquare, CheckCircle } from "lucide-react";
 import Sidebar from "@/components/dashboard/Sidebar";
 import StatsCard from "@/components/dashboard/StatsCard";
 import RoleSwitcher from "@/components/RoleSwitcher";
 import ThemeToggle from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -39,10 +40,11 @@ interface Student {
   id: string;
   user_id: string;
   student_number: number | null;
+  full_name: string | null;
   profile: {
     full_name: string;
     email: string;
-  };
+  } | null;
   grades: {
     id: string;
     grade: number;
@@ -74,9 +76,13 @@ const TeacherDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [isAddGradeOpen, setIsAddGradeOpen] = useState(false);
   const [isAddAttendanceOpen, setIsAddAttendanceOpen] = useState(false);
+  const [isMessageOpen, setIsMessageOpen] = useState(false);
+  const [isMotivateOpen, setIsMotivateOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [newGrade, setNewGrade] = useState({ grade: "", subjectId: "", description: "" });
   const [newAttendance, setNewAttendance] = useState({ status: "prezent", subjectId: "" });
+  const [message, setMessage] = useState({ subject: "", content: "", sendToParent: true, sendToStudent: false });
+  const [selectedAbsences, setSelectedAbsences] = useState<string[]>([]);
 
   const { user, activeRole, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -97,7 +103,6 @@ const TeacherDashboard = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Fetch teacher's class
       const { data: classData } = await supabase
         .from('classes')
         .select('id')
@@ -105,24 +110,29 @@ const TeacherDashboard = () => {
         .maybeSingle();
 
       if (classData) {
-        // Fetch students in the class
         const { data: studentsData } = await supabase
           .from('students')
           .select(`
             id,
             user_id,
             student_number,
-            profiles!students_user_id_fkey (
-              full_name,
-              email
-            )
+            full_name
           `)
           .eq('class_id', classData.id);
 
         if (studentsData) {
-          // Fetch grades and attendance for each student
           const enrichedStudents = await Promise.all(
             studentsData.map(async (student: any) => {
+              let profileData = null;
+              if (student.user_id) {
+                const { data: profile } = await supabase
+                  .from('profiles')
+                  .select('full_name, email')
+                  .eq('id', student.user_id)
+                  .maybeSingle();
+                profileData = profile;
+              }
+
               const { data: gradesData } = await supabase
                 .from('grades')
                 .select(`
@@ -149,7 +159,7 @@ const TeacherDashboard = () => {
 
               return {
                 ...student,
-                profile: student.profiles,
+                profile: profileData,
                 grades: (gradesData || []).map((g: any) => ({
                   ...g,
                   subject: g.subjects,
@@ -165,7 +175,6 @@ const TeacherDashboard = () => {
           setStudents(enrichedStudents);
         }
 
-        // Fetch subjects
         const { data: subjectsData } = await supabase
           .from('subjects')
           .select('id, name')
@@ -214,7 +223,7 @@ const TeacherDashboard = () => {
 
       toast({
         title: "Notă adăugată",
-        description: `Nota ${gradeValue} a fost adăugată pentru ${selectedStudent.profile.full_name}`,
+        description: `Nota ${gradeValue} a fost adăugată pentru ${selectedStudent.full_name || selectedStudent.profile?.full_name}`,
       });
 
       setIsAddGradeOpen(false);
@@ -253,7 +262,7 @@ const TeacherDashboard = () => {
 
       toast({
         title: "Prezență înregistrată",
-        description: `Statusul "${newAttendance.status}" a fost înregistrat pentru ${selectedStudent.profile.full_name}`,
+        description: `Statusul "${newAttendance.status}" a fost înregistrat pentru ${selectedStudent.full_name || selectedStudent.profile?.full_name}`,
       });
 
       setIsAddAttendanceOpen(false);
@@ -276,6 +285,64 @@ const TeacherDashboard = () => {
     }
   };
 
+  const handleMotivateAbsences = async () => {
+    if (!selectedStudent || selectedAbsences.length === 0) {
+      toast({
+        title: "Eroare",
+        description: "Selectează absențele de motivat",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      for (const absenceId of selectedAbsences) {
+        const { error } = await supabase
+          .from('attendance')
+          .update({ status: 'motivat' })
+          .eq('id', absenceId);
+        
+        if (error) throw error;
+      }
+
+      toast({
+        title: "Absențe motivate",
+        description: `${selectedAbsences.length} absențe au fost motivate pentru ${selectedStudent.full_name || selectedStudent.profile?.full_name}`,
+      });
+
+      setIsMotivateOpen(false);
+      setSelectedAbsences([]);
+      fetchData();
+    } catch (error) {
+      console.error('Error motivating absences:', error);
+      toast({
+        title: "Eroare",
+        description: "Nu s-au putut motiva absențele",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleSendMessage = async () => {
+    if (!selectedStudent || !message.content.trim()) {
+      toast({
+        title: "Eroare",
+        description: "Completează mesajul",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Simulate sending message (in a real app, this would send emails/notifications)
+    toast({
+      title: "Mesaj trimis",
+      description: `Mesajul a fost trimis ${message.sendToParent ? 'părintelui' : ''} ${message.sendToParent && message.sendToStudent ? 'și' : ''} ${message.sendToStudent ? 'elevului' : ''}`,
+    });
+
+    setIsMessageOpen(false);
+    setMessage({ subject: "", content: "", sendToParent: true, sendToStudent: false });
+  };
+
   const calculateAverage = (grades: { grade: number }[]) => {
     if (grades.length === 0) return "-";
     const sum = grades.reduce((acc, g) => acc + Number(g.grade), 0);
@@ -286,8 +353,12 @@ const TeacherDashboard = () => {
     return attendance.filter(a => a.status === 'absent').length;
   };
 
+  const getUnmotivatedAbsences = (attendance: { id: string; status: string; date: string; subject: { name: string } }[]) => {
+    return attendance.filter(a => a.status === 'absent');
+  };
+
   const filteredStudents = students.filter(s =>
-    s.profile?.full_name?.toLowerCase().includes(searchTerm.toLowerCase())
+    (s.full_name || s.profile?.full_name || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const totalGrades = students.reduce((acc, s) => acc + s.grades.length, 0);
@@ -309,7 +380,6 @@ const TeacherDashboard = () => {
         "transition-all duration-300",
         sidebarCollapsed ? "ml-20" : "ml-64"
       )}>
-        {/* Header */}
         <header className="h-16 border-b border-border bg-card/50 backdrop-blur-sm flex items-center justify-between px-8 sticky top-0 z-30">
           <div>
             <h1 className="text-xl font-semibold text-foreground">Panou Profesor</h1>
@@ -321,7 +391,6 @@ const TeacherDashboard = () => {
           </div>
         </header>
 
-        {/* Content */}
         <div className="p-8">
           {/* Stats */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -382,7 +451,6 @@ const TeacherDashboard = () => {
                   <TableRow>
                     <TableHead>Nr.</TableHead>
                     <TableHead>Nume Elev</TableHead>
-                    <TableHead>Email</TableHead>
                     <TableHead>Note</TableHead>
                     <TableHead>Media</TableHead>
                     <TableHead>Absențe</TableHead>
@@ -393,8 +461,7 @@ const TeacherDashboard = () => {
                   {filteredStudents.map((student, index) => (
                     <TableRow key={student.id}>
                       <TableCell className="font-medium">{student.student_number || index + 1}</TableCell>
-                      <TableCell className="font-medium">{student.profile?.full_name}</TableCell>
-                      <TableCell className="text-muted-foreground">{student.profile?.email}</TableCell>
+                      <TableCell className="font-medium">{student.full_name || student.profile?.full_name || 'Nespecificat'}</TableCell>
                       <TableCell>
                         <div className="flex gap-1 flex-wrap">
                           {student.grades.slice(0, 5).map((g) => (
@@ -437,7 +504,8 @@ const TeacherDashboard = () => {
                         </span>
                       </TableCell>
                       <TableCell>
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 flex-wrap">
+                          {/* Add Grade Dialog */}
                           <Dialog open={isAddGradeOpen && selectedStudent?.id === student.id} onOpenChange={(open) => {
                             setIsAddGradeOpen(open);
                             if (open) setSelectedStudent(student);
@@ -450,7 +518,7 @@ const TeacherDashboard = () => {
                             </DialogTrigger>
                             <DialogContent>
                               <DialogHeader>
-                                <DialogTitle>Adaugă notă pentru {student.profile?.full_name}</DialogTitle>
+                                <DialogTitle>Adaugă notă pentru {student.full_name || student.profile?.full_name}</DialogTitle>
                               </DialogHeader>
                               <div className="space-y-4 mt-4">
                                 <div>
@@ -494,6 +562,7 @@ const TeacherDashboard = () => {
                             </DialogContent>
                           </Dialog>
 
+                          {/* Add Attendance Dialog */}
                           <Dialog open={isAddAttendanceOpen && selectedStudent?.id === student.id} onOpenChange={(open) => {
                             setIsAddAttendanceOpen(open);
                             if (open) setSelectedStudent(student);
@@ -506,7 +575,7 @@ const TeacherDashboard = () => {
                             </DialogTrigger>
                             <DialogContent>
                               <DialogHeader>
-                                <DialogTitle>Înregistrează prezența pentru {student.profile?.full_name}</DialogTitle>
+                                <DialogTitle>Înregistrează prezența pentru {student.full_name || student.profile?.full_name}</DialogTitle>
                               </DialogHeader>
                               <div className="space-y-4 mt-4">
                                 <div>
@@ -538,6 +607,134 @@ const TeacherDashboard = () => {
                                 </div>
                                 <Button onClick={handleAddAttendance} className="w-full">
                                   Salvează
+                                </Button>
+                              </div>
+                            </DialogContent>
+                          </Dialog>
+
+                          {/* Motivate Absences Dialog */}
+                          <Dialog open={isMotivateOpen && selectedStudent?.id === student.id} onOpenChange={(open) => {
+                            setIsMotivateOpen(open);
+                            if (open) {
+                              setSelectedStudent(student);
+                              setSelectedAbsences([]);
+                            }
+                          }}>
+                            <DialogTrigger asChild>
+                              <Button size="sm" variant="outline" className="gap-1" disabled={countAbsences(student.attendance) === 0}>
+                                <CheckCircle className="w-3 h-3" />
+                                Motivează
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                              <DialogHeader>
+                                <DialogTitle>Motivează absențe pentru {student.full_name || student.profile?.full_name}</DialogTitle>
+                              </DialogHeader>
+                              <div className="space-y-4 mt-4">
+                                {getUnmotivatedAbsences(student.attendance).length === 0 ? (
+                                  <p className="text-muted-foreground text-center py-4">Nu există absențe de motivat.</p>
+                                ) : (
+                                  <>
+                                    <div className="space-y-2 max-h-64 overflow-y-auto">
+                                      {getUnmotivatedAbsences(student.attendance).map((absence) => (
+                                        <label
+                                          key={absence.id}
+                                          className={cn(
+                                            "flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors",
+                                            selectedAbsences.includes(absence.id) ? "border-primary bg-primary/5" : "border-border hover:bg-muted/50"
+                                          )}
+                                        >
+                                          <input
+                                            type="checkbox"
+                                            checked={selectedAbsences.includes(absence.id)}
+                                            onChange={(e) => {
+                                              if (e.target.checked) {
+                                                setSelectedAbsences([...selectedAbsences, absence.id]);
+                                              } else {
+                                                setSelectedAbsences(selectedAbsences.filter(id => id !== absence.id));
+                                              }
+                                            }}
+                                            className="rounded border-border"
+                                          />
+                                          <div>
+                                            <p className="font-medium">{absence.subject?.name}</p>
+                                            <p className="text-sm text-muted-foreground">{absence.date}</p>
+                                          </div>
+                                        </label>
+                                      ))}
+                                    </div>
+                                    <Button onClick={handleMotivateAbsences} className="w-full" disabled={selectedAbsences.length === 0}>
+                                      Motivează ({selectedAbsences.length}) absențe
+                                    </Button>
+                                  </>
+                                )}
+                              </div>
+                            </DialogContent>
+                          </Dialog>
+
+                          {/* Send Message Dialog */}
+                          <Dialog open={isMessageOpen && selectedStudent?.id === student.id} onOpenChange={(open) => {
+                            setIsMessageOpen(open);
+                            if (open) setSelectedStudent(student);
+                          }}>
+                            <DialogTrigger asChild>
+                              <Button size="sm" variant="outline" className="gap-1">
+                                <MessageSquare className="w-3 h-3" />
+                                Mesaj
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                              <DialogHeader>
+                                <DialogTitle>Trimite mesaj pentru {student.full_name || student.profile?.full_name}</DialogTitle>
+                              </DialogHeader>
+                              <div className="space-y-4 mt-4">
+                                <div>
+                                  <Label>Destinatari</Label>
+                                  <div className="flex gap-4 mt-2">
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                      <input
+                                        type="checkbox"
+                                        checked={message.sendToParent}
+                                        onChange={(e) => setMessage(p => ({ ...p, sendToParent: e.target.checked }))}
+                                        className="rounded border-border"
+                                      />
+                                      <span className="text-sm">Părinte</span>
+                                    </label>
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                      <input
+                                        type="checkbox"
+                                        checked={message.sendToStudent}
+                                        onChange={(e) => setMessage(p => ({ ...p, sendToStudent: e.target.checked }))}
+                                        className="rounded border-border"
+                                      />
+                                      <span className="text-sm">Elev</span>
+                                    </label>
+                                  </div>
+                                </div>
+                                <div>
+                                  <Label>Subiect</Label>
+                                  <Input
+                                    value={message.subject}
+                                    onChange={(e) => setMessage(p => ({ ...p, subject: e.target.value }))}
+                                    placeholder="Subiectul mesajului"
+                                    className="mt-1"
+                                  />
+                                </div>
+                                <div>
+                                  <Label>Mesaj</Label>
+                                  <Textarea
+                                    value={message.content}
+                                    onChange={(e) => setMessage(p => ({ ...p, content: e.target.value }))}
+                                    placeholder="Scrie mesajul aici..."
+                                    className="mt-1 min-h-[100px]"
+                                  />
+                                </div>
+                                <Button 
+                                  onClick={handleSendMessage} 
+                                  className="w-full"
+                                  disabled={!message.sendToParent && !message.sendToStudent}
+                                >
+                                  Trimite mesaj
                                 </Button>
                               </div>
                             </DialogContent>
