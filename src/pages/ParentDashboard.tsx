@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { GraduationCap, UserCircle, Calendar, TrendingUp, Users, ChevronDown } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Calendar, GraduationCap, TrendingUp, UserCircle } from "lucide-react";
 import Sidebar from "@/components/dashboard/Sidebar";
 import StatsCard from "@/components/dashboard/StatsCard";
 import GradesTable from "@/components/dashboard/GradesTable";
@@ -8,63 +8,114 @@ import RoleSwitcher from "@/components/RoleSwitcher";
 import ThemeToggle from "@/components/ThemeToggle";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { useGradesForScope, useAttendanceForScope } from "@/features/academics/queries";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { assertSupabaseOk } from "@/lib/supabase-helpers";
 
-const mockChildren = [
-  { id: "1", name: "Popescu Alexandru", class: "X-A", average: 9.08 },
-  { id: "2", name: "Popescu Maria", class: "VII-B", average: 8.75 },
-];
-
-const mockGrades = {
-  "1": [
-    { subject: "Matematică", grades: [9, 10, 8, 9], average: 9.0, teacher: "Prof. Ionescu Maria" },
-    { subject: "Limba Română", grades: [8, 9, 9, 10], average: 9.0, teacher: "Prof. Popescu Ana" },
-    { subject: "Fizică", grades: [10, 9, 10], average: 9.67, teacher: "Prof. Georgescu Ion" },
-    { subject: "Informatică", grades: [10, 10, 10, 9], average: 9.75, teacher: "Prof. Dumitrescu Vlad" },
-  ],
-  "2": [
-    { subject: "Matematică", grades: [8, 9, 8], average: 8.33, teacher: "Prof. Ionescu Maria" },
-    { subject: "Limba Română", grades: [9, 9, 8, 9], average: 8.75, teacher: "Prof. Popescu Ana" },
-    { subject: "Istorie", grades: [9, 10, 9], average: 9.33, teacher: "Prof. Marinescu Elena" },
-  ],
+type Child = {
+  id: string;
+  full_name: string | null;
+  class: { id: string; name: string; year: number; section: string } | null;
 };
-
-const mockEvents = [
-  { id: "1", title: "Test Matematică", date: "15 Dec", time: "10:00", type: "test" as const, subject: "Geometrie - Triunghiuri" },
-  { id: "2", title: "Ședință părinți", date: "18 Dec", time: "17:00", type: "event" as const },
-  { id: "3", title: "Vacanța de iarnă", date: "21 Dec - 7 Ian", type: "holiday" as const },
-];
 
 const ParentDashboard = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [activeChildId, setActiveChildId] = useState(mockChildren[0].id);
   const { user, profile } = useAuth();
 
+  const childrenQuery = useQuery({
+    queryKey: ['parent-children', user?.id],
+    enabled: Boolean(user?.id),
+    queryFn: async (): Promise<Child[]> => {
+      const res = await supabase
+        .from('parent_student_relations')
+        .select('student:students(id,full_name, class:classes(id,name,year,section))')
+        .eq('parent_user_id', user!.id);
+      const rows = assertSupabaseOk(res, 'parent_student_relations.select(children)') as any[];
+      return (rows || []).map(r => r.student).filter(Boolean);
+    },
+  });
+
+  const [activeChildId, setActiveChildId] = useState<string | null>(null);
+
+  const children = childrenQuery.data ?? [];
+  const effectiveChildId = activeChildId ?? (children[0]?.id ?? null);
+
+  const gradesQuery = useGradesForScope(effectiveChildId ? [effectiveChildId] : []);
+  const attendanceQuery = useAttendanceForScope(effectiveChildId ? [effectiveChildId] : []);
+
   const displayName = profile?.full_name || user?.email?.split('@')[0] || 'Utilizator';
-  const activeChild = mockChildren.find(c => c.id === activeChildId) || mockChildren[0];
-  const childGrades = mockGrades[activeChildId as keyof typeof mockGrades] || [];
+
+  const gradesBySubject = useMemo(() => {
+    const rows = gradesQuery.data ?? [];
+    const map = new Map<string, { subject: string; grades: number[]; average: number; teacher: string }>();
+    for (const r of rows) {
+      const subjectName = r.subject?.name ?? 'Materie necunoscută';
+      const entry = map.get(subjectName) ?? { subject: subjectName, grades: [], average: 0, teacher: '—' };
+      entry.grades.push(r.grade);
+      map.set(subjectName, entry);
+    }
+    const out = Array.from(map.values()).map(s => ({
+      ...s,
+      average: s.grades.length ? s.grades.reduce((a, b) => a + b, 0) / s.grades.length : 0,
+    }));
+    return out.sort((a, b) => a.subject.localeCompare(b.subject, 'ro'));
+  }, [gradesQuery.data]);
+
+  const generalAverage = useMemo(() => {
+    if (gradesBySubject.length === 0) return 0;
+    return gradesBySubject.reduce((sum, g) => sum + g.average, 0) / gradesBySubject.length;
+  }, [gradesBySubject]);
+
+  const absenceStats = useMemo(() => {
+    const rows = attendanceQuery.data ?? [];
+    const abs = rows.filter(r => r.status === 'absent').length;
+    const total = rows.length;
+    const present = rows.filter(r => r.status === 'prezent').length;
+    const pct = total > 0 ? Math.round((present / total) * 100) : 0;
+    return { absences: abs, pct };
+  }, [attendanceQuery.data]);
+
+  const eventsQuery = useQuery({
+    queryKey: ['school-events-upcoming-parent'],
+    queryFn: async () => {
+      const today = new Date().toISOString().slice(0, 10);
+      const res = await supabase
+        .from('school_events')
+        .select('id,title,event_date,event_time,type,subject')
+        .gte('event_date', today)
+        .order('event_date', { ascending: true })
+        .limit(6);
+      return assertSupabaseOk(res, 'school_events.select(upcoming)') as any[];
+    },
+  });
+
+  const upcomingEvents = useMemo(() => {
+    const rows = (eventsQuery.data ?? []) as any[];
+    return rows.map(r => ({
+      id: r.id,
+      title: r.title,
+      date: r.event_date,
+      time: r.event_time ?? undefined,
+      type: r.type,
+      subject: r.subject ?? undefined,
+    }));
+  }, [eventsQuery.data]);
+
+  const activeChild = children.find(c => c.id === effectiveChildId) ?? null;
 
   return (
     <div className="min-h-screen bg-background">
       <Sidebar isCollapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(!sidebarCollapsed)} />
-      
-      <main className={cn(
-        "transition-all duration-300",
-        sidebarCollapsed ? "ml-20" : "ml-64"
-      )}>
+
+      <main className={cn("transition-all duration-300", sidebarCollapsed ? "ml-20" : "ml-64")}>
         <header className="h-16 border-b border-border bg-card/50 backdrop-blur-sm flex items-center justify-between px-8 sticky top-0 z-30">
-          <div className="flex items-center gap-4">
-            <div>
-              <h1 className="text-xl font-semibold text-foreground">Bună ziua, {displayName}! 👋</h1>
-              <p className="text-sm text-muted-foreground">Panou Părinte</p>
-            </div>
+          <div>
+            <h1 className="text-xl font-semibold text-foreground">Panou Părinte</h1>
+            <p className="text-sm text-muted-foreground">
+              {activeChild?.full_name ?? '—'}
+              {activeChild?.class ? ` • ${activeChild.class.name}` : ''}
+            </p>
           </div>
           <div className="flex items-center gap-4">
             <ThemeToggle />
@@ -76,119 +127,34 @@ const ParentDashboard = () => {
         </header>
 
         <div className="p-8">
-          {/* Child Selector */}
-          <Card className="mb-8">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Users className="h-5 w-5" />
-                Copiii mei
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center gap-4">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" className="gap-2 min-w-64 justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                          <span className="text-sm font-semibold text-primary">
-                            {activeChild.name.split(' ').map(n => n[0]).join('')}
-                          </span>
-                        </div>
-                        <div className="text-left">
-                          <p className="font-medium">{activeChild.name}</p>
-                          <p className="text-xs text-muted-foreground">Clasa {activeChild.class}</p>
-                        </div>
-                      </div>
-                      <ChevronDown className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="w-64">
-                    {mockChildren.map((child) => (
-                      <DropdownMenuItem
-                        key={child.id}
-                        onClick={() => setActiveChildId(child.id)}
-                        className={cn(
-                          "flex items-center gap-2 cursor-pointer",
-                          child.id === activeChildId && "bg-primary/10"
-                        )}
-                      >
-                        <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                          <span className="text-sm font-semibold text-primary">
-                            {child.name.split(' ').map(n => n[0]).join('')}
-                          </span>
-                        </div>
-                        <div>
-                          <p className="font-medium">{child.name}</p>
-                          <p className="text-xs text-muted-foreground">Clasa {child.class}</p>
-                        </div>
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-
-                <div className="flex-1 grid grid-cols-3 gap-4">
-                  {mockChildren.map((child) => (
-                    <button
-                      key={child.id}
-                      onClick={() => setActiveChildId(child.id)}
-                      className={cn(
-                        "p-4 rounded-lg border transition-all text-left",
-                        child.id === activeChildId
-                          ? "border-primary bg-primary/5"
-                          : "border-border hover:border-primary/50"
-                      )}
-                    >
-                      <p className="font-medium text-foreground">{child.name}</p>
-                      <p className="text-sm text-muted-foreground">Clasa {child.class}</p>
-                      <p className="text-sm font-semibold text-primary mt-1">Media: {child.average}</p>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Stats for active child */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <StatsCard
-              title="Media Generală"
-              value={activeChild.average.toFixed(2)}
-              subtitle={`${activeChild.name} - Semestrul I`}
-              icon={TrendingUp}
-              variant="primary"
-              trend={{ value: 3, isPositive: true }}
-            />
-            <StatsCard
-              title="Note primite"
-              value={childGrades.reduce((acc, g) => acc + g.grades.length, 0).toString()}
-              subtitle="Luna aceasta"
-              icon={GraduationCap}
-              variant="success"
-            />
-            <StatsCard
-              title="Prezență"
-              value="96%"
-              subtitle="2 absențe"
-              icon={UserCircle}
-              variant="accent"
-            />
-            <StatsCard
-              title="Evenimente"
-              value="3"
-              subtitle="Săptămâna aceasta"
-              icon={Calendar}
-              variant="warning"
-            />
+          <div className="mb-6 flex flex-wrap gap-2">
+            {(childrenQuery.data ?? []).map(child => (
+              <button
+                key={child.id}
+                onClick={() => setActiveChildId(child.id)}
+                className={cn(
+                  "px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
+                  (effectiveChildId === child.id) ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                )}
+              >
+                {child.full_name ?? 'Elev'}
+              </button>
+            ))}
           </div>
 
-          {/* Main content */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <StatsCard title="Media" value={gradesBySubject.length ? generalAverage.toFixed(2) : "—"} subtitle="Din catalog" icon={TrendingUp} variant="primary" />
+            <StatsCard title="Note" value={String((gradesQuery.data ?? []).length)} subtitle="Total" icon={GraduationCap} variant="success" />
+            <StatsCard title="Prezență" value={absenceStats.pct ? `${absenceStats.pct}%` : "—"} subtitle={`${absenceStats.absences} absențe`} icon={UserCircle} variant="accent" />
+            <StatsCard title="Evenimente" value={String(upcomingEvents.length)} subtitle="Următoarele zile" icon={Calendar} variant="warning" />
+          </div>
+
           <div className="grid lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2 space-y-8">
-              <GradesTable grades={childGrades} />
+              <GradesTable grades={gradesBySubject} />
             </div>
             <div className="space-y-6">
-              <UpcomingEvents events={mockEvents} />
+              <UpcomingEvents events={upcomingEvents} />
             </div>
           </div>
         </div>

@@ -39,6 +39,7 @@ const Auth = () => {
   // Activation code for students/parents linking
   const [activationCode, setActivationCode] = useState("");
   const [showActivation, setShowActivation] = useState(false);
+  const [activationRole, setActivationRole] = useState<AppRole>('student');
   
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -113,7 +114,7 @@ const Auth = () => {
       }
 
       // Create account first
-      const { error: signUpError } = await signUp(email, password, fullName, 'student');
+      const { error: signUpError } = await signUp(email, password, fullName, activationRole);
       if (signUpError) {
         toast({
           title: "Eroare",
@@ -123,10 +124,32 @@ const Auth = () => {
         return;
       }
 
-      toast({
-        title: "Cont creat cu succes!",
-        description: "Contul tău a fost activat și legat de profilul elevului.",
-      });
+      // Try to sign in so we can claim the activation immediately.
+      const { error: signInError } = await signIn(email, password);
+      if (signInError) {
+        toast({
+          title: "Confirmare necesară",
+          description: "Contul a fost creat. Dacă ai confirmare pe email activată, confirmă emailul apoi autentifică-te și reîncearcă activarea.",
+        });
+        return;
+      }
+
+      if (activationRole === 'student') {
+        const { error: rpcError } = await supabase.rpc('claim_student_activation', { _code: activationCode });
+        if (rpcError) throw rpcError;
+        toast({
+          title: "Cont elev activat",
+          description: "Contul tău a fost legat de profilul elevului.",
+        });
+      } else if (activationRole === 'parent') {
+        const { error: rpcError } = await supabase.rpc('claim_parent_relation', { _code: activationCode, _is_primary: true });
+        if (rpcError) throw rpcError;
+        toast({
+          title: "Cont părinte conectat",
+          description: "Contul tău a fost legat de elev.",
+        });
+      }
+
       navigate("/dashboard");
     } catch (error) {
       console.error('Activation error:', error);
@@ -301,6 +324,40 @@ const Auth = () => {
                   </button>
                 </div>
                 {errors.password && <p className="text-sm text-destructive mt-1">{errors.password}</p>}
+              </div>
+
+              <div>
+                <Label className="text-sm text-muted-foreground mb-3 block">Tip activare</Label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setActivationRole('student')}
+                    className={`p-4 rounded-xl border-2 transition-all ${
+                      activationRole === 'student'
+                        ? 'border-primary bg-primary/5'
+                        : 'border-border hover:border-primary/50'
+                    }`}
+                  >
+                    <div className="flex items-center justify-center gap-2">
+                      <GraduationCap className="w-5 h-5" />
+                      <span className="font-medium">Elev</span>
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActivationRole('parent')}
+                    className={`p-4 rounded-xl border-2 transition-all ${
+                      activationRole === 'parent'
+                        ? 'border-primary bg-primary/5'
+                        : 'border-border hover:border-primary/50'
+                    }`}
+                  >
+                    <div className="flex items-center justify-center gap-2">
+                      <UserCircle className="w-5 h-5" />
+                      <span className="font-medium">Părinte</span>
+                    </div>
+                  </button>
+                </div>
               </div>
 
               <div>

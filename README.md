@@ -1,73 +1,65 @@
-# Welcome to your Lovable project
+# EduRO
 
-## Project info
+Catalog școlar digital (Vite + React + Supabase) generat/iterat în Lovable.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## Rulare locală
 
-## How can I edit this code?
+### 1) Cerințe
+- Node.js 18+ (sau Bun)
+- Un proiect Supabase (URL + anon key)
 
-There are several ways of editing your application.
-
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
+### 2) Configurează variabilele de mediu
+Copiază fișierul exemplu și completează valorile:
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+cp .env.example .env
+```
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+Variabile necesare:
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_PUBLISHABLE_KEY` (anon key Supabase)
 
-# Step 3: Install the necessary dependencies.
+> Important: `.env` este ignorat de Git. Nu comite chei reale.
+
+### 3) Instalează dependențele și pornește
+Cu Bun (recomandat aici, există `bun.lockb`):
+
+```sh
+bun install
+bun run dev
+```
+
+Cu npm:
+
+```sh
 npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+## Supabase
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+Migrațiile se află în `supabase/migrations/`.
 
-**Use GitHub Codespaces**
+Pentru producție:
+- confirmă că RLS (Row Level Security) e activ pe toate tabelele
+- confirmă că politicile pentru roluri corespund exact rolurilor din aplicație (`student`, `parent`, `teacher`, `homeroom_teacher`, `secretariat`, `director`, `uat_admin`)
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## CI
 
-## What technologies are used for this project?
+Repository-ul include un workflow GitHub Actions care rulează lint + build la push/PR pe `main`.
 
-This project is built with:
+## Deploy
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+### Deploy în Lovable
+În Lovable: Share → Publish.
 
-## How can I deploy this project?
+### Deploy în alt hosting (Vercel/Netlify/etc.)
+- rulează build: `bun run build` (sau `npm run build`)
+- setează variabilele de mediu în platforma de deploy:
+  - `VITE_SUPABASE_URL`
+  - `VITE_SUPABASE_PUBLISHABLE_KEY`
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+## Note despre producție
 
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+- Variabilele de mediu sunt validate la startup. Dacă lipsesc, aplicația va da eroare explicită (mai bine decât “merge pe local, moare în prod”).
+- Rolurile sunt enforce-uite atât în UI (routing), cât și în DB (RLS). Pentru producție, DB este “adevărul”.

@@ -1,52 +1,66 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { UserCheck, UserX, Clock, Calendar } from "lucide-react";
 import Sidebar from "@/components/dashboard/Sidebar";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/useAuth";
+import { useAttendanceForScope, useStudentScope } from "@/features/academics/queries";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
-interface AttendanceRecord {
-  date: string;
-  subject: string;
-  status: "present" | "absent" | "late" | "excused";
-  teacher: string;
-  notes?: string;
-}
+type UiStatus = "present" | "absent" | "late" | "excused";
 
-const mockAttendance: AttendanceRecord[] = [
-  { date: "11 Dec 2024", subject: "Matematică", status: "present", teacher: "Prof. Ionescu Maria" },
-  { date: "11 Dec 2024", subject: "Limba Română", status: "present", teacher: "Prof. Popescu Ana" },
-  { date: "10 Dec 2024", subject: "Fizică", status: "late", teacher: "Prof. Georgescu Ion", notes: "5 minute întârziere" },
-  { date: "10 Dec 2024", subject: "Informatică", status: "present", teacher: "Prof. Dumitrescu Vlad" },
-  { date: "9 Dec 2024", subject: "Istorie", status: "absent", teacher: "Prof. Marinescu Elena", notes: "Absență nemotivată" },
-  { date: "9 Dec 2024", subject: "Geografie", status: "present", teacher: "Prof. Vasilescu Dan" },
-  { date: "6 Dec 2024", subject: "Biologie", status: "excused", teacher: "Prof. Stanescu Ioana", notes: "Scutire medicală" },
-  { date: "6 Dec 2024", subject: "Chimie", status: "present", teacher: "Prof. Popa Mihai" },
-  { date: "5 Dec 2024", subject: "Limba Engleză", status: "present", teacher: "Prof. Brown Sarah" },
-  { date: "5 Dec 2024", subject: "Educație Fizică", status: "present", teacher: "Prof. Radu Andrei" },
-  { date: "4 Dec 2024", subject: "Matematică", status: "present", teacher: "Prof. Ionescu Maria" },
-  { date: "4 Dec 2024", subject: "Limba Română", status: "absent", teacher: "Prof. Popescu Ana", notes: "Absență nemotivată" },
-];
-
-const statusConfig = {
+const statusConfig: Record<UiStatus, { label: string; icon: typeof UserCheck; color: string; dot: string }> = {
   present: { label: "Prezent", icon: UserCheck, color: "bg-success/10 text-success", dot: "bg-success" },
   absent: { label: "Absent", icon: UserX, color: "bg-destructive/10 text-destructive", dot: "bg-destructive" },
   late: { label: "Întârziat", icon: Clock, color: "bg-warning/10 text-warning", dot: "bg-warning" },
   excused: { label: "Motivat", icon: Calendar, color: "bg-primary/10 text-primary", dot: "bg-primary" },
 };
 
+const mapDbStatus = (status: string): UiStatus => {
+  switch (status) {
+    case 'prezent':
+      return 'present';
+    case 'absent':
+      return 'absent';
+    case 'intarziat':
+      return 'late';
+    case 'motivat':
+      return 'excused';
+    default:
+      return 'present';
+  }
+};
+
 const Attendance = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [filter, setFilter] = useState<"all" | "absent" | "late" | "excused">("all");
 
-  const totalClasses = mockAttendance.length;
-  const presentCount = mockAttendance.filter(a => a.status === "present").length;
-  const absentCount = mockAttendance.filter(a => a.status === "absent").length;
-  const lateCount = mockAttendance.filter(a => a.status === "late").length;
-  const excusedCount = mockAttendance.filter(a => a.status === "excused").length;
-  const attendanceRate = ((presentCount + excusedCount) / totalClasses * 100).toFixed(1);
+  const { user, activeRole } = useAuth();
+  const scopeQuery = useStudentScope(activeRole, user?.id ?? null);
+  const attendanceQuery = useAttendanceForScope(scopeQuery.data?.studentIds ?? []);
+
+  const uiRows = useMemo(() => {
+    return (attendanceQuery.data ?? []).map(r => {
+      const uiStatus = mapDbStatus(r.status);
+      return {
+        id: r.id,
+        date: r.date,
+        subject: r.subject?.name ?? 'Materie necunoscută',
+        status: uiStatus,
+      };
+    });
+  }, [attendanceQuery.data]);
+
+  const totalClasses = uiRows.length;
+  const presentCount = uiRows.filter(a => a.status === "present").length;
+  const absentCount = uiRows.filter(a => a.status === "absent").length;
+  const lateCount = uiRows.filter(a => a.status === "late").length;
+  const excusedCount = uiRows.filter(a => a.status === "excused").length;
+  const attendanceRate = totalClasses === 0 ? '0.0' : (((presentCount + excusedCount) / totalClasses) * 100).toFixed(1);
 
   const filteredAttendance = filter === "all" 
-    ? mockAttendance 
-    : mockAttendance.filter(a => a.status === filter);
+    ? uiRows 
+    : uiRows.filter(a => a.status === filter);
 
   return (
     <div className="min-h-screen bg-background">
@@ -64,6 +78,30 @@ const Attendance = () => {
         </header>
 
         <div className="p-8">
+          {(activeRole !== 'student' && activeRole !== 'parent') && (
+            <Alert className="mb-8">
+              <AlertTitle>Acces limitat</AlertTitle>
+              <AlertDescription>
+                Pagina „Prezență” este disponibilă doar pentru rolurile Elev și Părinte.
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {(scopeQuery.isLoading || attendanceQuery.isLoading) && (
+            <div className="space-y-4 mb-8">
+              <Skeleton className="h-24 w-full rounded-2xl" />
+              <Skeleton className="h-64 w-full rounded-2xl" />
+            </div>
+          )}
+
+          {(scopeQuery.isError || attendanceQuery.isError) && (
+            <Alert variant="destructive" className="mb-8">
+              <AlertTitle>Eroare</AlertTitle>
+              <AlertDescription>
+                Nu am putut încărca prezența. Verifică autentificarea și politicile RLS din Supabase.
+              </AlertDescription>
+            </Alert>
+          )}
           {/* Stats */}
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
             <div className="bg-card rounded-2xl p-5 border border-border">
@@ -131,10 +169,7 @@ const Attendance = () => {
                         <span className={cn("w-2 h-2 rounded-full", config.dot)} />
                         <span className={cn("text-sm", config.color.split(" ")[1])}>{config.label}</span>
                       </div>
-                      <p className="text-sm text-muted-foreground">{record.teacher}</p>
-                      {record.notes && (
-                        <p className="text-xs text-muted-foreground mt-1 italic">{record.notes}</p>
-                      )}
+                      <p className="text-sm text-muted-foreground">—</p>
                     </div>
                     <div className="text-right">
                       <p className="text-sm text-muted-foreground">{record.date}</p>

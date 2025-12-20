@@ -1,20 +1,11 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { TrendingUp, TrendingDown, Award, BookOpen } from "lucide-react";
 import Sidebar from "@/components/dashboard/Sidebar";
 import { cn } from "@/lib/utils";
-
-const mockGrades = [
-  { subject: "Matematică", grades: [9, 10, 8, 9, 10], average: 9.2, teacher: "Prof. Ionescu Maria", color: "primary" },
-  { subject: "Limba Română", grades: [8, 9, 9, 10, 8], average: 8.8, teacher: "Prof. Popescu Ana", color: "accent" },
-  { subject: "Fizică", grades: [10, 9, 10, 9], average: 9.5, teacher: "Prof. Georgescu Ion", color: "success" },
-  { subject: "Informatică", grades: [10, 10, 10, 9, 10], average: 9.8, teacher: "Prof. Dumitrescu Vlad", color: "primary" },
-  { subject: "Istorie", grades: [7, 8, 9, 8], average: 8.0, teacher: "Prof. Marinescu Elena", color: "warning" },
-  { subject: "Geografie", grades: [9, 8, 9, 9], average: 8.75, teacher: "Prof. Vasilescu Dan", color: "accent" },
-  { subject: "Biologie", grades: [8, 9, 8, 10], average: 8.75, teacher: "Prof. Stanescu Ioana", color: "success" },
-  { subject: "Chimie", grades: [9, 9, 10, 8], average: 9.0, teacher: "Prof. Popa Mihai", color: "primary" },
-  { subject: "Limba Engleză", grades: [10, 10, 9, 10], average: 9.75, teacher: "Prof. Brown Sarah", color: "accent" },
-  { subject: "Educație Fizică", grades: [10, 10, 10], average: 10.0, teacher: "Prof. Radu Andrei", color: "success" },
-];
+import { useAuth } from "@/hooks/useAuth";
+import { useGradesForScope, useStudentScope } from "@/features/academics/queries";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 const getAverageColor = (avg: number) => {
   if (avg >= 9) return "text-success";
@@ -34,9 +25,41 @@ const Grades = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [selectedSubject, setSelectedSubject] = useState<string | null>(null);
 
-  const generalAverage = mockGrades.reduce((sum, g) => sum + g.average, 0) / mockGrades.length;
-  const bestSubject = mockGrades.reduce((best, g) => g.average > best.average ? g : best, mockGrades[0]);
-  const totalGrades = mockGrades.reduce((sum, g) => sum + g.grades.length, 0);
+  const { user, activeRole } = useAuth();
+  const scopeQuery = useStudentScope(activeRole, user?.id ?? null);
+  const gradesQuery = useGradesForScope(scopeQuery.data?.studentIds ?? []);
+
+  const gradesBySubject = useMemo(() => {
+    const rows = gradesQuery.data ?? [];
+    const map = new Map<string, { subject: string; grades: number[]; average: number }>();
+    for (const r of rows) {
+      const subjectName = r.subject?.name ?? 'Materie necunoscută';
+      const existing = map.get(subjectName) ?? { subject: subjectName, grades: [], average: 0 };
+      existing.grades.push(r.grade);
+      map.set(subjectName, existing);
+    }
+    const out = Array.from(map.values()).map(s => ({
+      ...s,
+      average: s.grades.length ? s.grades.reduce((a, b) => a + b, 0) / s.grades.length : 0,
+    }));
+    // keep a stable order
+    return out.sort((a, b) => a.subject.localeCompare(b.subject, 'ro'));
+  }, [gradesQuery.data]);
+
+  const generalAverage = useMemo(() => {
+    if (gradesBySubject.length === 0) return 0;
+    const sum = gradesBySubject.reduce((sum, g) => sum + g.average, 0);
+    return sum / gradesBySubject.length;
+  }, [gradesBySubject]);
+
+  const bestSubject = useMemo(() => {
+    return gradesBySubject.reduce(
+      (best, g) => (g.average > best.average ? g : best),
+      gradesBySubject[0] ?? { subject: '-', grades: [], average: 0 }
+    );
+  }, [gradesBySubject]);
+
+  const totalGrades = useMemo(() => gradesBySubject.reduce((sum, g) => sum + g.grades.length, 0), [gradesBySubject]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -54,6 +77,31 @@ const Grades = () => {
         </header>
 
         <div className="p-8">
+          {(activeRole !== 'student' && activeRole !== 'parent') && (
+            <Alert className="mb-8">
+              <AlertTitle>Acces limitat</AlertTitle>
+              <AlertDescription>
+                Pagina „Note” este disponibilă doar pentru rolurile Elev și Părinte.
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {(scopeQuery.isLoading || gradesQuery.isLoading) && (
+            <div className="space-y-4 mb-8">
+              <Skeleton className="h-24 w-full rounded-2xl" />
+              <Skeleton className="h-64 w-full rounded-2xl" />
+            </div>
+          )}
+
+          {(scopeQuery.isError || gradesQuery.isError) && (
+            <Alert variant="destructive" className="mb-8">
+              <AlertTitle>Eroare</AlertTitle>
+              <AlertDescription>
+                Nu am putut încărca notele. Verifică dacă ești autentificat și dacă ai acces (RLS) în Supabase.
+              </AlertDescription>
+            </Alert>
+          )}
+
           {/* Stats */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
             <div className="bg-card rounded-2xl p-6 border border-border">
@@ -99,7 +147,7 @@ const Grades = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">Materii</p>
-                  <p className="text-3xl font-bold text-foreground mt-1">{mockGrades.length}</p>
+                  <p className="text-3xl font-bold text-foreground mt-1">{gradesBySubject.length}</p>
                 </div>
                 <div className="w-12 h-12 rounded-xl bg-warning/10 flex items-center justify-center">
                   <TrendingDown className="w-6 h-6 text-warning" />
@@ -124,7 +172,7 @@ const Grades = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {mockGrades.map((grade, index) => (
+                  {gradesBySubject.map((grade, index) => (
                     <tr 
                       key={index} 
                       className={cn(
@@ -157,7 +205,8 @@ const Grades = () => {
                         </span>
                       </td>
                       <td className="px-6 py-4 text-muted-foreground">
-                        {grade.teacher}
+                        {/* Teacher name depends on joining with profiles; keep it safe here */}
+                        —
                       </td>
                     </tr>
                   ))}
@@ -165,6 +214,12 @@ const Grades = () => {
               </table>
             </div>
           </div>
+
+          {gradesBySubject.length === 0 && !gradesQuery.isLoading && !gradesQuery.isError && (
+            <div className="mt-6 text-sm text-muted-foreground">
+              Nu există note încă (sau nu ai încă un elev asociat în baza de date).
+            </div>
+          )}
         </div>
       </main>
     </div>

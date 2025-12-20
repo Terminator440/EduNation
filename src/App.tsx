@@ -10,6 +10,7 @@ import Dashboard from "./pages/Dashboard";
 import TeacherDashboard from "./pages/TeacherDashboard";
 import SecretariatDashboard from "./pages/SecretariatDashboard";
 import DirectorDashboard from "./pages/DirectorDashboard";
+import AdminDashboard from "./pages/AdminDashboard";
 import HomeroomDashboard from "./pages/HomeroomDashboard";
 import ParentDashboard from "./pages/ParentDashboard";
 import Grades from "./pages/Grades";
@@ -19,6 +20,7 @@ import Lessons from "./pages/Lessons";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
+import ErrorBoundary from "./components/ErrorBoundary";
 
 const queryClient = new QueryClient();
 
@@ -29,8 +31,9 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
-          <Routes>
-            <Route path="/" element={<Index />} />
+          <ErrorBoundary>
+            <Routes>
+              <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/login" element={<Auth />} />
             <Route path="/dashboard" element={
@@ -63,33 +66,39 @@ const App = () => (
                 <DirectorDashboard />
               </ProtectedRoute>
             } />
+            <Route path="/admin" element={
+              <ProtectedRoute allowedRoles={['uat_admin']}>
+                <AdminDashboard />
+              </ProtectedRoute>
+            } />
             <Route path="/dashboard/grades" element={
-              <ProtectedRoute>
+              <ProtectedRoute allowedRoles={['student', 'parent']}>
                 <Grades />
               </ProtectedRoute>
             } />
             <Route path="/dashboard/attendance" element={
-              <ProtectedRoute>
+              <ProtectedRoute allowedRoles={['student', 'parent']}>
                 <Attendance />
               </ProtectedRoute>
             } />
             <Route path="/dashboard/calendar" element={
-              <ProtectedRoute>
+              <ProtectedRoute allowedRoles={['student', 'parent', 'teacher', 'homeroom_teacher', 'secretariat', 'director', 'uat_admin']}>
                 <SchoolCalendar />
               </ProtectedRoute>
             } />
             <Route path="/dashboard/lessons" element={
-              <ProtectedRoute>
+              <ProtectedRoute allowedRoles={['student', 'teacher', 'homeroom_teacher', 'secretariat', 'director']}>
                 <Lessons />
               </ProtectedRoute>
             } />
             <Route path="/dashboard/settings" element={
-              <ProtectedRoute>
+              <ProtectedRoute allowedRoles={['student', 'parent', 'teacher', 'homeroom_teacher', 'secretariat', 'director', 'uat_admin']}>
                 <Settings />
               </ProtectedRoute>
             } />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </ErrorBoundary>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>

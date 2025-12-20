@@ -1,6 +1,5 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { GraduationCap, UserCircle, Calendar, TrendingUp } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Calendar, TrendingUp, GraduationCap, UserCircle } from "lucide-react";
 import Sidebar from "@/components/dashboard/Sidebar";
 import StatsCard from "@/components/dashboard/StatsCard";
 import GradesTable from "@/components/dashboard/GradesTable";
@@ -10,59 +9,89 @@ import RoleSwitcher from "@/components/RoleSwitcher";
 import ThemeToggle from "@/components/ThemeToggle";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
-
-// Demo data
-const mockGrades = [
-  { subject: "Matematică", grades: [9, 10, 8, 9], average: 9.0, teacher: "Prof. Ionescu Maria" },
-  { subject: "Limba Română", grades: [8, 9, 9, 10], average: 9.0, teacher: "Prof. Popescu Ana" },
-  { subject: "Fizică", grades: [10, 9, 10], average: 9.67, teacher: "Prof. Georgescu Ion" },
-  { subject: "Informatică", grades: [10, 10, 10, 9], average: 9.75, teacher: "Prof. Dumitrescu Vlad" },
-  { subject: "Istorie", grades: [7, 8, 9], average: 8.0, teacher: "Prof. Marinescu Elena" },
-];
-
-const mockEvents = [
-  { id: "1", title: "Test Matematică", date: "15 Dec", time: "10:00", type: "test" as const, subject: "Geometrie - Triunghiuri" },
-  { id: "2", title: "Temă Română", date: "13 Dec", type: "homework" as const, subject: "Eseu argumentativ" },
-  { id: "3", title: "Vacanța de iarnă", date: "21 Dec - 7 Ian", type: "holiday" as const },
-  { id: "4", title: "Olimpiada de Informatică", date: "18 Dec", time: "09:00", type: "event" as const },
-];
+import { useGradesForScope, useStudentScope, useAttendanceForScope } from "@/features/academics/queries";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { assertSupabaseOk } from "@/lib/supabase-helpers";
 
 const Dashboard = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const { user, profile, activeRole, loading } = useAuth();
-  const navigate = useNavigate();
+  const { user, profile, activeRole } = useAuth();
 
-  useEffect(() => {
-    if (!loading && user && activeRole) {
-      const roleRoutes: Record<string, string> = {
-        parent: '/parent',
-        teacher: '/teacher',
-        homeroom_teacher: '/homeroom',
-        secretariat: '/secretariat',
-        director: '/director',
-      };
-      
-      if (roleRoutes[activeRole]) {
-        navigate(roleRoutes[activeRole]);
-      }
-    }
-  }, [user, activeRole, loading, navigate]);
+  // Student dashboard only
+  const scopeQuery = useStudentScope(activeRole, user?.id ?? null);
+  const gradesQuery = useGradesForScope(scopeQuery.data?.studentIds ?? []);
+  const attendanceQuery = useAttendanceForScope(scopeQuery.data?.studentIds ?? []);
+
+  const eventsQuery = useQuery({
+    queryKey: ['school-events-upcoming'],
+    queryFn: async () => {
+      const today = new Date().toISOString().slice(0, 10);
+      const res = await supabase
+        .from('school_events')
+        .select('id,title,event_date,event_time,type,subject')
+        .gte('event_date', today)
+        .order('event_date', { ascending: true })
+        .limit(6);
+      return assertSupabaseOk(res, 'school_events.select(upcoming)') as any[];
+    },
+  });
 
   const displayName = profile?.full_name || user?.email?.split('@')[0] || 'Utilizator';
+
+  const gradesBySubject = useMemo(() => {
+    const rows = gradesQuery.data ?? [];
+    const map = new Map<string, { subject: string; grades: number[]; average: number; teacher: string }>();
+    for (const r of rows) {
+      const subjectName = r.subject?.name ?? 'Materie necunoscută';
+      const entry = map.get(subjectName) ?? { subject: subjectName, grades: [], average: 0, teacher: '—' };
+      entry.grades.push(r.grade);
+      map.set(subjectName, entry);
+    }
+    const out = Array.from(map.values()).map(s => ({
+      ...s,
+      average: s.grades.length ? s.grades.reduce((a, b) => a + b, 0) / s.grades.length : 0,
+    }));
+    return out.sort((a, b) => a.subject.localeCompare(b.subject, 'ro'));
+  }, [gradesQuery.data]);
+
+  const generalAverage = useMemo(() => {
+    if (gradesBySubject.length === 0) return 0;
+    return gradesBySubject.reduce((sum, g) => sum + g.average, 0) / gradesBySubject.length;
+  }, [gradesBySubject]);
+
+  const totalGrades = useMemo(() => (gradesQuery.data ?? []).length, [gradesQuery.data]);
+
+  const absenceStats = useMemo(() => {
+    const rows = attendanceQuery.data ?? [];
+    const abs = rows.filter(r => r.status === 'absent').length;
+    const total = rows.length;
+    const present = rows.filter(r => r.status === 'prezent').length;
+    const pct = total > 0 ? Math.round((present / total) * 100) : 0;
+    return { absences: abs, pct };
+  }, [attendanceQuery.data]);
+
+  const upcomingEvents = useMemo(() => {
+    const rows = (eventsQuery.data ?? []) as any[];
+    return rows.map(r => ({
+      id: r.id,
+      title: r.title,
+      date: r.event_date,
+      time: r.event_time ?? undefined,
+      type: r.type,
+      subject: r.subject ?? undefined,
+    }));
+  }, [eventsQuery.data]);
 
   return (
     <div className="min-h-screen bg-background">
       <Sidebar isCollapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(!sidebarCollapsed)} />
-      
-      <main className={cn(
-        "transition-all duration-300",
-        sidebarCollapsed ? "ml-20" : "ml-64"
-      )}>
-        {/* Header */}
+
+      <main className={cn("transition-all duration-300", sidebarCollapsed ? "ml-20" : "ml-64")}>
         <header className="h-16 border-b border-border bg-card/50 backdrop-blur-sm flex items-center justify-between px-8 sticky top-0 z-30">
           <div>
-            <h1 className="text-xl font-semibold text-foreground">Bună ziua, {displayName}! 👋</h1>
-            <p className="text-sm text-muted-foreground">Clasa a X-a B • Liceul Teoretic „Nicolae Bălcescu"</p>
+            <h1 className="text-xl font-semibold text-foreground">Bună, {displayName}!</h1>
+            <p className="text-sm text-muted-foreground">Panoul tău de elev</p>
           </div>
           <div className="flex items-center gap-4">
             <ThemeToggle />
@@ -73,48 +102,44 @@ const Dashboard = () => {
           </div>
         </header>
 
-        {/* Content */}
         <div className="p-8">
-          {/* Stats */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <StatsCard
               title="Media Generală"
-              value="9.08"
-              subtitle="Semestrul I"
+              value={gradesBySubject.length ? generalAverage.toFixed(2) : "—"}
+              subtitle="Din notele înregistrate"
               icon={TrendingUp}
               variant="primary"
-              trend={{ value: 3, isPositive: true }}
             />
             <StatsCard
-              title="Note primite"
-              value="18"
-              subtitle="Luna aceasta"
+              title="Note totale"
+              value={String(totalGrades)}
+              subtitle="În catalog"
               icon={GraduationCap}
               variant="success"
             />
             <StatsCard
               title="Prezență"
-              value="96%"
-              subtitle="2 absențe"
+              value={absenceStats.pct ? `${absenceStats.pct}%` : "—"}
+              subtitle={`${absenceStats.absences} absențe`}
               icon={UserCircle}
               variant="accent"
             />
             <StatsCard
               title="Evenimente"
-              value="4"
-              subtitle="Săptămâna aceasta"
+              value={String(upcomingEvents.length)}
+              subtitle="Următoarele zile"
               icon={Calendar}
               variant="warning"
             />
           </div>
 
-          {/* Main content */}
           <div className="grid lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2 space-y-8">
-              <GradesTable grades={mockGrades} />
+              <GradesTable grades={gradesBySubject} />
             </div>
             <div className="space-y-6">
-              <UpcomingEvents events={mockEvents} />
+              <UpcomingEvents events={upcomingEvents} />
               <QuickActions />
             </div>
           </div>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Users, GraduationCap, FileText, Calendar, Plus, Upload, Search } from "lucide-react";
 import Sidebar from "@/components/dashboard/Sidebar";
 import StatsCard from "@/components/dashboard/StatsCard";
@@ -17,33 +17,65 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useClasses, useCreateStudentWithActivation, useStudentsForSecretariat } from "@/features/secretariat/queries";
+import { useToast } from "@/hooks/use-toast";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-const mockStudents = [
-  { id: "1", name: "Popescu Alexandru", class: "X-A", status: "Activ", enrolledDate: "2024-09-01" },
-  { id: "2", name: "Ionescu Maria", class: "X-A", status: "Activ", enrolledDate: "2024-09-01" },
-  { id: "3", name: "Georgescu Andrei", class: "X-B", status: "Inactiv", enrolledDate: "2024-09-01" },
-  { id: "4", name: "Marinescu Elena", class: "XI-A", status: "Activ", enrolledDate: "2023-09-01" },
-  { id: "5", name: "Dumitrescu Ion", class: "XI-B", status: "Activ", enrolledDate: "2023-09-01" },
-];
-
-const mockClasses = [
-  { id: "1", name: "X-A", students: 28, teacher: "Prof. Ionescu Maria" },
-  { id: "2", name: "X-B", students: 26, teacher: "Prof. Popescu Ana" },
-  { id: "3", name: "XI-A", students: 30, teacher: "Prof. Georgescu Ion" },
-  { id: "4", name: "XI-B", students: 25, teacher: "Prof. Dumitrescu Vlad" },
-];
 
 const SecretariatDashboard = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [newStudentName, setNewStudentName] = useState("");
+  const [newStudentClassId, setNewStudentClassId] = useState<string>("");
   const { user, profile } = useAuth();
+  const { toast } = useToast();
+
+  const classesQuery = useClasses();
+  const studentsQuery = useStudentsForSecretariat(searchQuery);
+  const createStudent = useCreateStudentWithActivation();
 
   const displayName = profile?.full_name || user?.email?.split('@')[0] || 'Utilizator';
 
-  const filteredStudents = mockStudents.filter(student =>
-    student.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    student.class.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const stats = useMemo(() => {
+    const students = studentsQuery.data ?? [];
+    const totalStudents = students.length;
+    const activeStudents = students.filter(s => s.is_active).length;
+    const inactiveStudents = totalStudents - activeStudents;
+    const classesCount = (classesQuery.data ?? []).length;
+    return { totalStudents, activeStudents, inactiveStudents, classesCount };
+  }, [studentsQuery.data, classesQuery.data]);
+
+  const handleCreateStudent = async () => {
+    if (!user) return;
+    if (!newStudentName.trim() || !newStudentClassId) {
+      toast({
+        title: "Date incomplete",
+        description: "Completează numele elevului și clasa.",
+        variant: "destructive",
+      });
+      return;
+    }
+    try {
+      const res = await createStudent.mutateAsync({
+        full_name: newStudentName.trim(),
+        class_id: newStudentClassId,
+        created_by: user.id,
+        expires_in_days: 14,
+      });
+      setNewStudentName("");
+      toast({
+        title: "Elev creat + cod generat",
+        description: `Cod activare: ${res.activation_code} (expiră: ${new Date(res.expires_at).toLocaleString('ro-RO')})`,
+      });
+    } catch (e: any) {
+      toast({
+        title: "Eroare",
+        description: e?.message ?? "Nu am putut crea elevul.",
+        variant: "destructive",
+      });
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -72,49 +104,81 @@ const SecretariatDashboard = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <StatsCard
               title="Total Elevi"
-              value="420"
-              subtitle="Anul școlar 2024-2025"
+              value={String(stats.totalStudents)}
+              subtitle={`Activi: ${stats.activeStudents} • Inactivi: ${stats.inactiveStudents}`}
               icon={Users}
               variant="primary"
             />
             <StatsCard
               title="Clase"
-              value="16"
-              subtitle="4 nivele"
+              value={String(stats.classesCount)}
+              subtitle="Din baza de date"
               icon={GraduationCap}
               variant="success"
             />
             <StatsCard
-              title="Elevi noi"
-              value="32"
-              subtitle="Luna aceasta"
+              title="Elevi"
+              value={String(stats.activeStudents)}
+              subtitle="Marcați activi"
               icon={Users}
               variant="accent"
             />
             <StatsCard
               title="Rapoarte"
-              value="8"
-              subtitle="Pending"
+              value="—"
+              subtitle="(de adăugat: rapoarte)"
               icon={FileText}
               variant="warning"
             />
           </div>
 
           {/* Actions */}
-          <div className="flex flex-wrap gap-4 mb-8">
-            <Button className="gap-2">
-              <Plus className="h-4 w-4" />
-              Adaugă Elev
-            </Button>
-            <Button variant="outline" className="gap-2">
-              <Upload className="h-4 w-4" />
-              Import CSV
-            </Button>
-            <Button variant="outline" className="gap-2">
-              <FileText className="h-4 w-4" />
-              Generează Raport
-            </Button>
-          </div>
+          <Card className="mb-8">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Plus className="h-4 w-4" />
+                Adaugă elev + generează cod
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-4 md:grid-cols-3">
+              <div className="md:col-span-1">
+                <Label>Nume elev</Label>
+                <Input
+                  placeholder="Nume Prenume"
+                  value={newStudentName}
+                  onChange={(e) => setNewStudentName(e.target.value)}
+                />
+              </div>
+              <div className="md:col-span-1">
+                <Label>Clasă</Label>
+                <Select value={newStudentClassId} onValueChange={setNewStudentClassId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Alege clasa" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(classesQuery.data ?? []).map(cls => (
+                      <SelectItem key={cls.id} value={cls.id}>
+                        {cls.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="md:col-span-1 flex items-end">
+                <Button
+                  className="gap-2 w-full"
+                  onClick={handleCreateStudent}
+                  disabled={createStudent.isPending || classesQuery.isLoading}
+                >
+                  <Plus className="h-4 w-4" />
+                  {createStudent.isPending ? "Se creează..." : "Creează + cod"}
+                </Button>
+              </div>
+              <div className="md:col-span-3 text-sm text-muted-foreground">
+                Codul apare în notificare după creare. Pentru import CSV și rapoarte, trebuie adăugate fluxuri dedicate.
+              </div>
+            </CardContent>
+          </Card>
 
           <div className="grid lg:grid-cols-3 gap-8">
             {/* Students Table */}
@@ -143,23 +207,27 @@ const SecretariatDashboard = () => {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredStudents.map((student) => (
-                        <TableRow key={student.id}>
-                          <TableCell className="font-medium">{student.name}</TableCell>
-                          <TableCell>{student.class}</TableCell>
+                      {(studentsQuery.data ?? []).map((student) => {
+                        const classLabel = student.class ? student.class.name : '—';
+                        const statusLabel = student.is_active ? 'Activ' : 'Inactiv';
+                        return (
+                          <TableRow key={student.id}>
+                          <TableCell className="font-medium">{student.full_name ?? '—'}</TableCell>
+                          <TableCell>{classLabel}</TableCell>
                           <TableCell>
                             <span className={cn(
                               "px-2 py-1 rounded-full text-xs font-medium",
-                              student.status === "Activ" 
+                              statusLabel === "Activ" 
                                 ? "bg-success/10 text-success" 
                                 : "bg-muted text-muted-foreground"
                             )}>
-                              {student.status}
+                              {statusLabel}
                             </span>
                           </TableCell>
-                          <TableCell>{student.enrolledDate}</TableCell>
-                        </TableRow>
-                      ))}
+                          <TableCell>—</TableCell>
+                          </TableRow>
+                        );
+                      })}
                     </TableBody>
                   </Table>
                 </CardContent>
@@ -173,15 +241,18 @@ const SecretariatDashboard = () => {
                   <CardTitle>Clase</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {mockClasses.map((cls) => (
-                    <div key={cls.id} className="p-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="font-semibold text-foreground">{cls.name}</span>
-                        <span className="text-sm text-muted-foreground">{cls.students} elevi</span>
+                  {(classesQuery.data ?? []).map((cls) => {
+                    const studentsInClass = (studentsQuery.data ?? []).filter(s => s.class?.id === cls.id).length;
+                    return (
+                      <div key={cls.id} className="p-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="font-semibold text-foreground">{cls.name}</span>
+                          <span className="text-sm text-muted-foreground">{studentsInClass} elevi</span>
+                        </div>
+                        <p className="text-sm text-muted-foreground">An: {cls.year} • Secțiunea: {cls.section}</p>
                       </div>
-                      <p className="text-sm text-muted-foreground">{cls.teacher}</p>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </CardContent>
               </Card>
             </div>

@@ -121,58 +121,81 @@ const TeacherDashboard = () => {
           .eq('class_id', classData.id);
 
         if (studentsData) {
-          const enrichedStudents = await Promise.all(
-            studentsData.map(async (student: any) => {
-              let profileData = null;
-              if (student.user_id) {
-                const { data: profile } = await supabase
-                  .from('profiles')
-                  .select('full_name, email')
-                  .eq('id', student.user_id)
-                  .maybeSingle();
-                profileData = profile;
-              }
+          
+// Fetch related data in bulk to avoid N+1 queries (production performance)
+const studentIds = (studentsData || []).map((s: any) => s.id);
+const userIds = (studentsData || [])
+  .map((s: any) => s.user_id)
+  .filter((id: any) => !!id);
 
-              const { data: gradesData } = await supabase
-                .from('grades')
-                .select(`
-                  id,
-                  grade,
-                  date,
-                  subjects!grades_subject_id_fkey (
-                    name
-                  )
-                `)
-                .eq('student_id', student.id);
+const profilesById = new Map<string, any>();
+if (userIds.length > 0) {
+  const { data: profilesData, error: profilesErr } = await supabase
+    .from('profiles')
+    .select('id, full_name, email')
+    .in('id', userIds as any);
 
-              const { data: attendanceData } = await supabase
-                .from('attendance')
-                .select(`
-                  id,
-                  status,
-                  date,
-                  subjects!attendance_subject_id_fkey (
-                    name
-                  )
-                `)
-                .eq('student_id', student.id);
+  if (profilesErr) throw profilesErr;
+  (profilesData || []).forEach((p: any) => profilesById.set(p.id, p));
+}
 
-              return {
-                ...student,
-                profile: profileData,
-                grades: (gradesData || []).map((g: any) => ({
-                  ...g,
-                  subject: g.subjects,
-                })),
-                attendance: (attendanceData || []).map((a: any) => ({
-                  ...a,
-                  subject: a.subjects,
-                })),
-              };
-            })
-          );
+const { data: gradesData, error: gradesErr } = await supabase
+  .from('grades')
+  .select(`
+    id,
+    grade,
+    date,
+    description,
+    student_id,
+    subject_id,
+    subjects (
+      id,
+      name
+    )
+  `)
+  .in('student_id', studentIds as any);
 
-          setStudents(enrichedStudents);
+if (gradesErr) throw gradesErr;
+
+const { data: attendanceData, error: attendanceErr } = await supabase
+  .from('attendance')
+  .select(`
+    id,
+    date,
+    status,
+    student_id,
+    subject_id,
+    subjects (
+      id,
+      name
+    )
+  `)
+  .in('student_id', studentIds as any);
+
+if (attendanceErr) throw attendanceErr;
+
+const gradesByStudent = new Map<string, any[]>();
+(gradesData || []).forEach((g: any) => {
+  const arr = gradesByStudent.get(g.student_id) || [];
+  arr.push({ ...g, subject: g.subjects });
+  gradesByStudent.set(g.student_id, arr);
+});
+
+const attendanceByStudent = new Map<string, any[]>();
+(attendanceData || []).forEach((a: any) => {
+  const arr = attendanceByStudent.get(a.student_id) || [];
+  arr.push({ ...a, subject: a.subjects });
+  attendanceByStudent.set(a.student_id, arr);
+});
+
+const enrichedStudents = (studentsData || []).map((student: any) => ({
+  ...student,
+  profile: student.user_id ? profilesById.get(student.user_id) || null : null,
+  grades: gradesByStudent.get(student.id) || [],
+  attendance: attendanceByStudent.get(student.id) || [],
+}));
+
+setStudents(enrichedStudents);
         }
 
         const { data: subjectsData } = await supabase
