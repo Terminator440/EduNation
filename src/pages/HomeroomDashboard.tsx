@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Users, GraduationCap, Key, CheckCircle, XCircle, Clock, Copy, Plus, TrendingUp, UserPlus } from "lucide-react";
+import { Users, GraduationCap, Key, CheckCircle, XCircle, Clock, Copy, Plus, TrendingUp, UserPlus, FileCheck, Calendar } from "lucide-react";
 import Sidebar from "@/components/dashboard/Sidebar";
 import StatsCard from "@/components/dashboard/StatsCard";
 import RoleSwitcher from "@/components/RoleSwitcher";
@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Table,
   TableBody,
@@ -48,6 +49,15 @@ interface ClassStats {
   motivatedAbsences: number;
 }
 
+interface Absence {
+  id: string;
+  date: string;
+  status: string;
+  student_id: string;
+  student_name: string;
+  subject_name: string;
+}
+
 const HomeroomDashboard = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [students, setStudents] = useState<Student[]>([]);
@@ -55,7 +65,10 @@ const HomeroomDashboard = () => {
   const [classInfo, setClassInfo] = useState<{ id: string; name: string; section: string; year: number } | null>(null);
   const [generatingCode, setGeneratingCode] = useState<string | null>(null);
   const [isAddStudentOpen, setIsAddStudentOpen] = useState(false);
+  const [isMotivateOpen, setIsMotivateOpen] = useState(false);
   const [newStudent, setNewStudent] = useState({ fullName: "", studentNumber: "" });
+  const [absences, setAbsences] = useState<Absence[]>([]);
+  const [selectedAbsences, setSelectedAbsences] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
   const { user, profile, activeRole, loading: authLoading } = useAuth();
@@ -268,6 +281,94 @@ const HomeroomDashboard = () => {
     }
   };
 
+  const fetchAbsences = async () => {
+    if (!classInfo) return;
+
+    try {
+      const { data: studentIds } = await supabase
+        .from('students')
+        .select('id, full_name')
+        .eq('class_id', classInfo.id);
+
+      if (studentIds && studentIds.length > 0) {
+        const ids = studentIds.map(s => s.id);
+        const studentMap = Object.fromEntries(studentIds.map(s => [s.id, s.full_name || 'Necunoscut']));
+
+        const { data: absenceData } = await supabase
+          .from('attendance')
+          .select('id, date, status, student_id, subject_id')
+          .in('student_id', ids)
+          .eq('status', 'absent')
+          .order('date', { ascending: false });
+
+        if (absenceData) {
+          // Get subject names
+          const subjectIds = [...new Set(absenceData.map(a => a.subject_id))];
+          const { data: subjects } = await supabase
+            .from('subjects')
+            .select('id, name')
+            .in('id', subjectIds);
+
+          const subjectMap = Object.fromEntries((subjects || []).map(s => [s.id, s.name]));
+
+          setAbsences(absenceData.map(a => ({
+            id: a.id,
+            date: a.date,
+            status: a.status,
+            student_id: a.student_id,
+            student_name: studentMap[a.student_id],
+            subject_name: subjectMap[a.subject_id] || 'Necunoscut',
+          })));
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching absences:', error);
+    }
+  };
+
+  const handleMotivateAbsences = async () => {
+    if (selectedAbsences.length === 0) {
+      toast({
+        title: "Eroare",
+        description: "Selectează cel puțin o absență",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('attendance')
+        .update({ status: 'motivat' })
+        .in('id', selectedAbsences);
+
+      if (error) throw error;
+
+      toast({
+        title: "Succes!",
+        description: `${selectedAbsences.length} absențe au fost motivate`,
+      });
+
+      setSelectedAbsences([]);
+      setIsMotivateOpen(false);
+      fetchData();
+      fetchAbsences();
+    } catch (error) {
+      console.error('Error motivating absences:', error);
+      toast({
+        title: "Eroare",
+        description: "Nu s-au putut motiva absențele",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const toggleAbsenceSelection = (id: string) => {
+    setSelectedAbsences(prev => 
+      prev.includes(id) ? prev.filter(a => a !== id) : [...prev, id]
+    );
+  };
+
   const activeStudents = students.filter(s => s.is_active).length;
   const pendingActivation = students.filter(s => !s.is_active && s.activation_code).length;
   const notActivated = students.filter(s => !s.is_active && !s.activation_code).length;
@@ -337,8 +438,8 @@ const HomeroomDashboard = () => {
             />
           </div>
 
-          {/* Add Student Button */}
-          <div className="mb-6">
+          {/* Action Buttons */}
+          <div className="flex flex-wrap gap-3 mb-6">
             <Dialog open={isAddStudentOpen} onOpenChange={setIsAddStudentOpen}>
               <DialogTrigger asChild>
                 <Button className="gap-2">
@@ -373,6 +474,72 @@ const HomeroomDashboard = () => {
                   <Button onClick={handleAddStudent} className="w-full">
                     Adaugă elev
                   </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+
+            <Dialog open={isMotivateOpen} onOpenChange={(open) => {
+              setIsMotivateOpen(open);
+              if (open) {
+                fetchAbsences();
+                setSelectedAbsences([]);
+              }
+            }}>
+              <DialogTrigger asChild>
+                <Button variant="outline" className="gap-2">
+                  <FileCheck className="h-4 w-4" />
+                  Motivează Absențe
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>Motivează Absențe</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 mt-4">
+                  {absences.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Calendar className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                      <p>Nu sunt absențe nemotivate.</p>
+                    </div>
+                  ) : (
+                    <>
+                      <p className="text-sm text-muted-foreground">
+                        Selectează absențele pe care dorești să le motivezi:
+                      </p>
+                      <div className="space-y-2">
+                        {absences.map((absence) => (
+                          <div
+                            key={absence.id}
+                            className={cn(
+                              "flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors",
+                              selectedAbsences.includes(absence.id)
+                                ? "bg-primary/10 border-primary"
+                                : "hover:bg-muted"
+                            )}
+                            onClick={() => toggleAbsenceSelection(absence.id)}
+                          >
+                            <Checkbox
+                              checked={selectedAbsences.includes(absence.id)}
+                              onCheckedChange={() => toggleAbsenceSelection(absence.id)}
+                            />
+                            <div className="flex-1">
+                              <p className="font-medium">{absence.student_name}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {absence.subject_name} • {new Date(absence.date).toLocaleDateString('ro-RO')}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <Button 
+                        onClick={handleMotivateAbsences} 
+                        className="w-full"
+                        disabled={selectedAbsences.length === 0}
+                      >
+                        Motivează {selectedAbsences.length} absențe
+                      </Button>
+                    </>
+                  )}
                 </div>
               </DialogContent>
             </Dialog>

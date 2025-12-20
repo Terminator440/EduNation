@@ -44,17 +44,17 @@ const App = () => (
               </ProtectedRoute>
             } />
             <Route path="/teacher" element={
-              <ProtectedRoute allowedRoles={['teacher']}>
+              <ProtectedRoute allowedRoles={['teacher', 'homeroom_teacher', 'director', 'secretariat']}>
                 <TeacherDashboard />
               </ProtectedRoute>
             } />
             <Route path="/homeroom" element={
-              <ProtectedRoute allowedRoles={['homeroom_teacher']}>
+              <ProtectedRoute allowedRoles={['homeroom_teacher', 'director', 'secretariat']}>
                 <HomeroomDashboard />
               </ProtectedRoute>
             } />
             <Route path="/secretariat" element={
-              <ProtectedRoute allowedRoles={['secretariat']}>
+              <ProtectedRoute allowedRoles={['secretariat', 'director']}>
                 <SecretariatDashboard />
               </ProtectedRoute>
             } />
