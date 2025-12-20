@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Users, GraduationCap, Key, CheckCircle, XCircle, Clock, Copy, Plus, TrendingUp, UserPlus, FileCheck, Calendar } from "lucide-react";
+import { Users, GraduationCap, Key, CheckCircle, XCircle, Clock, Copy, Plus, TrendingUp, UserPlus, FileCheck, Calendar, School } from "lucide-react";
 import Sidebar from "@/components/dashboard/Sidebar";
 import StatsCard from "@/components/dashboard/StatsCard";
 import RoleSwitcher from "@/components/RoleSwitcher";
@@ -66,7 +66,9 @@ const HomeroomDashboard = () => {
   const [generatingCode, setGeneratingCode] = useState<string | null>(null);
   const [isAddStudentOpen, setIsAddStudentOpen] = useState(false);
   const [isMotivateOpen, setIsMotivateOpen] = useState(false);
+  const [isCreateClassOpen, setIsCreateClassOpen] = useState(false);
   const [newStudent, setNewStudent] = useState({ fullName: "", studentNumber: "" });
+  const [newClass, setNewClass] = useState({ year: "", section: "", name: "" });
   const [absences, setAbsences] = useState<Absence[]>([]);
   const [selectedAbsences, setSelectedAbsences] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -363,6 +365,45 @@ const HomeroomDashboard = () => {
     }
   };
 
+  const handleCreateClass = async () => {
+    if (!newClass.year || !newClass.section) {
+      toast({
+        title: "Eroare",
+        description: "Completează anul și secțiunea clasei",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const className = newClass.name || `Clasa ${newClass.year}${newClass.section}`;
+      const { error } = await supabase.from('classes').insert({
+        year: parseInt(newClass.year),
+        section: newClass.section.toUpperCase(),
+        name: className,
+        teacher_id: user?.id,
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Clasă creată!",
+        description: `Clasa ${newClass.year}${newClass.section} a fost creată cu succes`,
+      });
+
+      setIsCreateClassOpen(false);
+      setNewClass({ year: "", section: "", name: "" });
+      fetchData();
+    } catch (error) {
+      console.error('Error creating class:', error);
+      toast({
+        title: "Eroare",
+        description: "Nu s-a putut crea clasa",
+        variant: "destructive",
+      });
+    }
+  };
+
   const toggleAbsenceSelection = (id: string) => {
     setSelectedAbsences(prev => 
       prev.includes(id) ? prev.filter(a => a !== id) : [...prev, id]
@@ -406,37 +447,103 @@ const HomeroomDashboard = () => {
         </header>
 
         <div className="p-8">
-          {/* Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <StatsCard
-              title="Total Elevi"
-              value={students.length.toString()}
-              subtitle={classInfo ? `Clasa ${classInfo.year}${classInfo.section}` : ''}
-              icon={Users}
-              variant="primary"
-            />
-            <StatsCard
-              title="Conturi Active"
-              value={activeStudents.toString()}
-              subtitle="Activați"
-              icon={CheckCircle}
-              variant="success"
-            />
-            <StatsCard
-              title="Media Clasei"
-              value={classStats.averageGrade > 0 ? classStats.averageGrade.toFixed(2) : "-"}
-              subtitle={`Din ${classStats.totalGrades} note`}
-              icon={TrendingUp}
-              variant="accent"
-            />
-            <StatsCard
-              title="Absențe"
-              value={classStats.totalAbsences.toString()}
-              subtitle={`${classStats.motivatedAbsences} motivate`}
-              icon={XCircle}
-              variant="warning"
-            />
-          </div>
+          {/* Show create class UI if no class exists */}
+          {!classInfo ? (
+            <Card className="max-w-lg mx-auto">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <School className="h-5 w-5" />
+                  Creează-ți Clasa
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground mb-6">
+                  Nu ai nicio clasă asociată. Creează-ți clasa pentru a putea adăuga elevi.
+                </p>
+                <Dialog open={isCreateClassOpen} onOpenChange={setIsCreateClassOpen}>
+                  <DialogTrigger asChild>
+                    <Button className="w-full gap-2">
+                      <Plus className="h-4 w-4" />
+                      Creează Clasă
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Creează o clasă nouă</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 mt-4">
+                      <div>
+                        <Label>Anul (ex: 9, 10, 11, 12)</Label>
+                        <Input
+                          type="number"
+                          value={newClass.year}
+                          onChange={(e) => setNewClass(p => ({ ...p, year: e.target.value }))}
+                          placeholder="ex: 9"
+                          className="mt-1"
+                          min="1"
+                          max="12"
+                        />
+                      </div>
+                      <div>
+                        <Label>Secțiunea (ex: A, B, C)</Label>
+                        <Input
+                          value={newClass.section}
+                          onChange={(e) => setNewClass(p => ({ ...p, section: e.target.value }))}
+                          placeholder="ex: A"
+                          className="mt-1"
+                          maxLength={2}
+                        />
+                      </div>
+                      <div>
+                        <Label>Nume clasă (opțional)</Label>
+                        <Input
+                          value={newClass.name}
+                          onChange={(e) => setNewClass(p => ({ ...p, name: e.target.value }))}
+                          placeholder="ex: Matematică-Informatică"
+                          className="mt-1"
+                        />
+                      </div>
+                      <Button onClick={handleCreateClass} className="w-full">
+                        Creează clasă
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              </CardContent>
+            </Card>
+          ) : (
+            <>
+              {/* Stats */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                <StatsCard
+                  title="Total Elevi"
+                  value={students.length.toString()}
+                  subtitle={classInfo ? `Clasa ${classInfo.year}${classInfo.section}` : ''}
+                  icon={Users}
+                  variant="primary"
+                />
+                <StatsCard
+                  title="Conturi Active"
+                  value={activeStudents.toString()}
+                  subtitle="Activați"
+                  icon={CheckCircle}
+                  variant="success"
+                />
+                <StatsCard
+                  title="Media Clasei"
+                  value={classStats.averageGrade > 0 ? classStats.averageGrade.toFixed(2) : "-"}
+                  subtitle={`Din ${classStats.totalGrades} note`}
+                  icon={TrendingUp}
+                  variant="accent"
+                />
+                <StatsCard
+                  title="Absențe"
+                  value={classStats.totalAbsences.toString()}
+                  subtitle={`${classStats.motivatedAbsences} motivate`}
+                  icon={XCircle}
+                  variant="warning"
+                />
+              </div>
 
           {/* Action Buttons */}
           <div className="flex flex-wrap gap-3 mb-6">
@@ -647,6 +754,8 @@ const HomeroomDashboard = () => {
               )}
             </CardContent>
           </Card>
+            </>
+          )}
         </div>
       </main>
     </div>
