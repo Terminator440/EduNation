@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   BookOpen,
@@ -13,8 +13,6 @@ import {
   Phone,
   Key,
 } from "lucide-react";
-import { z } from "zod";
-
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,14 +20,11 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth, AppRole } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { z } from "zod";
 
-type FormErrors = {
-  email?: string;
-  password?: string;
-  fullName?: string;
-  activationCode?: string;
-  staffCode?: string;
-};
+type FormErrors = Partial<
+  Record<"email" | "password" | "fullName" | "activationCode" | "staffCode", string>
+>;
 
 const STAFF_SIGNUP_CODE = import.meta.env.VITE_STAFF_SIGNUP_CODE as string | undefined;
 
@@ -46,12 +41,6 @@ const routeMap: Record<AppRole, string> = {
   uat_admin: "/admin",
 };
 
-const normalizeActivationCode = (v: string) =>
-  v.trim().toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8);
-
-// Some environments (sandboxed iframes / strict privacy settings) can throw
-// DOMException("The operation is insecure") on localStorage access (not just return null).
-// We defensively guard all storage reads/writes.
 const safeStorageGet = (key: string): string | null => {
   try {
     return window.localStorage.getItem(key);
@@ -64,15 +53,19 @@ const safeStorageSet = (key: string, value: string): void => {
   try {
     window.localStorage.setItem(key, value);
   } catch {
-    // ignore
+    // ignore (sandbox / privacy mode)
   }
 };
+
+const normalizeActivationCode = (v: string) =>
+  v.trim().toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8);
 
 const Auth = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { signIn, signUp, user, loading, activeRole } = useAuth();
 
+  // UI mode
   const [isLogin, setIsLogin] = useState(true);
   const [showActivation, setShowActivation] = useState(false);
 
@@ -80,19 +73,26 @@ const Auth = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  // Signup / activation fields
+  // Signup fields
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
-  const [selectedRole, setSelectedRole] = useState<AppRole>("parent"); // signup type (parent or teacher-gated)
+  const [selectedRole, setSelectedRole] = useState<AppRole>("parent"); // signup type
   const [staffCode, setStaffCode] = useState("");
 
   // Activation flow
-  const [activationCode, setActivationCode] = useState("");
   const [activationRole, setActivationRole] = useState<AppRole>("student");
+  const [activationCode, setActivationCode] = useState("");
 
+  // UX
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
+
+  const isTeacherSignup = useMemo(() => !isLogin && !showActivation && selectedRole === "teacher", [
+    isLogin,
+    showActivation,
+    selectedRole,
+  ]);
 
   // Auto-redirect if already logged in
   useEffect(() => {
@@ -103,72 +103,71 @@ const Auth = () => {
     }
   }, [user, loading, navigate, activeRole]);
 
-  const clearTransientErrors = () => setErrors({});
-
   const validateForm = (): boolean => {
-    const next: FormErrors = {};
+    const newErrors: FormErrors = {};
 
-    // email/password always required
     try {
       emailSchema.parse(email);
     } catch (e) {
-      if (e instanceof z.ZodError) next.email = e.errors[0]?.message ?? "Email invalid";
+      if (e instanceof z.ZodError) newErrors.email = e.errors[0]?.message ?? "Email invalid";
     }
 
     try {
       passwordSchema.parse(password);
     } catch (e) {
-      if (e instanceof z.ZodError) next.password = e.errors[0]?.message ?? "Parolă invalidă";
+      if (e instanceof z.ZodError) newErrors.password = e.errors[0]?.message ?? "Parolă invalidă";
     }
 
-    if (!isLogin) {
-      if (!fullName.trim()) next.fullName = "Numele este obligatoriu";
+    if (!isLogin && !showActivation && !fullName.trim()) {
+      newErrors.fullName = "Numele este obligatoriu";
+    }
 
-      // Staff sign-up gate (teacher only)
-      if (selectedRole === "teacher") {
-        if (!STAFF_SIGNUP_CODE) {
-          next.staffCode = "Înscrierea cadrelor didactice este dezactivată (lipsește VITE_STAFF_SIGNUP_CODE)";
-        } else if (!staffCode.trim()) {
-          next.staffCode = "Codul de invitație este obligatoriu";
-        } else if (staffCode.trim() !== STAFF_SIGNUP_CODE) {
-          next.staffCode = "Cod de invitație incorect";
-        }
+    if (isTeacherSignup) {
+      if (!STAFF_SIGNUP_CODE) {
+        newErrors.staffCode =
+          "Înscrierea cadrelor didactice este dezactivată (lipsește VITE_STAFF_SIGNUP_CODE)";
+      } else if (!staffCode.trim()) {
+        newErrors.staffCode = "Codul de invitație este obligatoriu";
+      } else if (staffCode.trim() !== STAFF_SIGNUP_CODE) {
+        newErrors.staffCode = "Cod de invitație incorect";
       }
     }
 
-    setErrors(next);
-    return Object.keys(next).length === 0;
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
   const handleActivateAccount = async () => {
-    clearTransientErrors();
-
     const code = normalizeActivationCode(activationCode);
+
     if (!code) {
       setErrors({ activationCode: "Codul de activare este obligatoriu" });
       return;
     }
 
-    // Basic validation for activation: name/email/password
-    const next: FormErrors = {};
+    // Activation needs email/password/fullName too
+    const activationErrors: FormErrors = {};
     try {
       emailSchema.parse(email);
     } catch (e) {
-      if (e instanceof z.ZodError) next.email = e.errors[0]?.message ?? "Email invalid";
+      if (e instanceof z.ZodError) activationErrors.email = e.errors[0]?.message ?? "Email invalid";
     }
     try {
       passwordSchema.parse(password);
     } catch (e) {
-      if (e instanceof z.ZodError) next.password = e.errors[0]?.message ?? "Parolă invalidă";
+      if (e instanceof z.ZodError)
+        activationErrors.password = e.errors[0]?.message ?? "Parolă invalidă";
     }
-    if (!fullName.trim()) next.fullName = "Numele este obligatoriu";
+    if (!fullName.trim()) activationErrors.fullName = "Numele este obligatoriu";
 
-    if (Object.keys(next).length) {
-      setErrors(next);
+    if (Object.keys(activationErrors).length) {
+      setErrors(activationErrors);
       return;
     }
 
     setIsLoading(true);
+    setErrors({});
+
     try {
       const { data: activation, error: fetchError } = await supabase
         .from("student_activations")
@@ -186,7 +185,7 @@ const Auth = () => {
         return;
       }
 
-      if (new Date(activation.expires_at) < new Date()) {
+      if (activation?.expires_at && new Date(activation.expires_at) < new Date()) {
         toast({
           title: "Cod expirat",
           description: "Codul de activare a expirat. Contactează secretariatul.",
@@ -195,7 +194,6 @@ const Auth = () => {
         return;
       }
 
-      // Create account
       const { error: signUpError } = await signUp(
         email,
         password,
@@ -203,6 +201,7 @@ const Auth = () => {
         activationRole,
         phone.trim() || null
       );
+
       if (signUpError) {
         toast({
           title: "Eroare",
@@ -212,7 +211,7 @@ const Auth = () => {
         return;
       }
 
-      // Sign in immediately (so we can claim activation via RPC)
+      // Sign in so we can claim the activation immediately (if email confirm is off).
       const { error: signInError } = await signIn(email, password);
       if (signInError) {
         toast({
@@ -226,21 +225,27 @@ const Auth = () => {
       if (activationRole === "student") {
         const { error: rpcError } = await supabase.rpc("claim_student_activation", { _code: code });
         if (rpcError) throw rpcError;
-        toast({ title: "Cont elev activat", description: "Contul tău a fost legat de profilul elevului." });
-      } else {
+
+        toast({
+          title: "Cont elev activat",
+          description: "Contul tău a fost legat de profilul elevului.",
+        });
+      } else if (activationRole === "parent") {
         const { error: rpcError } = await supabase.rpc("claim_parent_relation", {
           _code: code,
           _is_primary: true,
         });
         if (rpcError) throw rpcError;
-        toast({ title: "Cont părinte conectat", description: "Contul tău a fost legat de elev." });
+
+        toast({
+          title: "Cont părinte conectat",
+          description: "Contul tău a fost legat de elev.",
+        });
       }
 
-      // Save active role and route
       safeStorageSet("eduro.activeRole", activationRole);
       navigate(routeMap[activationRole] ?? "/dashboard");
     } catch (err: unknown) {
-      console.error("Activation error:", err);
       const message =
         typeof err === "object" && err !== null && "message" in err
           ? String((err as { message?: unknown }).message ?? "")
@@ -258,38 +263,33 @@ const Auth = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    clearTransientErrors();
 
     if (!validateForm()) return;
 
     setIsLoading(true);
+    setErrors({});
+
     try {
       if (isLogin) {
-        const { error: signInError } = await signIn(email, password);
-
-        if (signInError) {
-          const msg = signInError.message || "Autentificare eșuată.";
+        const { error } = await signIn(email, password);
+        if (error) {
+          const isInvalid = error.message?.toLowerCase().includes("invalid login credentials");
           toast({
             title: "Eroare de autentificare",
-            description: msg.includes("Invalid login credentials") ? "Email sau parolă incorectă." : msg,
+            description: isInvalid ? "Email sau parolă incorectă." : error.message,
             variant: "destructive",
           });
           return;
         }
 
-        toast({
-          title: "Autentificare reușită",
-          description: "Bine ai venit!",
-        });
+        toast({ title: "Autentificare reușită", description: "Bine ai venit!" });
 
-        // Do not force a portal role here. Role is derived from user roles/profile.
-        // AuthProvider will pick a valid active role and persist it best-effort.
-        // We navigate to a neutral route and let role-based routing/guards handle the rest.
+        // Do not force a portal role here; AuthProvider decides best role.
         navigate("/dashboard");
         return;
       }
 
-      // Sign up (parent or teacher-gated)
+      // Signup (parent or teacher-gated)
       const { error: signUpError } = await signUp(
         email,
         password,
@@ -300,9 +300,10 @@ const Auth = () => {
 
       if (signUpError) {
         const msg = signUpError.message || "Înregistrare eșuată.";
+        const isExisting = msg.toLowerCase().includes("already");
         toast({
-          title: msg.includes("User already registered") ? "Cont existent" : "Eroare",
-          description: msg.includes("User already registered")
+          title: isExisting ? "Cont existent" : "Eroare",
+          description: isExisting
             ? "Există deja un cont cu acest email. Încearcă să te autentifici."
             : msg,
           variant: "destructive",
@@ -312,7 +313,7 @@ const Auth = () => {
 
       toast({ title: "Cont creat cu succes", description: "Te-ai înregistrat cu succes!" });
 
-      // Optional: after signup, you may require email confirmation; we still route to dashboard
+      // Best-effort persist role preference for routing
       safeStorageSet("eduro.activeRole", selectedRole);
       navigate(routeMap[selectedRole] ?? "/dashboard");
     } catch (err: unknown) {
@@ -364,9 +365,8 @@ const Auth = () => {
               : "Înregistrează-te pentru a accesa catalogul"}
           </p>
 
-          {/* Register / Activation tabs (only when not login) */}
           {!isLogin && (
-            <Tabs defaultValue={showActivation ? "activate" : "register"} className="mb-6">
+            <Tabs defaultValue="register" className="mb-6">
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="register" onClick={() => setShowActivation(false)}>
                   Înregistrare
@@ -379,82 +379,8 @@ const Auth = () => {
           )}
 
           {isLogin ? (
-            <>
-              {/* Login form */}
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <Label htmlFor="email">Email</Label>
-                  <div className="relative mt-1">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                    <Input
-                      id="email"
-                      type="email"
-                      placeholder="nume@scoala.ro"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="pl-10"
-                    />
-                  </div>
-                  {errors.email && <p className="text-sm text-destructive mt-1">{errors.email}</p>}
-                </div>
-
-                <div>
-                  <Label htmlFor="password">Parolă</Label>
-                  <div className="relative mt-1">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                    <Input
-                      id="password"
-                      type={showPassword ? "text" : "password"}
-                      placeholder="••••••••"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="pl-10 pr-10"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword((s) => !s)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                    >
-                      {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                    </button>
-                  </div>
-                  {errors.password && <p className="text-sm text-destructive mt-1">{errors.password}</p>}
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" className="rounded border-border" />
-                    <span className="text-sm text-muted-foreground">Ține-mă minte</span>
-                  </label>
-                  <a href="#" className="text-sm text-primary hover:underline">
-                    Ai uitat parola?
-                  </a>
-                </div>
-
-                <Button type="submit" variant="hero" size="lg" className="w-full" disabled={isLoading}>
-                  {isLoading ? "Se procesează..." : "Autentificare"}
-                </Button>
-              </form>
-            </>
-          ) : showActivation ? (
-            /* Activation form */
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="fullName">Nume complet</Label>
-                <div className="relative mt-1">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                  <Input
-                    id="fullName"
-                    type="text"
-                    placeholder="Ion Popescu"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-                {errors.fullName && <p className="text-sm text-destructive mt-1">{errors.fullName}</p>}
-              </div>
-
+            /* Login form */
+            <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <Label htmlFor="email">Email</Label>
                 <div className="relative mt-1">
@@ -466,6 +392,7 @@ const Auth = () => {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="pl-10"
+                    autoComplete="email"
                   />
                 </div>
                 {errors.email && <p className="text-sm text-destructive mt-1">{errors.email}</p>}
@@ -482,11 +409,89 @@ const Auth = () => {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="pl-10 pr-10"
+                    autoComplete="current-password"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword((s) => !s)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    aria-label={showPassword ? "Ascunde parola" : "Afișează parola"}
+                  >
+                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
+                </div>
+                {errors.password && <p className="text-sm text-destructive mt-1">{errors.password}</p>}
+              </div>
+
+              <div className="flex items-center justify-between">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" className="rounded border-border" />
+                  <span className="text-sm text-muted-foreground">Ține-mă minte</span>
+                </label>
+                <a href="#" className="text-sm text-primary hover:underline">
+                  Ai uitat parola?
+                </a>
+              </div>
+
+              <Button type="submit" variant="hero" size="lg" className="w-full" disabled={isLoading}>
+                {isLoading ? "Se procesează..." : "Autentificare"}
+              </Button>
+            </form>
+          ) : showActivation ? (
+            /* Activation form */
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="fullName">Nume complet</Label>
+                <div className="relative mt-1">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                  <Input
+                    id="fullName"
+                    type="text"
+                    placeholder="Ion Popescu"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    className="pl-10"
+                    autoComplete="name"
+                  />
+                </div>
+                {errors.fullName && <p className="text-sm text-destructive mt-1">{errors.fullName}</p>}
+              </div>
+
+              <div>
+                <Label htmlFor="email">Email</Label>
+                <div className="relative mt-1">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="nume@scoala.ro"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="pl-10"
+                    autoComplete="email"
+                  />
+                </div>
+                {errors.email && <p className="text-sm text-destructive mt-1">{errors.email}</p>}
+              </div>
+
+              <div>
+                <Label htmlFor="password">Parolă</Label>
+                <div className="relative mt-1">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="pl-10 pr-10"
+                    autoComplete="new-password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((s) => !s)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    aria-label={showPassword ? "Ascunde parola" : "Afișează parola"}
                   >
                     {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                   </button>
@@ -501,7 +506,9 @@ const Auth = () => {
                     type="button"
                     onClick={() => setActivationRole("student")}
                     className={`p-4 rounded-xl border-2 transition-all ${
-                      activationRole === "student" ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
+                      activationRole === "student"
+                        ? "border-primary bg-primary/5"
+                        : "border-border hover:border-primary/50"
                     }`}
                   >
                     <div className="flex items-center justify-center gap-2">
@@ -509,11 +516,14 @@ const Auth = () => {
                       <span className="font-medium">Elev</span>
                     </div>
                   </button>
+
                   <button
                     type="button"
                     onClick={() => setActivationRole("parent")}
                     className={`p-4 rounded-xl border-2 transition-all ${
-                      activationRole === "parent" ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
+                      activationRole === "parent"
+                        ? "border-primary bg-primary/5"
+                        : "border-border hover:border-primary/50"
                     }`}
                   >
                     <div className="flex items-center justify-center gap-2">
@@ -535,6 +545,7 @@ const Auth = () => {
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     className="pl-10"
+                    autoComplete="tel"
                   />
                 </div>
               </div>
@@ -551,12 +562,21 @@ const Auth = () => {
                     onChange={(e) => setActivationCode(normalizeActivationCode(e.target.value))}
                     className="pl-10 uppercase"
                     maxLength={8}
+                    autoComplete="one-time-code"
                   />
                 </div>
-                {errors.activationCode && <p className="text-sm text-destructive mt-1">{errors.activationCode}</p>}
+                {errors.activationCode && (
+                  <p className="text-sm text-destructive mt-1">{errors.activationCode}</p>
+                )}
               </div>
 
-              <Button variant="hero" size="lg" className="w-full" disabled={isLoading} onClick={handleActivateAccount}>
+              <Button
+                variant="hero"
+                size="lg"
+                className="w-full"
+                disabled={isLoading}
+                onClick={handleActivateAccount}
+              >
                 {isLoading ? "Se procesează..." : "Activează contul"}
               </Button>
 
@@ -565,8 +585,8 @@ const Auth = () => {
               </Button>
             </div>
           ) : (
+            /* Signup form */
             <>
-              {/* Signup type (Parent / Teacher gated) */}
               <div className="mb-6">
                 <Label className="text-sm text-muted-foreground mb-3 block">Tip cont</Label>
                 <div className="grid grid-cols-2 gap-3">
@@ -579,9 +599,15 @@ const Auth = () => {
                         : "border-border hover:border-muted-foreground/30"
                     }`}
                   >
-                    <UserCircle className={`w-6 h-6 ${selectedRole === "parent" ? "text-green-600" : "text-muted-foreground"}`} />
+                    <UserCircle
+                      className={`w-6 h-6 ${
+                        selectedRole === "parent" ? "text-green-600" : "text-muted-foreground"
+                      }`}
+                    />
                     <span className="font-medium">Părinte</span>
-                    <span className="text-xs text-muted-foreground text-center">Acces la situația copiilor</span>
+                    <span className="text-xs text-muted-foreground text-center">
+                      Acces la situația copiilor
+                    </span>
                   </button>
 
                   <button
@@ -594,9 +620,15 @@ const Auth = () => {
                         : "border-border hover:border-muted-foreground/30"
                     } ${!STAFF_SIGNUP_CODE ? "opacity-60 cursor-not-allowed" : ""}`}
                   >
-                    <Users className={`w-6 h-6 ${selectedRole === "teacher" ? "text-accent" : "text-muted-foreground"}`} />
+                    <Users
+                      className={`w-6 h-6 ${
+                        selectedRole === "teacher" ? "text-accent" : "text-muted-foreground"
+                      }`}
+                    />
                     <span className="font-medium">Cadru didactic</span>
-                    <span className="text-xs text-muted-foreground text-center">Doar cu invitație de la școală</span>
+                    <span className="text-xs text-muted-foreground text-center">
+                      Doar cu invitație de la școală
+                    </span>
                   </button>
                 </div>
 
@@ -624,7 +656,6 @@ const Auth = () => {
                 )}
               </div>
 
-              {/* Signup form */}
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
                   <Label htmlFor="fullName">Nume complet</Label>
@@ -637,6 +668,7 @@ const Auth = () => {
                       value={fullName}
                       onChange={(e) => setFullName(e.target.value)}
                       className="pl-10"
+                      autoComplete="name"
                     />
                   </div>
                   {errors.fullName && <p className="text-sm text-destructive mt-1">{errors.fullName}</p>}
@@ -653,6 +685,7 @@ const Auth = () => {
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
                       className="pl-10"
+                      autoComplete="tel"
                     />
                   </div>
                 </div>
@@ -668,6 +701,7 @@ const Auth = () => {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       className="pl-10"
+                      autoComplete="email"
                     />
                   </div>
                   {errors.email && <p className="text-sm text-destructive mt-1">{errors.email}</p>}
@@ -684,11 +718,13 @@ const Auth = () => {
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       className="pl-10 pr-10"
+                      autoComplete="new-password"
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword((s) => !s)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      aria-label={showPassword ? "Ascunde parola" : "Afișează parola"}
                     >
                       {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                     </button>
@@ -709,7 +745,7 @@ const Auth = () => {
               onClick={() => {
                 setIsLogin((v) => !v);
                 setShowActivation(false);
-                clearTransientErrors();
+                setErrors({});
               }}
               className="text-primary hover:underline font-medium"
               type="button"
