@@ -46,6 +46,8 @@ const Auth = () => {
   const [fullName, setFullName] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [selectedRole, setSelectedRole] = useState<AppRole>("parent");
+  // Rolul/portalul ales la autentificare (Profesor / Secretariat / Admin)
+  const [loginPortalRole, setLoginPortalRole] = useState<AppRole>("teacher");
   const [isLoading, setIsLoading] = useState(false);
   const [staffCode, setStaffCode] = useState("");
   const [errors, setErrors] = useState<{ email?: string; password?: string; fullName?: string; activationCode?: string; staffCode?: string }>({});
@@ -208,6 +210,8 @@ const Auth = () => {
 
     try {
       if (isLogin) {
+        // Păstrăm portalul ales (Profesor/Secretariat/Admin) ca rol activ după login
+        localStorage.setItem("eduro.activeRole", loginPortalRole);
         const { error } = await signIn(email, password);
         if (error) {
           if (error.message.includes("Invalid login credentials")) {
