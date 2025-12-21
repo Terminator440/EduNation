@@ -20,8 +20,20 @@ const roleInfo: Record<AppRole, { label: string; icon: typeof GraduationCap; col
   uat_admin: { label: "Admin", icon: Users, color: "accent" },
 };
 
-// Only show these roles in signup
-const signupRoles: AppRole[] = ['parent', 'teacher'];
+/**
+ * Roles exposed in the signup UI.
+ *
+ * Staff roles are gated behind a setup code so random users can't self-assign
+ * director/secretariat/admin permissions.
+ */
+const publicSignupRoles: AppRole[] = ['parent', 'teacher'];
+const staffSignupRoles: AppRole[] = ['secretariat', 'director', 'uat_admin'];
+
+// Use a Vite env var so staff roles can't be self-assigned without a setup code.
+// Example: VITE_STAFF_SIGNUP_CODE=some-long-random-string
+const STAFF_SIGNUP_CODE = import.meta.env.VITE_STAFF_SIGNUP_CODE as string | undefined;
+const enabledStaffSignupRoles: AppRole[] = STAFF_SIGNUP_CODE ? staffSignupRoles : [];
+const signupRoles: AppRole[] = [...publicSignupRoles, ...enabledStaffSignupRoles];
 
 const emailSchema = z.string().email("Email invalid");
 const passwordSchema = z.string().min(6, "Parola trebuie să aibă cel puțin 6 caractere");
@@ -34,7 +46,8 @@ const Auth = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [selectedRole, setSelectedRole] = useState<AppRole>("parent");
   const [isLoading, setIsLoading] = useState(false);
-  const [errors, setErrors] = useState<{ email?: string; password?: string; fullName?: string; activationCode?: string }>({});
+  const [staffCode, setStaffCode] = useState("");
+  const [errors, setErrors] = useState<{ email?: string; password?: string; fullName?: string; activationCode?: string; staffCode?: string }>({});
   
   // Activation code for students/parents linking
   const [activationCode, setActivationCode] = useState("");
@@ -52,7 +65,7 @@ const Auth = () => {
   }, [user, loading, navigate]);
 
   const validateForm = () => {
-    const newErrors: { email?: string; password?: string; fullName?: string; activationCode?: string } = {};
+    const newErrors: { email?: string; password?: string; fullName?: string; activationCode?: string; staffCode?: string } = {};
     
     try {
       emailSchema.parse(email);
@@ -72,6 +85,17 @@ const Auth = () => {
 
     if (!isLogin && !fullName.trim()) {
       newErrors.fullName = "Numele este obligatoriu";
+    }
+
+    // Staff roles (director/secretariat/admin) are gated by a setup code.
+    if (!isLogin && enabledStaffSignupRoles.includes(selectedRole)) {
+      if (!STAFF_SIGNUP_CODE) {
+        newErrors.staffCode = "Rolurile de staff sunt dezactivate (lipsește VITE_STAFF_SIGNUP_CODE)";
+      } else if (!staffCode.trim()) {
+        newErrors.staffCode = "Codul de staff este obligatoriu";
+      } else if (staffCode.trim() !== STAFF_SIGNUP_CODE) {
+        newErrors.staffCode = "Cod staff incorect";
+      }
     }
 
     setErrors(newErrors);
@@ -460,6 +484,30 @@ const Auth = () => {
                       />
                     </div>
                     {errors.fullName && <p className="text-sm text-destructive mt-1">{errors.fullName}</p>}
+                  </div>
+                )}
+
+                {!isLogin && enabledStaffSignupRoles.includes(selectedRole) && (
+                  <div>
+                    <Label htmlFor="staffCode">Cod staff</Label>
+                    <div className="relative mt-1">
+                      <Key className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                      <Input
+                        id="staffCode"
+                        type="password"
+                        placeholder="Cod primit de la administrator"
+                        value={staffCode}
+                        onChange={(e) => setStaffCode(e.target.value)}
+                        className="pl-10"
+                        autoComplete="off"
+                      />
+                    </div>
+                    {errors.staffCode && <p className="text-sm text-destructive mt-1">{errors.staffCode}</p>}
+                    {!STAFF_SIGNUP_CODE && (
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Rolurile de staff sunt dezactivate. Setează variabila de mediu <code>VITE_STAFF_SIGNUP_CODE</code>.
+                      </p>
+                    )}
                   </div>
                 )}
 
