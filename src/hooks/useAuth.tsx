@@ -148,6 +148,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         effectiveRoles = Array.from(new Set([...effectiveRoles, 'director']));
       }
 
+      // Convenience: teachers may also act as homeroom teachers (diriginte) in your requested flow.
+      if (effectiveRoles.includes('teacher') && !effectiveRoles.includes('homeroom_teacher')) {
+        effectiveRoles = Array.from(new Set([...effectiveRoles, 'homeroom_teacher']));
+      }
+
       // Best-effort bootstrap into DB so future sessions match the database. Ignore failures (often due to RLS).
       if (roles.length === 0 && metaRole) {
         try {
@@ -157,6 +162,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           }
           if (metaRole === 'teacher') {
             await supabase.from('user_roles').insert({ user_id: userId, role: 'director' });
+            await supabase.from('user_roles').insert({ user_id: userId, role: 'homeroom_teacher' });
           }
         } catch {
           // Ignore - DB policies may block inserts, but the app can still function using metadata + local selection.
