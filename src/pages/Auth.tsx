@@ -20,6 +20,7 @@ const roleInfo: Record<AppRole, { label: string; icon: typeof GraduationCap; col
   uat_admin: { label: "Admin", icon: Users, color: "accent" },
 };
 
+<<<<<<< HEAD
 /**
  * Roles exposed in the signup UI.
  *
@@ -28,11 +29,48 @@ const roleInfo: Record<AppRole, { label: string; icon: typeof GraduationCap; col
  */
 // Use a Vite env var so teacher sign-up can't be self-assigned without a school invite code.
 // Example: VITE_STAFF_SIGNUP_CODE=some-long-random-string
+=======
+>>>>>>> 45710aa (Fix login UI, storage error, and SecretariatDashboard syntax)
 const STAFF_SIGNUP_CODE = import.meta.env.VITE_STAFF_SIGNUP_CODE as string | undefined;
 
 const emailSchema = z.string().email("Email invalid");
 const passwordSchema = z.string().min(6, "Parola trebuie să aibă cel puțin 6 caractere");
 
+<<<<<<< HEAD
+=======
+const routeMap: Record<AppRole, string> = {
+  student: "/dashboard",
+  parent: "/parent",
+  teacher: "/teacher",
+  homeroom_teacher: "/homeroom",
+  secretariat: "/secretariat",
+  director: "/director",
+  uat_admin: "/admin",
+};
+
+const normalizeActivationCode = (v: string) =>
+  v.trim().toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8);
+
+// Some environments (sandboxed iframes / strict privacy settings) can throw
+// DOMException("The operation is insecure") on localStorage access (not just return null).
+// We defensively guard all storage reads/writes.
+const safeStorageGet = (key: string): string | null => {
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+};
+
+const safeStorageSet = (key: string, value: string): void => {
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    // ignore
+  }
+};
+
+>>>>>>> 45710aa (Fix login UI, storage error, and SecretariatDashboard syntax)
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
@@ -54,6 +92,7 @@ const Auth = () => {
   const { toast } = useToast();
   const { signIn, signUp, user, loading, activeRole } = useAuth();
 
+<<<<<<< HEAD
   useEffect(() => {
     if (!loading && user) {
       const stored = localStorage.getItem('eduro.activeRole') as AppRole | null;
@@ -68,6 +107,35 @@ const Auth = () => {
         uat_admin: '/admin',
       };
       navigate(routeMap[role] ?? '/dashboard');
+=======
+  const [isLogin, setIsLogin] = useState(true);
+  const [showActivation, setShowActivation] = useState(false);
+
+  // Common fields
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
+  // Signup / activation fields
+  const [fullName, setFullName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [selectedRole, setSelectedRole] = useState<AppRole>("parent"); // signup type (parent or teacher-gated)
+  const [staffCode, setStaffCode] = useState("");
+
+  // Activation flow
+  const [activationCode, setActivationCode] = useState("");
+  const [activationRole, setActivationRole] = useState<AppRole>("student");
+
+  const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [errors, setErrors] = useState<FormErrors>({});
+
+  // Auto-redirect if already logged in
+  useEffect(() => {
+    if (!loading && user) {
+      const stored = (safeStorageGet("eduro.activeRole") as AppRole | null) ?? null;
+      const role: AppRole = (stored ?? activeRole ?? "student") as AppRole;
+      navigate(routeMap[role] ?? "/dashboard");
+>>>>>>> 45710aa (Fix login UI, storage error, and SecretariatDashboard syntax)
     }
   }, [user, loading, navigate, activeRole]);
 
@@ -181,9 +249,22 @@ const Auth = () => {
         });
       }
 
+<<<<<<< HEAD
       navigate("/dashboard");
     } catch (error) {
       console.error('Activation error:', error);
+=======
+      // Save active role and route
+      safeStorageSet("eduro.activeRole", activationRole);
+      navigate(routeMap[activationRole] ?? "/dashboard");
+    } catch (err: unknown) {
+      console.error("Activation error:", err);
+      const message =
+        typeof err === "object" && err !== null && "message" in err
+          ? String((err as { message?: unknown }).message ?? "")
+          : "A apărut o eroare la activare.";
+
+>>>>>>> 45710aa (Fix login UI, storage error, and SecretariatDashboard syntax)
       toast({
         title: "Eroare",
         description: "A apărut o eroare la activare.",
@@ -220,11 +301,16 @@ const Auth = () => {
           }
           return;
         }
+<<<<<<< HEAD
+=======
+
+>>>>>>> 45710aa (Fix login UI, storage error, and SecretariatDashboard syntax)
         toast({
           title: "Autentificare reușită",
           description: `Bine ai venit!`,
         });
 
+<<<<<<< HEAD
         // Set preferred role for routing + role switcher.        localStorage.setItem('eduro.activeRole', preferred);
       } else {
         const { error } = await signUp(email, password, fullName, selectedRole, phone.trim() || null);
@@ -244,12 +330,52 @@ const Auth = () => {
           }
           return;
         }
+=======
+        // Do not force a portal role here. Role is derived from user roles/profile.
+        // AuthProvider will pick a valid active role and persist it best-effort.
+        // We navigate to a neutral route and let role-based routing/guards handle the rest.
+        navigate("/dashboard");
+        return;
+      }
+
+      // Sign up (parent or teacher-gated)
+      const { error: signUpError } = await signUp(
+        email,
+        password,
+        fullName,
+        selectedRole,
+        phone.trim() || null
+      );
+
+      if (signUpError) {
+        const msg = signUpError.message || "Înregistrare eșuată.";
+>>>>>>> 45710aa (Fix login UI, storage error, and SecretariatDashboard syntax)
         toast({
           title: "Cont creat cu succes",
           description: "Te-ai înregistrat cu succes!",
         });
       }
+<<<<<<< HEAD
       navigate("/dashboard");
+=======
+
+      toast({ title: "Cont creat cu succes", description: "Te-ai înregistrat cu succes!" });
+
+      // Optional: after signup, you may require email confirmation; we still route to dashboard
+      safeStorageSet("eduro.activeRole", selectedRole);
+      navigate(routeMap[selectedRole] ?? "/dashboard");
+    } catch (err: unknown) {
+      const message =
+        typeof err === "object" && err !== null && "message" in err
+          ? String((err as { message?: unknown }).message ?? "")
+          : "A apărut o eroare.";
+
+      toast({
+        title: "Eroare",
+        description: message || "A apărut o eroare.",
+        variant: "destructive",
+      });
+>>>>>>> 45710aa (Fix login UI, storage error, and SecretariatDashboard syntax)
     } finally {
       setIsLoading(false);
     }
@@ -301,8 +427,71 @@ const Auth = () => {
             </Tabs>
           )}
 
+<<<<<<< HEAD
           {showActivation ? (
             // Activation form for students
+=======
+          {isLogin ? (
+            <>
+              {/* Login form */}
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                  <Label htmlFor="email">Email</Label>
+                  <div className="relative mt-1">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="nume@scoala.ro"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                  {errors.email && <p className="text-sm text-destructive mt-1">{errors.email}</p>}
+                </div>
+
+                <div>
+                  <Label htmlFor="password">Parolă</Label>
+                  <div className="relative mt-1">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                    <Input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="pl-10 pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((s) => !s)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    >
+                      {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                    </button>
+                  </div>
+                  {errors.password && <p className="text-sm text-destructive mt-1">{errors.password}</p>}
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" className="rounded border-border" />
+                    <span className="text-sm text-muted-foreground">Ține-mă minte</span>
+                  </label>
+                  <a href="#" className="text-sm text-primary hover:underline">
+                    Ai uitat parola?
+                  </a>
+                </div>
+
+                <Button type="submit" variant="hero" size="lg" className="w-full" disabled={isLoading}>
+                  {isLoading ? "Se procesează..." : "Autentificare"}
+                </Button>
+              </form>
+            </>
+          ) : showActivation ? (
+            /* Activation form */
+>>>>>>> 45710aa (Fix login UI, storage error, and SecretariatDashboard syntax)
             <div className="space-y-4">
               <div>
                 <Label htmlFor="fullName">Nume complet</Label>
