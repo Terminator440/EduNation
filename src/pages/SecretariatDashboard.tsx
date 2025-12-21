@@ -1,46 +1,34 @@
 import { useMemo, useState } from "react";
-import { Users, GraduationCap, FileText, Plus, Search } from "lucide-react";
-
+import { Users, GraduationCap, FileText, Calendar, Plus, Upload, Search } from "lucide-react";
 import Sidebar from "@/components/dashboard/Sidebar";
 import StatsCard from "@/components/dashboard/StatsCard";
 import RoleSwitcher from "@/components/RoleSwitcher";
 import ThemeToggle from "@/components/ThemeToggle";
-
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
-import { useToast } from "@/hooks/use-toast";
-
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { useClasses, useCreateStudentWithActivation, useStudentsForSecretariat } from "@/features/secretariat/queries";
+import { useToast } from "@/hooks/use-toast";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
-import { useClasses, useCreateStudentWithActivation, useStudentsForSecretariat } from "@/features/secretariat/queries";
-
-type ParsedContact = { email: string | null; phone: string | null };
-
-const parseEmailOrPhone = (value: string): ParsedContact => {
-  const v = value.trim();
-  if (!v) return { email: null, phone: null };
-
-  // Basic heuristic: has @ => email
-  if (v.includes("@")) return { email: v.toLowerCase(), phone: null };
-
-  // Normalize phone: keep + and digits
-  const phone = v.replace(/[^0-9+]/g, "");
-  return { email: null, phone: phone || null };
-};
 
 const SecretariatDashboard = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-
   const [newStudentName, setNewStudentName] = useState("");
   const [newStudentClassId, setNewStudentClassId] = useState<string>("");
   const [newStudentContact, setNewStudentContact] = useState<string>("");
-
   const { user, profile } = useAuth();
   const { toast } = useToast();
 
@@ -48,27 +36,29 @@ const SecretariatDashboard = () => {
   const studentsQuery = useStudentsForSecretariat(searchQuery);
   const createStudent = useCreateStudentWithActivation();
 
-  const displayName = profile?.full_name || user?.email?.split("@")[0] || "Utilizator";
+  const displayName = profile?.full_name || user?.email?.split('@')[0] || 'Utilizator';
 
   const stats = useMemo(() => {
     const students = studentsQuery.data ?? [];
     const totalStudents = students.length;
-    const activeStudents = students.filter((s) => s.is_active).length;
+    const activeStudents = students.filter(s => s.is_active).length;
     const inactiveStudents = totalStudents - activeStudents;
     const classesCount = (classesQuery.data ?? []).length;
     return { totalStudents, activeStudents, inactiveStudents, classesCount };
   }, [studentsQuery.data, classesQuery.data]);
 
-  const handleCreateStudent = async () => {
-    if (!user) {
-      toast({
-        title: "Neautentificat",
-        description: "Trebuie să fii autentificat pentru a crea elevi.",
-        variant: "destructive",
-      });
-      return;
-    }
+  
+  const parseEmailOrPhone = (value: string): { email: string | null; phone: string | null } => {
+    const v = value.trim();
+    if (!v) return { email: null, phone: null };
+    if (v.includes('@')) return { email: v.toLowerCase(), phone: null };
+    // Normalize phone: keep + and digits
+    const phone = v.replace(/[^0-9+]/g, '');
+    return { email: null, phone: phone || null };
+  };
 
+const handleCreateStudent = async () => {
+    if (!user) return;
     if (!newStudentName.trim() || !newStudentClassId) {
       toast({
         title: "Date incomplete",
@@ -77,10 +67,8 @@ const SecretariatDashboard = () => {
       });
       return;
     }
-
     try {
-      const parsed = parseEmailOrPhone(newStudentContact);
-
+      const res = await const parsed = parseEmailOrPhone(newStudentContact);
       const res = await createStudent.mutateAsync({
         full_name: newStudentName.trim(),
         class_id: newStudentClassId,
@@ -89,26 +77,16 @@ const SecretariatDashboard = () => {
         contact_email: parsed.email,
         contact_phone: parsed.phone,
       });
-
       setNewStudentName("");
-      setNewStudentClassId("");
       setNewStudentContact("");
-
       toast({
         title: "Elev creat + cod generat",
-        description: `Cod activare: ${res.activation_code} (expiră: ${new Date(res.expires_at).toLocaleString(
-          "ro-RO"
-        )})`,
+        description: `Cod activare: ${res.activation_code} (expiră: ${new Date(res.expires_at).toLocaleString('ro-RO')})`,
       });
-    } catch (e: unknown) {
-      const msg =
-        typeof e === "object" && e !== null && "message" in e
-          ? String((e as { message?: unknown }).message ?? "")
-          : "";
-
+    } catch (e: any) {
       toast({
         title: "Eroare",
-        description: msg || "Nu am putut crea elevul.",
+        description: e?.message ?? "Nu am putut crea elevul.",
         variant: "destructive",
       });
     }
@@ -117,27 +95,21 @@ const SecretariatDashboard = () => {
   return (
     <div className="min-h-screen bg-background">
       <Sidebar isCollapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(!sidebarCollapsed)} />
-
-      <main
-        className={cn("transition-all duration-300", sidebarCollapsed ? "ml-20" : "ml-64")}
-      >
+      
+      <main className={cn(
+        "transition-all duration-300",
+        sidebarCollapsed ? "ml-20" : "ml-64"
+      )}>
         <header className="h-16 border-b border-border bg-card/50 backdrop-blur-sm flex items-center justify-between px-8 sticky top-0 z-30">
           <div>
             <h1 className="text-xl font-semibold text-foreground">Panou Secretariat</h1>
             <p className="text-sm text-muted-foreground">Gestionare elevi și clase</p>
           </div>
-
           <div className="flex items-center gap-4">
             <ThemeToggle />
             <RoleSwitcher />
             <div className="w-10 h-10 rounded-full bg-gradient-primary flex items-center justify-center text-primary-foreground font-semibold">
-              {displayName
-                .split(" ")
-                .filter(Boolean)
-                .map((n) => n[0])
-                .join("")
-                .slice(0, 2)
-                .toUpperCase()}
+              {displayName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
             </div>
           </div>
         </header>
@@ -160,7 +132,7 @@ const SecretariatDashboard = () => {
               variant="success"
             />
             <StatsCard
-              title="Elevi activi"
+              title="Elevi"
               value={String(stats.activeStudents)}
               subtitle="Marcați activi"
               icon={Users}
@@ -175,7 +147,7 @@ const SecretariatDashboard = () => {
             />
           </div>
 
-          {/* Create student */}
+          {/* Actions */}
           <Card className="mb-8">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -183,7 +155,6 @@ const SecretariatDashboard = () => {
                 Adaugă elev + generează cod
               </CardTitle>
             </CardHeader>
-
             <CardContent className="grid gap-4 md:grid-cols-3">
               <div className="md:col-span-1">
                 <Label>Nume elev</Label>
@@ -193,7 +164,6 @@ const SecretariatDashboard = () => {
                   onChange={(e) => setNewStudentName(e.target.value)}
                 />
               </div>
-
               <div className="md:col-span-1">
                 <Label>Clasă</Label>
                 <Select value={newStudentClassId} onValueChange={setNewStudentClassId}>
@@ -201,7 +171,7 @@ const SecretariatDashboard = () => {
                     <SelectValue placeholder="Alege clasa" />
                   </SelectTrigger>
                   <SelectContent>
-                    {(classesQuery.data ?? []).map((cls) => (
+                    {(classesQuery.data ?? []).map(cls => (
                       <SelectItem key={cls.id} value={cls.id}>
                         {cls.name}
                       </SelectItem>
@@ -209,7 +179,6 @@ const SecretariatDashboard = () => {
                   </SelectContent>
                 </Select>
               </div>
-
               <div className="md:col-span-1">
                 <Label>Email sau telefon (opțional)</Label>
                 <Input
@@ -229,7 +198,6 @@ const SecretariatDashboard = () => {
                   {createStudent.isPending ? "Se creează..." : "Creează + cod"}
                 </Button>
               </div>
-
               <div className="md:col-span-3 text-sm text-muted-foreground">
                 Codul apare în notificare după creare. Pentru import CSV și rapoarte, trebuie adăugate fluxuri dedicate.
               </div>
@@ -237,7 +205,7 @@ const SecretariatDashboard = () => {
           </Card>
 
           <div className="grid lg:grid-cols-3 gap-8">
-            {/* Students table */}
+            {/* Students Table */}
             <div className="lg:col-span-2">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
@@ -252,7 +220,6 @@ const SecretariatDashboard = () => {
                     />
                   </div>
                 </CardHeader>
-
                 <CardContent>
                   <Table>
                     <TableHeader>
@@ -263,29 +230,25 @@ const SecretariatDashboard = () => {
                         <TableHead>Data înscrierii</TableHead>
                       </TableRow>
                     </TableHeader>
-
                     <TableBody>
                       {(studentsQuery.data ?? []).map((student) => {
-                        const classLabel = student.class ? student.class.name : "—";
-                        const statusLabel = student.is_active ? "Activ" : "Inactiv";
-
+                        const classLabel = student.class ? student.class.name : '—';
+                        const statusLabel = student.is_active ? 'Activ' : 'Inactiv';
                         return (
                           <TableRow key={student.id}>
-                            <TableCell className="font-medium">{student.full_name ?? "—"}</TableCell>
-                            <TableCell>{classLabel}</TableCell>
-                            <TableCell>
-                              <span
-                                className={cn(
-                                  "px-2 py-1 rounded-full text-xs font-medium",
-                                  statusLabel === "Activ"
-                                    ? "bg-success/10 text-success"
-                                    : "bg-muted text-muted-foreground"
-                                )}
-                              >
-                                {statusLabel}
-                              </span>
-                            </TableCell>
-                            <TableCell>—</TableCell>
+                          <TableCell className="font-medium">{student.full_name ?? '—'}</TableCell>
+                          <TableCell>{classLabel}</TableCell>
+                          <TableCell>
+                            <span className={cn(
+                              "px-2 py-1 rounded-full text-xs font-medium",
+                              statusLabel === "Activ" 
+                                ? "bg-success/10 text-success" 
+                                : "bg-muted text-muted-foreground"
+                            )}>
+                              {statusLabel}
+                            </span>
+                          </TableCell>
+                          <TableCell>—</TableCell>
                           </TableRow>
                         );
                       })}
@@ -301,23 +264,16 @@ const SecretariatDashboard = () => {
                 <CardHeader>
                   <CardTitle>Clase</CardTitle>
                 </CardHeader>
-
                 <CardContent className="space-y-4">
                   {(classesQuery.data ?? []).map((cls) => {
-                    const studentsInClass = (studentsQuery.data ?? []).filter((s) => s.class?.id === cls.id).length;
-
+                    const studentsInClass = (studentsQuery.data ?? []).filter(s => s.class?.id === cls.id).length;
                     return (
-                      <div
-                        key={cls.id}
-                        className="p-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
-                      >
+                      <div key={cls.id} className="p-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
                         <div className="flex items-center justify-between mb-2">
                           <span className="font-semibold text-foreground">{cls.name}</span>
                           <span className="text-sm text-muted-foreground">{studentsInClass} elevi</span>
                         </div>
-                        <p className="text-sm text-muted-foreground">
-                          An: {cls.year} • Secțiunea: {cls.section}
-                        </p>
+                        <p className="text-sm text-muted-foreground">An: {cls.year} • Secțiunea: {cls.section}</p>
                       </div>
                     );
                   })}
