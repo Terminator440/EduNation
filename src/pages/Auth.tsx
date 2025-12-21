@@ -26,15 +26,9 @@ const roleInfo: Record<AppRole, { label: string; icon: typeof GraduationCap; col
  * Staff roles are gated behind a setup code so random users can't self-assign
  * director/secretariat/admin permissions.
  */
-const publicSignupRoles: AppRole[] = ['parent', 'teacher'];
-// Staff roles (including homeroom teacher / diriginte) are gated behind a setup code.
-const staffSignupRoles: AppRole[] = ['homeroom_teacher', 'secretariat', 'director', 'uat_admin'];
-
-// Use a Vite env var so staff roles can't be self-assigned without a setup code.
+// Use a Vite env var so teacher sign-up can't be self-assigned without a school invite code.
 // Example: VITE_STAFF_SIGNUP_CODE=some-long-random-string
 const STAFF_SIGNUP_CODE = import.meta.env.VITE_STAFF_SIGNUP_CODE as string | undefined;
-const enabledStaffSignupRoles: AppRole[] = STAFF_SIGNUP_CODE ? staffSignupRoles : [];
-const signupRoles: AppRole[] = [...publicSignupRoles, ...enabledStaffSignupRoles];
 
 const emailSchema = z.string().email("Email invalid");
 const passwordSchema = z.string().min(6, "Parola trebuie să aibă cel puțin 6 caractere");
@@ -101,14 +95,14 @@ const Auth = () => {
       newErrors.fullName = "Numele este obligatoriu";
     }
 
-    // Staff roles (director/secretariat/admin) are gated by a setup code.
-    if (!isLogin && enabledStaffSignupRoles.includes(selectedRole)) {
+    // Teacher sign-up is gated by a school invite code.
+    if (!isLogin && selectedRole === 'teacher') {
       if (!STAFF_SIGNUP_CODE) {
-        newErrors.staffCode = "Rolurile de staff sunt dezactivate (lipsește VITE_STAFF_SIGNUP_CODE)";
+        newErrors.staffCode = "Înscrierea cadrelor didactice este dezactivată (lipsește VITE_STAFF_SIGNUP_CODE)";
       } else if (!staffCode.trim()) {
-        newErrors.staffCode = "Codul de staff este obligatoriu";
+        newErrors.staffCode = "Codul de invitație este obligatoriu";
       } else if (staffCode.trim() !== STAFF_SIGNUP_CODE) {
-        newErrors.staffCode = "Cod staff incorect";
+        newErrors.staffCode = "Cod de invitație incorect";
       }
     }
 
@@ -292,7 +286,7 @@ const Auth = () => {
 
           {/* Heading */}
           <h1 className="text-3xl font-bold text-foreground mb-2">
-            {isLogin ? "Bine ai revenit!" : showActivation ? "Activare cont elev" : "Creează un cont"}
+            {isLogin ? "Bine ai revenit!" : showActivation ? "Activare cont" : "Creează un cont"}
           </h1>
           <p className="text-muted-foreground mb-8">
             {isLogin 
@@ -309,7 +303,7 @@ const Auth = () => {
                   Înregistrare
                 </TabsTrigger>
                 <TabsTrigger value="activate" onClick={() => setShowActivation(true)}>
-                  Activare elev
+                  Activare cont
                 </TabsTrigger>
               </TabsList>
             </Tabs>
@@ -447,49 +441,67 @@ const Auth = () => {
               {/* Role selector (only for signup - exclude student) */}
               {!isLogin && (
                 <div className="mb-6">
-                  <Label className="text-sm text-muted-foreground mb-3 block">Selectează rolul</Label>
+                  <Label className="text-sm text-muted-foreground mb-3 block">Tip cont</Label>
                   <div className="grid grid-cols-2 gap-3">
-                    {signupRoles.map((role) => {
-                      const info = roleInfo[role];
-                      const Icon = info.icon;
-                      const isSelected = selectedRole === role;
-                      return (
-                        <button
-                          key={role}
-                          type="button"
-                          onClick={() => setSelectedRole(role)}
-                          className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${
-                            isSelected
-                              ? info.color === "primary"
-                                ? "border-primary bg-primary/5"
-                                : info.color === "accent"
-                                ? "border-accent bg-accent/5"
-                                : "border-green-500 bg-green-500/5"
-                              : "border-border hover:border-muted-foreground/30"
-                          }`}
-                        >
-                          <Icon className={`w-6 h-6 ${
-                            isSelected
-                              ? info.color === "primary"
-                                ? "text-primary"
-                                : info.color === "accent"
-                                ? "text-accent"
-                                : "text-green-500"
-                              : "text-muted-foreground"
-                          }`} />
-                          <span className={`text-sm font-medium ${isSelected ? "text-foreground" : "text-muted-foreground"}`}>
-                            {info.label}
-                          </span>
-                        </button>
-                      );
-                    })}
+                    <button
+                      type="button"
+                      onClick={() => setSelectedRole('parent')}
+                      className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${
+                        selectedRole === 'parent'
+                          ? "border-green-500 bg-green-500/5"
+                          : "border-border hover:border-muted-foreground/30"
+                      }`}
+                    >
+                      <UserCircle className={`w-6 h-6 ${selectedRole === 'parent' ? "text-green-600" : "text-muted-foreground"}`} />
+                      <span className="font-medium">Părinte</span>
+                      <span className="text-xs text-muted-foreground text-center">
+                        Acces la situația copiilor
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setSelectedRole('teacher')}
+                      disabled={!STAFF_SIGNUP_CODE}
+                      className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${
+                        selectedRole === 'teacher'
+                          ? "border-accent bg-accent/5"
+                          : "border-border hover:border-muted-foreground/30"
+                      } ${!STAFF_SIGNUP_CODE ? "opacity-60 cursor-not-allowed" : ""}`}
+                    >
+                      <Users className={`w-6 h-6 ${selectedRole === 'teacher' ? "text-accent" : "text-muted-foreground"}`} />
+                      <span className="font-medium">Cadru didactic</span>
+                      <span className="text-xs text-muted-foreground text-center">
+                        Doar cu invitație de la școală
+                      </span>
+                    </button>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-3">
-                    Ești elev? <button onClick={() => setShowActivation(true)} className="text-primary hover:underline">Folosește codul de activare</button>
-                  </p>
+
+                  {selectedRole === 'teacher' && (
+                    <div className="mt-4 space-y-2">
+                      <Label htmlFor="staffCode">Cod invitație</Label>
+                      <div className="relative">
+                        <Key className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                        <Input
+                          id="staffCode"
+                          value={staffCode}
+                          onChange={(e) => setStaffCode(e.target.value)}
+                          placeholder="Cod primit de la director/secretariat"
+                          className={`pl-10 ${errors.staffCode ? "border-destructive" : ""}`}
+                        />
+                      </div>
+                      {errors.staffCode && (
+                        <p className="text-xs text-destructive">{errors.staffCode}</p>
+                      )}
+                      {!STAFF_SIGNUP_CODE && (
+                        <p className="text-xs text-muted-foreground">
+                          Înscrierea cadrelor didactice este dezactivată (lipsește VITE_STAFF_SIGNUP_CODE).
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
-
               {/* Form */}
               <form onSubmit={handleSubmit} className="space-y-4">
               {isLogin && (
@@ -550,7 +562,7 @@ const Auth = () => {
                   </div>
                 )}
 
-                {!isLogin && enabledStaffSignupRoles.includes(selectedRole) && (
+                {!isLogin && selectedRole === 'teacher' && (
                   <div>
                     <Label htmlFor="staffCode">Cod staff</Label>
                     <div className="relative mt-1">
