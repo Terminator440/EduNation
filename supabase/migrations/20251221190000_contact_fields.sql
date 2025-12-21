@@ -1,25 +1,38 @@
--- Add optional contact fields so students/parents can be added by email OR phone.
---
--- NOTE: The current app authentication flow is email + password.
--- These fields are primarily for onboarding/invitations and record-keeping.
+-- Add contact fields for students and phone for profiles; extend handle_new_user to persist phone metadata.
 
--- 1) Students: store contact info even before the student account is activated.
 ALTER TABLE public.students
   ADD COLUMN IF NOT EXISTS contact_email TEXT,
   ADD COLUMN IF NOT EXISTS contact_phone TEXT;
 
-CREATE UNIQUE INDEX IF NOT EXISTS students_contact_email_unique
-  ON public.students (lower(contact_email))
-  WHERE contact_email IS NOT NULL;
-
-CREATE UNIQUE INDEX IF NOT EXISTS students_contact_phone_unique
-  ON public.students (contact_phone)
-  WHERE contact_phone IS NOT NULL;
-
--- 2) Profiles: optional phone field for users that later activate accounts.
 ALTER TABLE public.profiles
   ADD COLUMN IF NOT EXISTS phone TEXT;
 
-CREATE UNIQUE INDEX IF NOT EXISTS profiles_phone_unique
-  ON public.profiles (phone)
-  WHERE phone IS NOT NULL;
+-- Update new-user trigger function to store phone (if provided in auth metadata)
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER SET search_path = public
+AS $$
+BEGIN
+  INSERT INTO public.profiles (id, full_name, email, phone)
+  VALUES (
+    NEW.id,
+    COALESCE(NEW.raw_user_meta_data ->> 'full_name', NEW.email),
+    NEW.email,
+    NULLIF(NEW.raw_user_meta_data ->> 'phone', '')
+  )
+  ON CONFLICT (id) DO UPDATE SET
+    full_name = EXCLUDED.full_name,
+    email = EXCLUDED.email,
+    phone = COALESCE(EXCLUDED.phone, public.profiles.phone);
+
+  -- Add role from metadata
+  IF NEW.raw_user_meta_data ->> 'role' IS NOT NULL THEN
+    INSERT INTO public.user_roles (user_id, role)
+    VALUES (NEW.id, (NEW.raw_user_meta_data ->> 'role')::app_role)
+    ON CONFLICT DO NOTHING;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;

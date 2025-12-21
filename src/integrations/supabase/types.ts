@@ -225,6 +225,7 @@ export type Database = {
           email?: string
           full_name?: string
           id?: string
+          phone?: string | null
           updated_at?: string | null
         }
         Relationships: []
@@ -279,6 +280,8 @@ export type Database = {
           created_at: string | null
           full_name: string | null
           id: string
+          contact_email: string | null
+          contact_phone: string | null
           is_active: boolean | null
           student_number: number | null
           user_id: string | null
@@ -288,6 +291,8 @@ export type Database = {
           created_at?: string | null
           full_name?: string | null
           id?: string
+          contact_email?: string | null
+          contact_phone?: string | null
           is_active?: boolean | null
           student_number?: number | null
           user_id?: string | null
@@ -297,6 +302,8 @@ export type Database = {
           created_at?: string | null
           full_name?: string | null
           id?: string
+          contact_email?: string | null
+          contact_phone?: string | null
           is_active?: boolean | null
           student_number?: number | null
           user_id?: string | null

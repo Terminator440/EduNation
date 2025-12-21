@@ -28,6 +28,7 @@ const SecretariatDashboard = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [newStudentName, setNewStudentName] = useState("");
   const [newStudentClassId, setNewStudentClassId] = useState<string>("");
+  const [newStudentContact, setNewStudentContact] = useState<string>("");
   const { user, profile } = useAuth();
   const { toast } = useToast();
 
@@ -46,7 +47,17 @@ const SecretariatDashboard = () => {
     return { totalStudents, activeStudents, inactiveStudents, classesCount };
   }, [studentsQuery.data, classesQuery.data]);
 
-  const handleCreateStudent = async () => {
+  
+  const parseEmailOrPhone = (value: string): { email: string | null; phone: string | null } => {
+    const v = value.trim();
+    if (!v) return { email: null, phone: null };
+    if (v.includes('@')) return { email: v.toLowerCase(), phone: null };
+    // Normalize phone: keep + and digits
+    const phone = v.replace(/[^0-9+]/g, '');
+    return { email: null, phone: phone || null };
+  };
+
+const handleCreateStudent = async () => {
     if (!user) return;
     if (!newStudentName.trim() || !newStudentClassId) {
       toast({
@@ -57,13 +68,17 @@ const SecretariatDashboard = () => {
       return;
     }
     try {
+      const res = await const parsed = parseEmailOrPhone(newStudentContact);
       const res = await createStudent.mutateAsync({
         full_name: newStudentName.trim(),
         class_id: newStudentClassId,
         created_by: user.id,
         expires_in_days: 14,
+        contact_email: parsed.email,
+        contact_phone: parsed.phone,
       });
       setNewStudentName("");
+      setNewStudentContact("");
       toast({
         title: "Elev creat + cod generat",
         description: `Cod activare: ${res.activation_code} (expiră: ${new Date(res.expires_at).toLocaleString('ro-RO')})`,
@@ -164,6 +179,15 @@ const SecretariatDashboard = () => {
                   </SelectContent>
                 </Select>
               </div>
+              <div className="md:col-span-1">
+                <Label>Email sau telefon (opțional)</Label>
+                <Input
+                  placeholder="ex: parinte@email.ro sau 07xx xxx xxx"
+                  value={newStudentContact}
+                  onChange={(e) => setNewStudentContact(e.target.value)}
+                />
+              </div>
+
               <div className="md:col-span-1 flex items-end">
                 <Button
                   className="gap-2 w-full"

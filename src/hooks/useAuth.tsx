@@ -201,7 +201,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const signUp = async (email: string, password: string, fullName: string, role: AppRole) => {
+  const signUp = async (email: string, password: string, fullName: string, role: AppRole, phone?: string | null) => {
     try {
       const redirectUrl = `${window.location.origin}/`;
       
@@ -213,6 +213,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           data: {
             full_name: fullName,
             role: role,
+            phone: phone ?? null,
           },
         },
       });

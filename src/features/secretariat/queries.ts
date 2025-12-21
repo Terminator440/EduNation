@@ -51,6 +51,8 @@ export type CreateStudentInput = {
   class_id: string;
   created_by: string;
   expires_in_days?: number;
+  contact_email?: string | null;
+  contact_phone?: string | null;
 };
 
 export const useCreateStudentWithActivation = () => {
@@ -59,7 +61,7 @@ export const useCreateStudentWithActivation = () => {
     mutationFn: async (input: CreateStudentInput) => {
       const { data: student, error: studentErr } = await supabase
         .from('students')
-        .insert({ full_name: input.full_name, class_id: input.class_id, is_active: false })
+        .insert({ full_name: input.full_name, class_id: input.class_id, is_active: false, contact_email: input.contact_email ?? null, contact_phone: input.contact_phone ?? null })
         .select('id')
         .single();
       if (studentErr) throw studentErr;

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { BookOpen, Mail, Lock, Eye, EyeOff, GraduationCap, Users, UserCircle, User, Key } from "lucide-react";
+import { BookOpen, Mail, Lock, Eye, EyeOff, GraduationCap, Users, UserCircle, User, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -37,11 +37,10 @@ const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [phone, setPhone] = useState("");
   const [fullName, setFullName] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [selectedRole, setSelectedRole] = useState<AppRole>("parent");
-  // Rolul/portalul ales la autentificare (Profesor / Secretariat / Admin)
-  const [loginPortalRole, setLoginPortalRole] = useState<AppRole>("teacher");
   const [isLoading, setIsLoading] = useState(false);
   const [staffCode, setStaffCode] = useState("");
   const [errors, setErrors] = useState<{ email?: string; password?: string; fullName?: string; activationCode?: string; staffCode?: string }>({});
@@ -53,12 +52,12 @@ const Auth = () => {
   
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { signIn, signUp, user, loading } = useAuth();
+  const { signIn, signUp, user, loading, activeRole } = useAuth();
 
   useEffect(() => {
     if (!loading && user) {
       const stored = localStorage.getItem('eduro.activeRole') as AppRole | null;
-      const role: AppRole = (stored ?? loginPortalRole ?? 'teacher') as AppRole;
+      const role: AppRole = (stored ?? activeRole ?? 'student') as AppRole;
       const routeMap: Record<AppRole, string> = {
         student: '/dashboard',
         parent: '/parent',
@@ -70,7 +69,7 @@ const Auth = () => {
       };
       navigate(routeMap[role] ?? '/dashboard');
     }
-  }, [user, loading, navigate, loginPortalRole]);
+  }, [user, loading, navigate, activeRole]);
 
   const validateForm = () => {
     const newErrors: { email?: string; password?: string; fullName?: string; activationCode?: string; staffCode?: string } = {};
@@ -146,7 +145,7 @@ const Auth = () => {
       }
 
       // Create account first
-      const { error: signUpError } = await signUp(email, password, fullName, activationRole);
+      const { error: signUpError } = await signUp(email, password, fullName, activationRole, phone.trim() || null);
       if (signUpError) {
         toast({
           title: "Eroare",
@@ -204,9 +203,7 @@ const Auth = () => {
 
     try {
       if (isLogin) {
-        // Păstrăm portalul ales (Profesor/Secretariat/Admin) ca rol activ după login
-        localStorage.setItem("eduro.activeRole", loginPortalRole);
-        const { error } = await signIn(email, password);
+        // Păstrăm portalul ales (Profesor/Secretariat/Admin) ca rol activ după login        const { error } = await signIn(email, password);
         if (error) {
           if (error.message.includes("Invalid login credentials")) {
             toast({
@@ -228,14 +225,9 @@ const Auth = () => {
           description: `Bine ai venit!`,
         });
 
-        // Set preferred role for routing + role switcher.
-        const preferred: AppRole =
-          loginPortalRole === 'secretariat' ? 'secretariat' :
-          loginPortalRole === 'uat_admin' ? 'uat_admin' :
-          'teacher';
-        localStorage.setItem('eduro.activeRole', preferred);
+        // Set preferred role for routing + role switcher.        localStorage.setItem('eduro.activeRole', preferred);
       } else {
-        const { error } = await signUp(email, password, fullName, selectedRole);
+        const { error } = await signUp(email, password, fullName, selectedRole, phone.trim() || null);
         if (error) {
           if (error.message.includes("User already registered")) {
             toast({
@@ -400,6 +392,21 @@ const Auth = () => {
                   </button>
                 </div>
               </div>
+              <div>
+                <Label htmlFor="phone">Număr de telefon (opțional)</Label>
+                <div className="relative mt-1">
+                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                  <Input
+                    id="phone"
+                    type="tel"
+                    placeholder="07xx xxx xxx"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+
 
               <div>
                 <Label htmlFor="activationCode">Cod de activare</Label>
@@ -504,47 +511,7 @@ const Auth = () => {
               )}
               {/* Form */}
               <form onSubmit={handleSubmit} className="space-y-4">
-              {isLogin && (
-                <div className="space-y-2">
-                  <Label>Portal</Label>
-                  <div className="grid grid-cols-3 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setLoginPortalRole('teacher')}
-                      className={`flex items-center justify-center gap-2 p-3 rounded-xl border-2 transition-all ${
-                        loginPortalRole === 'teacher' ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'
-                      }`}
-                    >
-                      <Users className="w-4 h-4" />
-                      <span className="text-sm font-medium">Profesor</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setLoginPortalRole('secretariat')}
-                      className={`flex items-center justify-center gap-2 p-3 rounded-xl border-2 transition-all ${
-                        loginPortalRole === 'secretariat' ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'
-                      }`}
-                    >
-                      <User className="w-4 h-4" />
-                      <span className="text-sm font-medium">Secretariat</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setLoginPortalRole('uat_admin')}
-                      className={`flex items-center justify-center gap-2 p-3 rounded-xl border-2 transition-all ${
-                        loginPortalRole === 'uat_admin' ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'
-                      }`}
-                    >
-                      <Key className="w-4 h-4" />
-                      <span className="text-sm font-medium">Admin</span>
-                    </button>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Pentru Director/Diriginte: autentifică-te ca <b>Profesor</b>, apoi schimbă rolul din butonul de sus.
-                  </p>
-                </div>
-              )}
-                {!isLogin && (
+              {!isLogin && (
                   <div>
                     <Label htmlFor="fullName">Nume complet</Label>
                     <div className="relative mt-1">
@@ -657,6 +624,21 @@ const Auth = () => {
           </p>
         </div>
       </div>
+              <div>
+                <Label htmlFor="phone">Număr de telefon (opțional)</Label>
+                <div className="relative mt-1">
+                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                  <Input
+                    id="phone"
+                    type="tel"
+                    placeholder="07xx xxx xxx"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+
 
       {/* Right side - Decoration */}
       <div className="hidden lg:flex flex-1 bg-gradient-primary items-center justify-center p-12 relative overflow-hidden">

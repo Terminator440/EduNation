@@ -593,12 +593,12 @@ setStudents(enrichedStudents);
                             <DialogTrigger asChild>
                               <Button size="sm" variant="outline" className="gap-1">
                                 <Plus className="w-3 h-3" />
-                                Prezență
+                                Pune absențe
                               </Button>
                             </DialogTrigger>
                             <DialogContent>
                               <DialogHeader>
-                                <DialogTitle>Înregistrează prezența pentru {student.full_name || student.profile?.full_name}</DialogTitle>
+                                <DialogTitle>Înregistrează absențe/prezența pentru {student.full_name || student.profile?.full_name}</DialogTitle>
                               </DialogHeader>
                               <div className="space-y-4 mt-4">
                                 <div>
@@ -636,7 +636,8 @@ setStudents(enrichedStudents);
                           </Dialog>
 
                           {/* Motivate Absences Dialog */}
-                          <Dialog open={isMotivateOpen && selectedStudent?.id === student.id} onOpenChange={(open) => {
+                          {activeRole === 'homeroom_teacher' && (
+<Dialog open={isMotivateOpen && selectedStudent?.id === student.id} onOpenChange={(open) => {
                             setIsMotivateOpen(open);
                             if (open) {
                               setSelectedStudent(student);
@@ -694,6 +695,8 @@ setStudents(enrichedStudents);
                               </div>
                             </DialogContent>
                           </Dialog>
+                          )}
+
 
                           {/* Send Message Dialog */}
                           <Dialog open={isMessageOpen && selectedStudent?.id === student.id} onOpenChange={(open) => {
