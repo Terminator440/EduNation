@@ -27,7 +27,8 @@ const roleInfo: Record<AppRole, { label: string; icon: typeof GraduationCap; col
  * director/secretariat/admin permissions.
  */
 const publicSignupRoles: AppRole[] = ['parent', 'teacher'];
-const staffSignupRoles: AppRole[] = ['secretariat', 'director', 'uat_admin'];
+// Staff roles (including homeroom teacher / diriginte) are gated behind a setup code.
+const staffSignupRoles: AppRole[] = ['homeroom_teacher', 'secretariat', 'director', 'uat_admin'];
 
 // Use a Vite env var so staff roles can't be self-assigned without a setup code.
 // Example: VITE_STAFF_SIGNUP_CODE=some-long-random-string

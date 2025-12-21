@@ -4,6 +4,21 @@ import { supabase } from '@/integrations/supabase/client';
 
 export type AppRole = 'student' | 'parent' | 'teacher' | 'homeroom_teacher' | 'secretariat' | 'director' | 'uat_admin';
 
+const ALL_ROLES: AppRole[] = ['student', 'parent', 'teacher', 'homeroom_teacher', 'secretariat', 'director', 'uat_admin'];
+
+const normalizeRole = (value: unknown): AppRole | null => {
+  if (typeof value !== 'string') return null;
+  return (ALL_ROLES as string[]).includes(value) ? (value as AppRole) : null;
+};
+
+// Optional bootstrap mechanism: allow the very first admin to be granted automatically
+// based on email (useful when the database has no triggers/seed data yet).
+// Example: VITE_BOOTSTRAP_ADMIN_EMAILS="admin@example.com,other@example.com"
+const BOOTSTRAP_ADMIN_EMAILS = (import.meta.env.VITE_BOOTSTRAP_ADMIN_EMAILS as string | undefined)
+  ?.split(',')
+  .map(s => s.trim().toLowerCase())
+  .filter(Boolean) ?? [];
+
 interface UserRole {
   role: AppRole;
 }
@@ -75,12 +90,31 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const fetchUserData = async (userId: string) => {
     try {
+      // Always derive truth from the authenticated user record (metadata can be used for bootstrap).
+      const { data: authUserRes } = await supabase.auth.getUser();
+      const authUser = authUserRes.user;
+
       // Fetch profile
-      const { data: profileData } = await supabase
+      let { data: profileData } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
         .maybeSingle();
+
+      // If profile row is missing, create it from auth metadata.
+      if (!profileData && authUser) {
+        const fullName = (authUser.user_metadata?.full_name as string | undefined) ?? '';
+        const email = authUser.email ?? '';
+        const { data: createdProfile } = await supabase
+          .from('profiles')
+          .upsert({ id: userId, full_name: fullName, email, active_role: null }, { onConflict: 'id' })
+          .select('*')
+          .maybeSingle();
+        // Prefer the created profile if returned.
+        if (createdProfile) {
+          profileData = createdProfile;
+        }
+      }
       
       setProfile(profileData as Profile | null);
       if (profileData?.active_role) {
@@ -94,16 +128,38 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         .eq('user_id', userId);
       
       const roles = (rolesData || []).map(r => r.role as AppRole);
-      setUserRoles(roles);
+
+      // Bootstrap roles if missing (common in projects without DB triggers).
+      let effectiveRoles = roles;
+      if (effectiveRoles.length === 0 && authUser) {
+        const metaRole = normalizeRole(authUser.user_metadata?.role)
+          ?? (BOOTSTRAP_ADMIN_EMAILS.includes((authUser.email ?? '').toLowerCase()) ? 'uat_admin' : null);
+        if (metaRole) {
+          // Insert the primary role
+          await supabase.from('user_roles').insert({ user_id: userId, role: metaRole });
+          effectiveRoles = [metaRole];
+
+          // If user is homeroom teacher, also grant teacher role for convenience.
+          if (metaRole === 'homeroom_teacher') {
+            await supabase.from('user_roles').insert({ user_id: userId, role: 'teacher' });
+            effectiveRoles = Array.from(new Set([...effectiveRoles, 'teacher']));
+          }
+        }
+      }
+
+      setUserRoles(effectiveRoles);
       
       // If no active role set but user has roles, set first role as active
-      if (!profileData?.active_role && roles.length > 0) {
-        setActiveRole(roles[0]);
+      const active = (profileData?.active_role as AppRole | null) ?? null;
+      if (!active && effectiveRoles.length > 0) {
+        setActiveRole(effectiveRoles[0]);
         // Update profile with active role
         await supabase
           .from('profiles')
-          .update({ active_role: roles[0] })
+          .update({ active_role: effectiveRoles[0] })
           .eq('id', userId);
+      } else if (active) {
+        setActiveRole(active);
       }
     } catch (error) {
       console.error('Error fetching user data:', error);
