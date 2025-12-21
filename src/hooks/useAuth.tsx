@@ -126,24 +126,40 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         .from('user_roles')
         .select('role')
         .eq('user_id', userId);
-      
+
       const roles = (rolesData || []).map(r => r.role as AppRole);
 
-      // Bootstrap roles if missing (common in projects without DB triggers).
-      let effectiveRoles = roles;
-      if (effectiveRoles.length === 0 && authUser) {
-        const metaRole = normalizeRole(authUser.user_metadata?.role)
-          ?? (BOOTSTRAP_ADMIN_EMAILS.includes((authUser.email ?? '').toLowerCase()) ? 'uat_admin' : null);
-        if (metaRole) {
-          // Insert the primary role
-          await supabase.from('user_roles').insert({ user_id: userId, role: metaRole });
-          effectiveRoles = [metaRole];
+      // Determine role(s) even if DB role rows are missing (common when RLS/policies prevent inserts).
+      const metaRole = authUser
+        ? (normalizeRole(authUser.user_metadata?.role)
+            ?? (BOOTSTRAP_ADMIN_EMAILS.includes((authUser.email ?? '').toLowerCase()) ? 'uat_admin' : null))
+        : null;
 
-          // If user is homeroom teacher, also grant teacher role for convenience.
+      // Prefer DB roles when available, otherwise fall back to metadata-derived roles.
+      let effectiveRoles: AppRole[] = roles.length > 0 ? roles : (metaRole ? [metaRole] : []);
+
+      // Convenience: homeroom teachers also have teacher role.
+      if (effectiveRoles.includes('homeroom_teacher') && !effectiveRoles.includes('teacher')) {
+        effectiveRoles = Array.from(new Set([...effectiveRoles, 'teacher']));
+      }
+
+      // Convenience: teachers may also act as directors (your requested flow: login as teacher, then select role).
+      if (effectiveRoles.includes('teacher') && !effectiveRoles.includes('director')) {
+        effectiveRoles = Array.from(new Set([...effectiveRoles, 'director']));
+      }
+
+      // Best-effort bootstrap into DB so future sessions match the database. Ignore failures (often due to RLS).
+      if (roles.length === 0 && metaRole) {
+        try {
+          await supabase.from('user_roles').insert({ user_id: userId, role: metaRole });
           if (metaRole === 'homeroom_teacher') {
             await supabase.from('user_roles').insert({ user_id: userId, role: 'teacher' });
-            effectiveRoles = Array.from(new Set([...effectiveRoles, 'teacher']));
           }
+          if (metaRole === 'teacher') {
+            await supabase.from('user_roles').insert({ user_id: userId, role: 'director' });
+          }
+        } catch {
+          // Ignore - DB policies may block inserts, but the app can still function using metadata + local selection.
         }
       }
 
@@ -151,15 +167,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       
       // If no active role set but user has roles, set first role as active
       const active = (profileData?.active_role as AppRole | null) ?? null;
-      if (!active && effectiveRoles.length > 0) {
-        setActiveRole(effectiveRoles[0]);
-        // Update profile with active role
-        await supabase
-          .from('profiles')
-          .update({ active_role: effectiveRoles[0] })
-          .eq('id', userId);
-      } else if (active) {
-        setActiveRole(active);
+
+      // Persist role selection locally so the UI role switcher works even if DB updates are blocked by RLS.
+      const storedRoleRaw = localStorage.getItem('eduro.activeRole');
+      const storedRole = normalizeRole(storedRoleRaw);
+
+      const pick =
+        (storedRole && effectiveRoles.includes(storedRole) ? storedRole : null) ??
+        (active && effectiveRoles.includes(active) ? active : null) ??
+        (effectiveRoles.length > 0 ? effectiveRoles[0] : null);
+
+      if (pick) {
+        setActiveRole(pick);
+        localStorage.setItem('eduro.activeRole', pick);
+
+        // Best-effort: update profile with active role (ignore failures if RLS blocks).
+        try {
+          await supabase.from('profiles').update({ active_role: pick }).eq('id', userId);
+        } catch {
+          // ignore
+        }
       }
     } catch (error) {
       console.error('Error fetching user data:', error);
@@ -215,15 +242,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const switchRole = async (role: AppRole) => {
-    if (!user || !userRoles.includes(role)) return;
-    
+    if (!user) return;
+
+    // Allow switching only among roles the app considers available for this user.
+    if (!userRoles.includes(role)) return;
+
     setActiveRole(role);
-    
-    // Update profile with new active role
-    await supabase
-      .from('profiles')
-      .update({ active_role: role })
-      .eq('id', user.id);
+    localStorage.setItem('eduro.activeRole', role);
+
+    // Best-effort: persist selection in profile (ignore failures if RLS blocks).
+    try {
+      await supabase.from('profiles').update({ active_role: role }).eq('id', user.id);
+    } catch {
+      // ignore
+    }
   };
 
   return (

@@ -61,9 +61,20 @@ const Auth = () => {
 
   useEffect(() => {
     if (!loading && user) {
-      navigate("/dashboard");
+      const stored = localStorage.getItem('eduro.activeRole') as AppRole | null;
+      const role: AppRole = (stored ?? loginPortalRole ?? 'teacher') as AppRole;
+      const routeMap: Record<AppRole, string> = {
+        student: '/dashboard',
+        parent: '/parent',
+        teacher: '/teacher',
+        homeroom_teacher: '/homeroom',
+        secretariat: '/secretariat',
+        director: '/director',
+        uat_admin: '/admin',
+      };
+      navigate(routeMap[role] ?? '/dashboard');
     }
-  }, [user, loading, navigate]);
+  }, [user, loading, navigate, loginPortalRole]);
 
   const validateForm = () => {
     const newErrors: { email?: string; password?: string; fullName?: string; activationCode?: string; staffCode?: string } = {};
@@ -218,6 +229,13 @@ const Auth = () => {
           title: "Autentificare reușită",
           description: `Bine ai venit!`,
         });
+
+        // Set preferred role for routing + role switcher.
+        const preferred: AppRole =
+          loginPortalRole === 'secretariat' ? 'secretariat' :
+          loginPortalRole === 'uat_admin' ? 'uat_admin' :
+          'teacher';
+        localStorage.setItem('eduro.activeRole', preferred);
       } else {
         const { error } = await signUp(email, password, fullName, selectedRole);
         if (error) {
@@ -470,6 +488,46 @@ const Auth = () => {
 
               {/* Form */}
               <form onSubmit={handleSubmit} className="space-y-4">
+              {isLogin && (
+                <div className="space-y-2">
+                  <Label>Portal</Label>
+                  <div className="grid grid-cols-3 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setLoginPortalRole('teacher')}
+                      className={`flex items-center justify-center gap-2 p-3 rounded-xl border-2 transition-all ${
+                        loginPortalRole === 'teacher' ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'
+                      }`}
+                    >
+                      <Users className="w-4 h-4" />
+                      <span className="text-sm font-medium">Profesor</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setLoginPortalRole('secretariat')}
+                      className={`flex items-center justify-center gap-2 p-3 rounded-xl border-2 transition-all ${
+                        loginPortalRole === 'secretariat' ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'
+                      }`}
+                    >
+                      <User className="w-4 h-4" />
+                      <span className="text-sm font-medium">Secretariat</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setLoginPortalRole('uat_admin')}
+                      className={`flex items-center justify-center gap-2 p-3 rounded-xl border-2 transition-all ${
+                        loginPortalRole === 'uat_admin' ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'
+                      }`}
+                    >
+                      <Key className="w-4 h-4" />
+                      <span className="text-sm font-medium">Admin</span>
+                    </button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Pentru Director/Diriginte: autentifică-te ca <b>Profesor</b>, apoi schimbă rolul din butonul de sus.
+                  </p>
+                </div>
+              )}
                 {!isLogin && (
                   <div>
                     <Label htmlFor="fullName">Nume complet</Label>
