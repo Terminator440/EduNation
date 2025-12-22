@@ -68,7 +68,7 @@ const handleCreateStudent = async () => {
       return;
     }
     try {
-      const res = await const parsed = parseEmailOrPhone(newStudentContact);
+      const parsed = parseEmailOrPhone(newStudentContact);
       const res = await createStudent.mutateAsync({
         full_name: newStudentName.trim(),
         class_id: newStudentClassId,
