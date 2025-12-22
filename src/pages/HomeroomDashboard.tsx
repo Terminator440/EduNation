@@ -67,7 +67,7 @@ const HomeroomDashboard = () => {
   const [isAddStudentOpen, setIsAddStudentOpen] = useState(false);
   const [isMotivateOpen, setIsMotivateOpen] = useState(false);
   const [isCreateClassOpen, setIsCreateClassOpen] = useState(false);
-  const [newStudent, setNewStudent] = useState({ fullName: "", studentNumber: "" });
+  const [newStudent, setNewStudent] = useState({ fullName: "", studentNumber: "", email: "", phone: "" });
   const [newClass, setNewClass] = useState({ year: "", section: "", name: "" });
   const [absences, setAbsences] = useState<Absence[]>([]);
   const [selectedAbsences, setSelectedAbsences] = useState<string[]>([]);
@@ -260,6 +260,8 @@ const HomeroomDashboard = () => {
         class_id: classInfo.id,
         full_name: newStudent.fullName.trim(),
         student_number: newStudent.studentNumber ? parseInt(newStudent.studentNumber) : null,
+        contact_email: newStudent.email.trim() ? newStudent.email.trim().toLowerCase() : null,
+        contact_phone: newStudent.phone.trim() ? newStudent.phone.trim() : null,
         is_active: false,
       });
 
@@ -271,7 +273,7 @@ const HomeroomDashboard = () => {
       });
 
       setIsAddStudentOpen(false);
-      setNewStudent({ fullName: "", studentNumber: "" });
+      setNewStudent({ fullName: "", studentNumber: "", email: "", phone: "" });
       fetchData();
     } catch (error) {
       console.error('Error adding student:', error);
@@ -575,6 +577,25 @@ const HomeroomDashboard = () => {
                       value={newStudent.studentNumber}
                       onChange={(e) => setNewStudent(p => ({ ...p, studentNumber: e.target.value }))}
                       placeholder="ex: 1"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label>Email elev (opțional)</Label>
+                    <Input
+                      type="email"
+                      value={newStudent.email}
+                      onChange={(e) => setNewStudent(p => ({ ...p, email: e.target.value }))}
+                      placeholder="ex: elev@exemplu.ro"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label>Telefon elev (opțional)</Label>
+                    <Input
+                      value={newStudent.phone}
+                      onChange={(e) => setNewStudent(p => ({ ...p, phone: e.target.value }))}
+                      placeholder="ex: +40 7xx xxx xxx"
                       className="mt-1"
                     />
                   </div>
