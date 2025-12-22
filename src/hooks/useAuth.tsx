@@ -11,6 +11,24 @@ const normalizeRole = (value: unknown): AppRole | null => {
   return (ALL_ROLES as string[]).includes(value) ? (value as AppRole) : null;
 };
 
+// Some environments (sandboxed iframes / strict privacy settings) can throw
+// DOMException("The operation is insecure") on localStorage access. Guard reads/writes.
+const safeStorageGet = (key: string): string | null => {
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+};
+
+const safeStorageSet = (key: string, value: string): void => {
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    // ignore
+  }
+};
+
 // Optional bootstrap mechanism: allow the very first admin to be granted automatically
 // based on email (useful when the database has no triggers/seed data yet).
 // Example: VITE_BOOTSTRAP_ADMIN_EMAILS="admin@example.com,other@example.com"
@@ -175,7 +193,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const active = (profileData?.active_role as AppRole | null) ?? null;
 
       // Persist role selection locally so the UI role switcher works even if DB updates are blocked by RLS.
-      const storedRoleRaw = localStorage.getItem('eduro.activeRole');
+      const storedRoleRaw = safeStorageGet('eduro.activeRole');
       const storedRole = normalizeRole(storedRoleRaw);
 
       const pick =
@@ -185,7 +203,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       if (pick) {
         setActiveRole(pick);
-        localStorage.setItem('eduro.activeRole', pick);
+        safeStorageSet('eduro.activeRole', pick);
 
         // Best-effort: update profile with active role (ignore failures if RLS blocks).
         try {
@@ -255,7 +273,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (!userRoles.includes(role)) return;
 
     setActiveRole(role);
-    localStorage.setItem('eduro.activeRole', role);
+	    safeStorageSet('eduro.activeRole', role);
 
     // Best-effort: persist selection in profile (ignore failures if RLS blocks).
     try {

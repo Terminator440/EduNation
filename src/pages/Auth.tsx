@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   BookOpen,
@@ -31,8 +31,6 @@ type FormErrors = {
   staffCode?: string;
 };
 
-type PortalRole = "teacher" | "secretariat" | "uat_admin";
-
 const STAFF_SIGNUP_CODE = import.meta.env.VITE_STAFF_SIGNUP_CODE as string | undefined;
 
 const emailSchema = z.string().email("Email invalid");
@@ -51,6 +49,25 @@ const routeMap: Record<AppRole, string> = {
 const normalizeActivationCode = (v: string) =>
   v.trim().toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8);
 
+// Some environments (sandboxed iframes / strict privacy settings) can throw
+// DOMException("The operation is insecure") on localStorage access (not just return null).
+// We defensively guard all storage reads/writes.
+const safeStorageGet = (key: string): string | null => {
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+};
+
+const safeStorageSet = (key: string, value: string): void => {
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    // ignore
+  }
+};
+
 const Auth = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -58,9 +75,6 @@ const Auth = () => {
 
   const [isLogin, setIsLogin] = useState(true);
   const [showActivation, setShowActivation] = useState(false);
-
-  // Login portal (visual choice) -> sets preferred active role after sign-in
-  const [loginPortalRole, setLoginPortalRole] = useState<PortalRole>("teacher");
 
   // Common fields
   const [email, setEmail] = useState("");
@@ -80,17 +94,10 @@ const Auth = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
 
-  const preferredRoleFromPortal: AppRole = useMemo(() => {
-    // IMPORTANT: director/homeroom is selected AFTER login via RoleSwitcher, not here.
-    if (loginPortalRole === "secretariat") return "secretariat";
-    if (loginPortalRole === "uat_admin") return "uat_admin";
-    return "teacher";
-  }, [loginPortalRole]);
-
   // Auto-redirect if already logged in
   useEffect(() => {
     if (!loading && user) {
-      const stored = (localStorage.getItem("eduro.activeRole") as AppRole | null) ?? null;
+      const stored = (safeStorageGet("eduro.activeRole") as AppRole | null) ?? null;
       const role: AppRole = (stored ?? activeRole ?? "student") as AppRole;
       navigate(routeMap[role] ?? "/dashboard");
     }
@@ -230,7 +237,7 @@ const Auth = () => {
       }
 
       // Save active role and route
-      localStorage.setItem("eduro.activeRole", activationRole);
+      safeStorageSet("eduro.activeRole", activationRole);
       navigate(routeMap[activationRole] ?? "/dashboard");
     } catch (err: unknown) {
       console.error("Activation error:", err);
@@ -249,7 +256,7 @@ const Auth = () => {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     clearTransientErrors();
 
@@ -270,15 +277,15 @@ const Auth = () => {
           return;
         }
 
-        // Keep preferred role for routing + RoleSwitcher default
-        localStorage.setItem("eduro.activeRole", preferredRoleFromPortal);
-
         toast({
           title: "Autentificare reușită",
           description: "Bine ai venit!",
         });
 
-        navigate(routeMap[preferredRoleFromPortal] ?? "/dashboard");
+        // Do not force a portal role here. Role is derived from user roles/profile.
+        // AuthProvider will pick a valid active role and persist it best-effort.
+        // We navigate to a neutral route and let role-based routing/guards handle the rest.
+        navigate("/dashboard");
         return;
       }
 
@@ -306,7 +313,7 @@ const Auth = () => {
       toast({ title: "Cont creat cu succes", description: "Te-ai înregistrat cu succes!" });
 
       // Optional: after signup, you may require email confirmation; we still route to dashboard
-      localStorage.setItem("eduro.activeRole", selectedRole);
+      safeStorageSet("eduro.activeRole", selectedRole);
       navigate(routeMap[selectedRole] ?? "/dashboard");
     } catch (err: unknown) {
       const message =
@@ -373,57 +380,6 @@ const Auth = () => {
 
           {isLogin ? (
             <>
-              {/* Portal (login) */}
-              <div className="mb-6">
-                <Label className="text-sm text-muted-foreground mb-3 block">Portal</Label>
-                <div className="grid grid-cols-3 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setLoginPortalRole("teacher")}
-                    className={`p-3 rounded-xl border-2 transition-all ${
-                      loginPortalRole === "teacher" ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
-                    }`}
-                  >
-                    <div className="flex items-center justify-center gap-2">
-                      <Users className="w-4 h-4" />
-                      <span className="font-medium text-sm">Profesor</span>
-                    </div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setLoginPortalRole("secretariat")}
-                    className={`p-3 rounded-xl border-2 transition-all ${
-                      loginPortalRole === "secretariat"
-                        ? "border-primary bg-primary/5"
-                        : "border-border hover:border-primary/50"
-                    }`}
-                  >
-                    <div className="flex items-center justify-center gap-2">
-                      <UserCircle className="w-4 h-4" />
-                      <span className="font-medium text-sm">Secretariat</span>
-                    </div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setLoginPortalRole("uat_admin")}
-                    className={`p-3 rounded-xl border-2 transition-all ${
-                      loginPortalRole === "uat_admin" ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
-                    }`}
-                  >
-                    <div className="flex items-center justify-center gap-2">
-                      <User className="w-4 h-4" />
-                      <span className="font-medium text-sm">Admin</span>
-                    </div>
-                  </button>
-                </div>
-
-                <p className="text-xs text-muted-foreground mt-2">
-                  Pentru Director/Diriginte: autentifică-te ca Profesor, apoi schimbă rolul din butonul de sus.
-                </p>
-              </div>
-
               {/* Login form */}
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
