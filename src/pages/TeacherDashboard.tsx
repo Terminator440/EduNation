@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Users, GraduationCap, UserCircle, TrendingUp, Plus, Search, MessageSquare, CheckCircle } from "lucide-react";
+import { Users, GraduationCap, UserCircle, TrendingUp, Plus, Search, MessageSquare, CheckCircle, ClipboardSignature } from "lucide-react";
 import Sidebar from "@/components/dashboard/Sidebar";
 import StatsCard from "@/components/dashboard/StatsCard";
 import RoleSwitcher from "@/components/RoleSwitcher";
@@ -68,6 +68,17 @@ interface Subject {
   name: string;
 }
 
+interface TimetableEntry {
+  id: string;
+  weekday: number;
+  period: number;
+  start_time: string | null;
+  end_time: string | null;
+  room: string | null;
+  classes?: { name: string } | null;
+  subjects?: { name: string } | null;
+}
+
 const TeacherDashboard = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [students, setStudents] = useState<Student[]>([]);
@@ -83,6 +94,10 @@ const TeacherDashboard = () => {
   const [newAttendance, setNewAttendance] = useState({ status: "prezent", subjectId: "" });
   const [message, setMessage] = useState({ subject: "", content: "", sendToParent: true, sendToStudent: false });
   const [selectedAbsences, setSelectedAbsences] = useState<string[]>([]);
+  const [motivateReason, setMotivateReason] = useState("");
+  const [timetableEntries, setTimetableEntries] = useState<TimetableEntry[]>([]);
+  const [signedEntryIds, setSignedEntryIds] = useState<Set<string>>(new Set());
+  const [registerLoading, setRegisterLoading] = useState(false);
 
   const { user, activeRole, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -97,8 +112,79 @@ const TeacherDashboard = () => {
   useEffect(() => {
     if (user && (activeRole === 'teacher' || activeRole === 'homeroom_teacher')) {
       fetchData();
+      fetchRegister();
     }
   }, [user, activeRole]);
+
+  const toDateKey = (d: Date): string => {
+    const y = d.getFullYear();
+    const m = `${d.getMonth() + 1}`.padStart(2, '0');
+    const day = `${d.getDate()}`.padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+
+  const fetchRegister = async () => {
+    if (!user) return;
+    setRegisterLoading(true);
+    try {
+      const weekday = new Date().getDay();
+      const todayKey = toDateKey(new Date());
+
+      const { data: entries, error: entriesErr } = await supabase
+        .from('timetable_entries')
+        .select(`
+          id,
+          weekday,
+          period,
+          start_time,
+          end_time,
+          room,
+          classes ( name ),
+          subjects ( name )
+        `)
+        .eq('teacher_id', user.id)
+        .eq('weekday', weekday)
+        .order('period', { ascending: true });
+
+      if (entriesErr) throw entriesErr;
+      setTimetableEntries((entries as any) || []);
+
+      const entryIds = (entries || []).map((e: any) => e.id);
+      if (entryIds.length === 0) {
+        setSignedEntryIds(new Set());
+        return;
+      }
+
+      const { data: signedRows, error: signedErr } = await supabase
+        .from('teacher_register')
+        .select('timetable_entry_id')
+        .eq('signed_by', user.id)
+        .eq('register_date', todayKey)
+        .in('timetable_entry_id', entryIds as any);
+
+      if (signedErr) throw signedErr;
+      setSignedEntryIds(new Set((signedRows || []).map((r: any) => r.timetable_entry_id)));
+    } catch (e) {
+      console.error('Error fetching register:', e);
+    } finally {
+      setRegisterLoading(false);
+    }
+  };
+
+  const handleSignRegister = async (timetableEntryId: string) => {
+    if (!user) return;
+    try {
+      const todayKey = toDateKey(new Date());
+      const { error } = await supabase
+        .from('teacher_register')
+        .insert({ timetable_entry_id: timetableEntryId, register_date: todayKey, signed_by: user.id, status: 'signed' });
+      if (error) throw error;
+      setSignedEntryIds(prev => new Set([...Array.from(prev), timetableEntryId]));
+      toast({ title: 'Semnat', description: 'Condica pentru ora aceasta a fost semnată.' });
+    } catch (e: any) {
+      toast({ title: 'Eroare', description: e?.message ?? 'Nu am putut semna condica.', variant: 'destructive' });
+    }
+  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -309,6 +395,14 @@ setStudents(enrichedStudents);
   };
 
   const handleMotivateAbsences = async () => {
+    if (activeRole !== 'homeroom_teacher') {
+      toast({
+        title: "Acces restricționat",
+        description: "Doar dirigintele poate motiva absențe.",
+        variant: "destructive",
+      });
+      return;
+    }
     if (!selectedStudent || selectedAbsences.length === 0) {
       toast({
         title: "Eroare",
@@ -319,14 +413,16 @@ setStudents(enrichedStudents);
     }
 
     try {
-      for (const absenceId of selectedAbsences) {
-        const { error } = await supabase
-          .from('attendance')
-          .update({ status: 'motivat' })
-          .eq('id', absenceId);
-        
-        if (error) throw error;
-      }
+      const { error } = await supabase
+        .from('attendance')
+        .update({
+          status: 'motivat',
+          excuse_reason: motivateReason.trim() ? motivateReason.trim() : null,
+          excused_at: new Date().toISOString(),
+        })
+        .in('id', selectedAbsences as any);
+
+      if (error) throw error;
 
       toast({
         title: "Absențe motivate",
@@ -335,6 +431,7 @@ setStudents(enrichedStudents);
 
       setIsMotivateOpen(false);
       setSelectedAbsences([]);
+      setMotivateReason("");
       fetchData();
     } catch (error) {
       console.error('Error motivating absences:', error);
@@ -445,6 +542,54 @@ setStudents(enrichedStudents);
               icon={TrendingUp}
               variant="accent"
             />
+          </div>
+
+          {/* Condică (teacher register) */}
+          <div className="bg-card rounded-xl border border-border p-6 mb-8">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                  <ClipboardSignature className="w-5 h-5" />
+                  Condică azi
+                </h2>
+                <p className="text-sm text-muted-foreground">Semnează orele din orar pentru ziua curentă.</p>
+              </div>
+              <Button variant="outline" onClick={fetchRegister} disabled={registerLoading}>
+                Reîncarcă
+              </Button>
+            </div>
+
+            {registerLoading ? (
+              <div className="text-muted-foreground">Se încarcă...</div>
+            ) : timetableEntries.length === 0 ? (
+              <div className="text-muted-foreground">Nu există ore în orar pentru azi (sau nu sunt alocate pe contul tău).</div>
+            ) : (
+              <div className="space-y-2">
+                {timetableEntries.map((e) => {
+                  const isSigned = signedEntryIds.has(e.id);
+                  return (
+                    <div key={e.id} className="flex items-center justify-between gap-4 p-3 rounded-lg border border-border">
+                      <div className="min-w-0">
+                        <p className="font-medium truncate">
+                          Ora {e.period} • {e.subjects?.name ?? 'Materie'} • {e.classes?.name ?? 'Clasă'}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {e.start_time ?? ''}{e.end_time ? `–${e.end_time}` : ''}{e.room ? ` • Sala ${e.room}` : ''}
+                        </p>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={() => handleSignRegister(e.id)}
+                        disabled={isSigned}
+                        className="shrink-0"
+                      >
+                        {isSigned ? 'Semnat' : 'Semnează'}
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* Students table */}
@@ -686,6 +831,15 @@ setStudents(enrichedStudents);
                                           </div>
                                         </label>
                                       ))}
+                                    </div>
+                                    <div>
+                                      <Label>Motiv (opțional)</Label>
+                                      <Textarea
+                                        value={motivateReason}
+                                        onChange={(e) => setMotivateReason(e.target.value)}
+                                        placeholder="ex: Adeverință medicală / motivare părinte"
+                                        className="mt-1"
+                                      />
                                     </div>
                                     <Button onClick={handleMotivateAbsences} className="w-full" disabled={selectedAbsences.length === 0}>
                                       Motivează ({selectedAbsences.length}) absențe

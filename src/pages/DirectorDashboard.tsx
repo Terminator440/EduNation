@@ -8,6 +8,7 @@ import ThemeToggle from "@/components/ThemeToggle";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -38,6 +39,20 @@ interface AuditLog {
   created_at: string;
 }
 
+interface PendingExcuseRequest {
+  id: string;
+  reason: string;
+  created_at: string;
+  status: string;
+  attendance: {
+    id: string;
+    date: string;
+    status: string;
+    students: { full_name: string | null } | null;
+    subjects: { name: string } | null;
+  } | null;
+}
+
 const DirectorDashboard = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [stats, setStats] = useState<SchoolStats>({
@@ -50,7 +65,10 @@ const DirectorDashboard = () => {
     activeUsers: 0,
   });
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [pendingExcuseRequests, setPendingExcuseRequests] = useState<PendingExcuseRequest[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const { toast } = useToast();
 
   const { user, profile, activeRole, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -127,10 +145,57 @@ const DirectorDashboard = () => {
         .limit(10);
 
       setAuditLogs(logsData || []);
+
+      // Fetch pending attendance excuse requests
+      const { data: reqsData } = await supabase
+        .from('attendance_excuse_requests')
+        .select(`
+          id,
+          reason,
+          created_at,
+          status,
+          attendance:attendance_id (
+            id,
+            date,
+            status,
+            students:student_id ( full_name ),
+            subjects:subject_id ( name )
+          )
+        `)
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false })
+        .limit(25);
+
+      setPendingExcuseRequests((reqsData as any) || []);
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const decideExcuseRequest = async (req: PendingExcuseRequest, decision: 'approved' | 'rejected') => {
+    if (!user) return;
+    try {
+      const now = new Date().toISOString();
+      const { error: updReqErr } = await supabase
+        .from('attendance_excuse_requests')
+        .update({ status: decision, decided_by: user.id, decided_at: now })
+        .eq('id', req.id);
+      if (updReqErr) throw updReqErr;
+
+      if (decision === 'approved' && req.attendance?.id) {
+        const { error: updAttErr } = await supabase
+          .from('attendance')
+          .update({ status: 'motivat', excuse_reason: req.reason, excused_by: user.id, excused_at: now })
+          .eq('id', req.attendance.id);
+        if (updAttErr) throw updAttErr;
+      }
+
+      toast({ title: 'Actualizat', description: 'Cererea a fost procesată.' });
+      fetchData();
+    } catch (e: any) {
+      toast({ title: 'Eroare', description: e?.message ?? 'Nu am putut procesa cererea.', variant: 'destructive' });
     }
   };
 
@@ -275,6 +340,42 @@ const DirectorDashboard = () => {
 
             {/* Quick Stats */}
             <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Bell className="h-5 w-5" />
+                    Cereri motivare absențe
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {pendingExcuseRequests.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">Nu există cereri în așteptare.</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {pendingExcuseRequests.map((r) => (
+                        <div key={r.id} className="p-3 rounded-lg border border-border">
+                          <p className="font-medium">
+                            {r.attendance?.students?.full_name ?? 'Elev'} • {r.attendance?.subjects?.name ?? 'Materie'}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            {r.attendance?.date ? new Date(r.attendance.date).toLocaleDateString('ro-RO') : ''}
+                          </p>
+                          <p className="text-sm mt-2">{r.reason}</p>
+                          <div className="flex gap-2 mt-3">
+                            <Button size="sm" onClick={() => decideExcuseRequest(r, 'approved')}>
+                              Aprobă
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={() => decideExcuseRequest(r, 'rejected')}>
+                              Respinge
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
