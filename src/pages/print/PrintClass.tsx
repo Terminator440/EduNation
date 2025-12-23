@@ -1,8 +1,13 @@
-
 /**
- * Print-ready class report
+ * Print-ready class report page.
+ * Deterministic rendering for printing (use with window.print()).
  */
-export default function PrintClass({ className, students }) {
+type PrintClassProps = {
+  className: string;
+  students: unknown;
+};
+
+export default function PrintClass({ className, students }: PrintClassProps) {
   return (
     <div>
       <h1>Situație clasă {className}</h1>

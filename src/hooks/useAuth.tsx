@@ -161,10 +161,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         effectiveRoles = Array.from(new Set([...effectiveRoles, 'teacher']));
       }
 
-      // Convenience: teachers may also act as directors (your requested flow: login as teacher, then select role).
-      if (effectiveRoles.includes('teacher') && !effectiveRoles.includes('director')) {
-        effectiveRoles = Array.from(new Set([...effectiveRoles, 'director']));
-      }
+      // Note: we do NOT auto-grant 'director' to teachers.
+      // Roles must come from the database (user_roles) or explicit metadata/bootstrap rules.
 
       // Convenience: teachers may also act as homeroom teachers (diriginte) in your requested flow.
       if (effectiveRoles.includes('teacher') && !effectiveRoles.includes('homeroom_teacher')) {
