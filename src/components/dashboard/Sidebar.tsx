@@ -13,7 +13,8 @@ import {
   FileText,
   Shield,
   Bell,
-  Key
+  Key,
+  ClipboardCheck
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -43,6 +44,8 @@ const menuItemsByRole: Record<AppRole, { icon: any; label: string; href: string 
     { icon: LayoutDashboard, label: "Panou principal", href: "/teacher" },
     { icon: Users, label: "Elevii mei", href: "/teacher" },
     { icon: GraduationCap, label: "Catalog", href: "/teacher" },
+    { icon: ClipboardCheck, label: "Fă prezența", href: "/teacher/attendance" },
+    { icon: FileText, label: "Rapoarte", href: "/reports" },
     { icon: BookText, label: "Lecții", href: "/dashboard/lessons" },
     { icon: Calendar, label: "Calendar", href: "/dashboard/calendar" },
   ],
@@ -50,13 +53,15 @@ const menuItemsByRole: Record<AppRole, { icon: any; label: string; href: string 
     { icon: LayoutDashboard, label: "Panou Diriginte", href: "/homeroom" },
     { icon: Key, label: "Clasa mea", href: "/homeroom" },
     { icon: GraduationCap, label: "Catalog Profesor", href: "/teacher" },
+    { icon: ClipboardCheck, label: "Fă prezența", href: "/teacher/attendance" },
+    { icon: FileText, label: "Rapoarte", href: "/reports" },
     { icon: Calendar, label: "Calendar", href: "/dashboard/calendar" },
   ],
   secretariat: [
     { icon: LayoutDashboard, label: "Panou Secretariat", href: "/secretariat" },
     { icon: Users, label: "Elevi", href: "/secretariat" },
     { icon: GraduationCap, label: "Clase", href: "/secretariat" },
-    { icon: FileText, label: "Rapoarte", href: "/secretariat" },
+    { icon: FileText, label: "Rapoarte", href: "/reports" },
     { icon: Shield, label: "Director", href: "/director" },
     { icon: Calendar, label: "Calendar", href: "/dashboard/calendar" },
   ],
@@ -65,13 +70,14 @@ const menuItemsByRole: Record<AppRole, { icon: any; label: string; href: string 
     { icon: Users, label: "Secretariat", href: "/secretariat" },
     { icon: Key, label: "Diriginție", href: "/homeroom" },
     { icon: GraduationCap, label: "Catalog Profesor", href: "/teacher" },
-    { icon: FileText, label: "Rapoarte", href: "/director" },
+    { icon: FileText, label: "Rapoarte", href: "/reports" },
     { icon: Shield, label: "Audit", href: "/director" },
     { icon: Bell, label: "Anunțuri", href: "/director" },
   ],
   uat_admin: [
     { icon: LayoutDashboard, label: "Panou principal", href: "/admin" },
     { icon: Users, label: "Utilizatori", href: "/admin" },
+    { icon: FileText, label: "Rapoarte", href: "/reports" },
     { icon: Settings, label: "Configurare", href: "/admin" },
   ],
 };

@@ -17,6 +17,8 @@ import Grades from "./pages/Grades";
 import Attendance from "./pages/Attendance";
 import SchoolCalendar from "./pages/SchoolCalendar";
 import Lessons from "./pages/Lessons";
+import TakeAttendance from "./pages/TakeAttendance";
+import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -51,9 +53,19 @@ const App = () => (
                 <TeacherDashboard />
               </ProtectedRoute>
             } />
+            <Route path="/teacher/attendance" element={
+              <ProtectedRoute allowedRoles={['teacher', 'homeroom_teacher']}>
+                <TakeAttendance />
+              </ProtectedRoute>
+            } />
             <Route path="/homeroom" element={
               <ProtectedRoute allowedRoles={['homeroom_teacher', 'director', 'secretariat']}>
                 <HomeroomDashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/reports" element={
+              <ProtectedRoute allowedRoles={['teacher', 'homeroom_teacher', 'secretariat', 'director', 'uat_admin']}>
+                <Reports />
               </ProtectedRoute>
             } />
             <Route path="/secretariat" element={

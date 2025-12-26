@@ -10,6 +10,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -71,6 +72,8 @@ const HomeroomDashboard = () => {
   const [newClass, setNewClass] = useState({ year: "", section: "", name: "" });
   const [absences, setAbsences] = useState<Absence[]>([]);
   const [selectedAbsences, setSelectedAbsences] = useState<string[]>([]);
+  const [motivateReason, setMotivateReason] = useState<string>("");
+  const [alerts, setAlerts] = useState<{ manyAbsences: Student[]; noGrades: Student[] }>({ manyAbsences: [], noGrades: [] });
   const [loading, setLoading] = useState(true);
 
   const { user, profile, activeRole, loading: authLoading } = useAuth();
@@ -162,13 +165,13 @@ const HomeroomDashboard = () => {
           // Get all grades
           const { data: grades } = await supabase
             .from('grades')
-            .select('grade')
+            .select('grade, student_id')
             .in('student_id', studentIds);
 
           // Get all attendance
           const { data: attendance } = await supabase
             .from('attendance')
-            .select('status')
+            .select('status, student_id')
             .in('student_id', studentIds);
 
           const totalGrades = grades?.length || 0;
@@ -184,6 +187,31 @@ const HomeroomDashboard = () => {
             totalAbsences: absences,
             motivatedAbsences: motivated,
           });
+
+          // Simple visual alerts (no AI):
+          // - manyAbsences: >= 10 absences
+          // - noGrades: 0 grades
+          const absByStudent = new Map<string, number>();
+          (attendance || []).forEach((a: any) => {
+            if (a.status !== 'absent') return;
+            absByStudent.set(a.student_id, (absByStudent.get(a.student_id) || 0) + 1);
+          });
+
+          const gradesByStudent = new Map<string, number>();
+          (grades || []).forEach((g: any) => {
+            gradesByStudent.set(g.student_id, (gradesByStudent.get(g.student_id) || 0) + 1);
+          });
+
+          const threshold = 10;
+          const manyAbsences = (studentsData || [])
+            .filter((s: any) => (absByStudent.get(s.id) || 0) >= threshold)
+            .sort((a: any, b: any) => (absByStudent.get(b.id) || 0) - (absByStudent.get(a.id) || 0));
+
+          const noGrades = (studentsData || [])
+            .filter((s: any) => (gradesByStudent.get(s.id) || 0) === 0)
+            .sort((a: any, b: any) => (a.student_number ?? 9999) - (b.student_number ?? 9999));
+
+          setAlerts({ manyAbsences, noGrades });
         }
       }
     } catch (error) {
@@ -341,12 +369,26 @@ const HomeroomDashboard = () => {
     }
 
     try {
-      const { error } = await supabase
-        .from('attendance')
-        .update({ status: 'motivat' })
-        .in('id', selectedAbsences);
+      // Try to update with extra fields (if present in DB); fallback to status-only.
+      const updatePayload: any = {
+        status: 'motivat',
+        excuse_reason: motivateReason.trim() ? motivateReason.trim() : null,
+        excused_at: new Date().toISOString(),
+      };
 
-      if (error) throw error;
+      let { error } = await (supabase as any)
+        .from('attendance')
+        .update(updatePayload)
+        .in('id', selectedAbsences as any);
+
+      if (error) {
+        // Fallback: some DB schemas may not have excuse_reason/excused_at yet.
+        const fallback = await supabase
+          .from('attendance')
+          .update({ status: 'motivat' })
+          .in('id', selectedAbsences as any);
+        if (fallback.error) throw fallback.error;
+      }
 
       toast({
         title: "Succes!",
@@ -355,6 +397,7 @@ const HomeroomDashboard = () => {
 
       setSelectedAbsences([]);
       setIsMotivateOpen(false);
+      setMotivateReason("");
       fetchData();
       fetchAbsences();
     } catch (error) {
@@ -547,6 +590,57 @@ const HomeroomDashboard = () => {
                 />
               </div>
 
+              {/* Simple visual alerts (no AI) */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <XCircle className="h-5 w-5" />
+                      Elevi cu absențe multe
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="text-sm">
+                    {alerts.manyAbsences.length === 0 ? (
+                      <p className="text-muted-foreground">—</p>
+                    ) : (
+                      <ul className="space-y-2">
+                        {alerts.manyAbsences.slice(0, 8).map((s) => (
+                          <li key={s.id} className="flex items-center justify-between gap-3">
+                            <span>{s.full_name ?? "(fără nume)"}</span>
+                            <span className="text-muted-foreground">≥ 10</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    <p className="text-xs text-muted-foreground mt-3">Prag: ≥ 10 absențe (total).</p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <GraduationCap className="h-5 w-5" />
+                      Elevi fără note
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="text-sm">
+                    {alerts.noGrades.length === 0 ? (
+                      <p className="text-muted-foreground">—</p>
+                    ) : (
+                      <ul className="space-y-2">
+                        {alerts.noGrades.slice(0, 8).map((s) => (
+                          <li key={s.id} className="flex items-center justify-between gap-3">
+                            <span>{s.full_name ?? "(fără nume)"}</span>
+                            <span className="text-muted-foreground">0 note</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    <p className="text-xs text-muted-foreground mt-3">Definiție: 0 note (total).</p>
+                  </CardContent>
+                </Card>
+              </div>
+
           {/* Action Buttons */}
           <div className="flex flex-wrap gap-3 mb-6">
             <Dialog open={isAddStudentOpen} onOpenChange={setIsAddStudentOpen}>
@@ -658,6 +752,15 @@ const HomeroomDashboard = () => {
                             </div>
                           </div>
                         ))}
+                      </div>
+                      <div>
+                        <Label>Motiv (opțional)</Label>
+                        <Textarea
+                          value={motivateReason}
+                          onChange={(e) => setMotivateReason(e.target.value)}
+                          placeholder="ex: Adeverință medicală / motivare părinte..."
+                          className="mt-1"
+                        />
                       </div>
                       <Button 
                         onClick={handleMotivateAbsences} 
