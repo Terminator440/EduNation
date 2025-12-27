@@ -4,26 +4,88 @@ DROP POLICY IF EXISTS "Teachers can view all profiles" ON public.profiles;
 DROP POLICY IF EXISTS "Teachers can view their classes" ON public.classes;
 DROP FUNCTION IF EXISTS public.has_role(uuid, app_role);
 
--- Create new enum type
-CREATE TYPE public.app_role_new AS ENUM ('student', 'parent', 'teacher', 'homeroom_teacher', 'secretariat', 'director', 'uat_admin');
+-- Ensure roles enum is compatible (non-destructive)
+DO $roles$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_type
+    WHERE typnamespace = 'public'::regnamespace AND typname = 'app_role'
+  ) THEN
+    CREATE TYPE public.app_role AS ENUM ('student','parent','teacher','homeroom_teacher','secretariat','director','uat_admin');
+  ELSE
+    -- Rename legacy Romanian enum labels to the current English ones (no drop, preserves dependencies).
+    BEGIN
+      ALTER TYPE public.app_role RENAME VALUE 'elev' TO 'student';
+    EXCEPTION WHEN undefined_object OR duplicate_object OR invalid_parameter_value THEN
+      NULL;
+    END;
 
--- Update user_roles table to use new enum
-ALTER TABLE public.user_roles 
-  ALTER COLUMN role TYPE app_role_new 
-  USING (
-    CASE role::text
-      WHEN 'elev' THEN 'student'::app_role_new
-      WHEN 'profesor' THEN 'teacher'::app_role_new
-      WHEN 'parinte' THEN 'parent'::app_role_new
-    END
-  );
+    BEGIN
+      ALTER TYPE public.app_role RENAME VALUE 'parinte' TO 'parent';
+    EXCEPTION WHEN undefined_object OR duplicate_object OR invalid_parameter_value THEN
+      NULL;
+    END;
 
--- Drop old enum and rename new one
-DROP TYPE public.app_role;
-ALTER TYPE public.app_role_new RENAME TO app_role;
+    BEGIN
+      ALTER TYPE public.app_role RENAME VALUE 'profesor' TO 'teacher';
+    EXCEPTION WHEN undefined_object OR duplicate_object OR invalid_parameter_value THEN
+      NULL;
+    END;
 
--- Add active_role column to profiles
-ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS active_role app_role DEFAULT 'student';
+    -- Ensure any missing values exist.
+    BEGIN
+      ALTER TYPE public.app_role ADD VALUE IF NOT EXISTS 'homeroom_teacher';
+      ALTER TYPE public.app_role ADD VALUE IF NOT EXISTS 'secretariat';
+      ALTER TYPE public.app_role ADD VALUE IF NOT EXISTS 'director';
+      ALTER TYPE public.app_role ADD VALUE IF NOT EXISTS 'uat_admin';
+    EXCEPTION WHEN duplicate_object THEN
+      NULL;
+    END;
+  END IF;
+END
+$roles$;
+
+-- Ensure profiles.active_role exists and uses public.app_role
+ALTER TABLE public.profiles
+  ADD COLUMN IF NOT EXISTS active_role public.app_role DEFAULT 'student';
+
+-- If any legacy values still exist as text, normalize them
+UPDATE public.profiles
+SET active_role = CASE active_role::text
+  WHEN 'elev' THEN 'student'::public.app_role
+  WHEN 'profesor' THEN 'teacher'::public.app_role
+  WHEN 'parinte' THEN 'parent'::public.app_role
+  ELSE active_role
+END
+WHERE active_role IS NOT NULL;
+
+-- Ensure user_roles.role uses public.app_role (and normalize legacy values)
+UPDATE public.user_roles
+SET role = CASE role::text
+  WHEN 'elev' THEN 'student'::public.app_role
+  WHEN 'profesor' THEN 'teacher'::public.app_role
+  WHEN 'parinte' THEN 'parent'::public.app_role
+  ELSE role
+END
+WHERE role IS NOT NULL;
+
+ALTER TABLE public.user_roles
+  ALTER COLUMN role TYPE public.app_role USING role::text::public.app_role;
+
+ALTER TABLE public.profiles
+  ALTER COLUMN active_role TYPE public.app_role USING active_role::text::public.app_role;
+
+-- Clean up any leftover app_role_new from partial runs
+DO $cleanup$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_type
+    WHERE typnamespace = 'public'::regnamespace AND typname = 'app_role_new'
+  ) THEN
+    DROP TYPE public.app_role_new;
+  END IF;
+END
+$cleanup$;
 
 -- Recreate has_role function with new enum
 CREATE OR REPLACE FUNCTION public.has_role(_user_id uuid, _role app_role)
@@ -59,9 +121,11 @@ CREATE TABLE public.parent_student_relations (
 
 ALTER TABLE public.parent_student_relations ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Parents can view their relations" ON public.parent_student_relations;
 CREATE POLICY "Parents can view their relations" ON public.parent_student_relations
   FOR SELECT USING (parent_user_id = auth.uid());
 
+DROP POLICY IF EXISTS "Secretariat can manage relations" ON public.parent_student_relations;
 CREATE POLICY "Secretariat can manage relations" ON public.parent_student_relations
   FOR ALL USING (has_role(auth.uid(), 'secretariat') OR has_role(auth.uid(), 'director'));
 
@@ -80,6 +144,7 @@ CREATE TABLE public.student_activations (
 
 ALTER TABLE public.student_activations ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Staff can manage activations" ON public.student_activations;
 CREATE POLICY "Staff can manage activations" ON public.student_activations
   FOR ALL USING (
     has_role(auth.uid(), 'secretariat') OR 
@@ -87,6 +152,7 @@ CREATE POLICY "Staff can manage activations" ON public.student_activations
     has_role(auth.uid(), 'homeroom_teacher')
   );
 
+DROP POLICY IF EXISTS "Anyone can view unused activations for validation" ON public.student_activations;
 CREATE POLICY "Anyone can view unused activations for validation" ON public.student_activations
   FOR SELECT USING (is_used = false AND expires_at > now());
 
@@ -105,9 +171,11 @@ CREATE TABLE public.audit_logs (
 
 ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Directors can view all audit logs" ON public.audit_logs;
 CREATE POLICY "Directors can view all audit logs" ON public.audit_logs
   FOR SELECT USING (has_role(auth.uid(), 'director'));
 
+DROP POLICY IF EXISTS "Users can view own audit logs" ON public.audit_logs;
 CREATE POLICY "Users can view own audit logs" ON public.audit_logs
   FOR SELECT USING (user_id = auth.uid());
 

@@ -19,6 +19,9 @@ import SchoolCalendar from "./pages/SchoolCalendar";
 import Lessons from "./pages/Lessons";
 import TakeAttendance from "./pages/TakeAttendance";
 import Reports from "./pages/Reports";
+import AuditLogs from "./pages/AuditLogs";
+import Announcements from "./pages/Announcements";
+import Notifications from "./pages/Notifications";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -36,78 +39,149 @@ const App = () => (
           <ErrorBoundary>
             <Routes>
               <Route path="/" element={<Index />} />
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/login" element={<Auth />} />
-            <Route path="/dashboard" element={
-              <ProtectedRoute allowedRoles={['student']}>
-                <Dashboard />
-              </ProtectedRoute>
-            } />
-            <Route path="/parent" element={
-              <ProtectedRoute allowedRoles={['parent']}>
-                <ParentDashboard />
-              </ProtectedRoute>
-            } />
-            <Route path="/teacher" element={
-              <ProtectedRoute allowedRoles={['teacher', 'homeroom_teacher', 'director', 'secretariat']}>
-                <TeacherDashboard />
-              </ProtectedRoute>
-            } />
-            <Route path="/teacher/attendance" element={
-              <ProtectedRoute allowedRoles={['teacher', 'homeroom_teacher']}>
-                <TakeAttendance />
-              </ProtectedRoute>
-            } />
-            <Route path="/homeroom" element={
-              <ProtectedRoute allowedRoles={['homeroom_teacher', 'director', 'secretariat']}>
-                <HomeroomDashboard />
-              </ProtectedRoute>
-            } />
-            <Route path="/reports" element={
-              <ProtectedRoute allowedRoles={['teacher', 'homeroom_teacher', 'secretariat', 'director', 'uat_admin']}>
-                <Reports />
-              </ProtectedRoute>
-            } />
-            <Route path="/secretariat" element={
-              <ProtectedRoute allowedRoles={['secretariat', 'director']}>
-                <SecretariatDashboard />
-              </ProtectedRoute>
-            } />
-            <Route path="/director" element={
-              <ProtectedRoute allowedRoles={['director']}>
-                <DirectorDashboard />
-              </ProtectedRoute>
-            } />
-            <Route path="/admin" element={
-              <ProtectedRoute allowedRoles={['uat_admin']}>
-                <AdminDashboard />
-              </ProtectedRoute>
-            } />
-            <Route path="/dashboard/grades" element={
-              <ProtectedRoute allowedRoles={['student', 'parent']}>
-                <Grades />
-              </ProtectedRoute>
-            } />
-            <Route path="/dashboard/attendance" element={
-              <ProtectedRoute allowedRoles={['student', 'parent']}>
-                <Attendance />
-              </ProtectedRoute>
-            } />
-            <Route path="/dashboard/calendar" element={
-              <ProtectedRoute allowedRoles={['student', 'parent', 'teacher', 'homeroom_teacher', 'secretariat', 'director', 'uat_admin']}>
-                <SchoolCalendar />
-              </ProtectedRoute>
-            } />
-            <Route path="/dashboard/lessons" element={
-              <ProtectedRoute allowedRoles={['student', 'teacher', 'homeroom_teacher', 'secretariat', 'director']}>
-                <Lessons />
-              </ProtectedRoute>
-            } />
-            <Route path="/dashboard/settings" element={
-              <ProtectedRoute allowedRoles={['student', 'parent', 'teacher', 'homeroom_teacher', 'secretariat', 'director', 'uat_admin']}>
-                <Settings />
-              </ProtectedRoute>
-            } />
+              <Route path="/auth" element={<Auth />} />
+              <Route path="/login" element={<Auth />} />
+
+              <Route
+                path="/dashboard"
+                element={
+                  <ProtectedRoute allowedRoles={["student"]}>
+                    <Dashboard />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/parent"
+                element={
+                  <ProtectedRoute allowedRoles={["parent"]}>
+                    <ParentDashboard />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/teacher"
+                element={
+                  <ProtectedRoute allowedRoles={["teacher", "homeroom_teacher", "director", "secretariat"]}>
+                    <TeacherDashboard />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/teacher/attendance"
+                element={
+                  <ProtectedRoute allowedRoles={["teacher", "homeroom_teacher"]}>
+                    <TakeAttendance />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/homeroom"
+                element={
+                  <ProtectedRoute allowedRoles={["homeroom_teacher", "director", "secretariat"]}>
+                    <HomeroomDashboard />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/reports"
+                element={
+                  <ProtectedRoute allowedRoles={["teacher", "homeroom_teacher", "secretariat", "director", "uat_admin"]}>
+                    <Reports />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/audit"
+                element={
+                  <ProtectedRoute allowedRoles={["secretariat", "director", "uat_admin"]}>
+                    <AuditLogs />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/announcements"
+                element={
+                  <ProtectedRoute allowedRoles={["student", "parent", "teacher", "homeroom_teacher", "secretariat", "director", "uat_admin"]}>
+                    <Announcements />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/notifications"
+                element={
+                  <ProtectedRoute allowedRoles={["student", "parent", "teacher", "homeroom_teacher", "secretariat", "director", "uat_admin"]}>
+                    <Notifications />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/secretariat"
+                element={
+                  <ProtectedRoute allowedRoles={["secretariat", "director"]}>
+                    <SecretariatDashboard />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/director"
+                element={
+                  <ProtectedRoute allowedRoles={["director"]}>
+                    <DirectorDashboard />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin"
+                element={
+                  <ProtectedRoute allowedRoles={["uat_admin"]}>
+                    <AdminDashboard />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/dashboard/grades"
+                element={
+                  <ProtectedRoute allowedRoles={["student", "parent"]}>
+                    <Grades />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/dashboard/attendance"
+                element={
+                  <ProtectedRoute allowedRoles={["student", "parent"]}>
+                    <Attendance />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/dashboard/calendar"
+                element={
+                  <ProtectedRoute allowedRoles={["student", "parent", "teacher", "homeroom_teacher", "secretariat", "director", "uat_admin"]}>
+                    <SchoolCalendar />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/dashboard/lessons"
+                element={
+                  <ProtectedRoute allowedRoles={["student", "teacher", "homeroom_teacher", "secretariat", "director"]}>
+                    <Lessons />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/dashboard/settings"
+                element={
+                  <ProtectedRoute allowedRoles={["student", "parent", "teacher", "homeroom_teacher", "secretariat", "director", "uat_admin"]}>
+                    <Settings />
+                  </ProtectedRoute>
+                }
+              />
+
               <Route path="*" element={<NotFound />} />
             </Routes>
           </ErrorBoundary>

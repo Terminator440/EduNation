@@ -1,35 +1,40 @@
-import { BookOpen, Calendar, GraduationCap, Users, Brain, FileText } from "lucide-react";
+import { BookOpen, Calendar, GraduationCap, Users, FileText, ClipboardList } from "lucide-react";
 
 const features = [
   {
     icon: GraduationCap,
     title: "Note și Absențe",
-    description: "Urmărește-ți notele și prezența în timp real. Fiecare materie, fiecare evaluare, totul organizat clar.",
+    description:
+      "Urmărești notele și prezența pe materii și perioade, cu evidență clară pentru elevi și părinți.",
   },
   {
-    icon: Brain,
-    title: "Explicații AI",
-    description: "Un algoritm inteligent explică lecțiile pe scurt și clar, într-un limbaj ușor de înțeles.",
+    icon: ClipboardList,
+    title: "Condică (Profesor)",
+    description:
+      "Evidență pentru orele predate: dată, clasă, disciplină și status (predată/anulată/suplinire).",
   },
   {
     icon: Calendar,
     title: "Calendar Școlar",
-    description: "Vacanțe, teste, evenimente - tot ce trebuie să știi, într-un singur calendar interactiv.",
+    description: "Vacanțe, teste, evenimente — toate într-un calendar ușor de consultat.",
   },
   {
     icon: BookOpen,
-    title: "Manuale Digitale",
-    description: "Acces la manuale și cărți digitale din programă, puse la dispoziție legal și gratuit.",
+    title: "Materiale și Resurse",
+    description:
+      "Profesorii pot atașa materiale (link-uri/documente) pe discipline, organizate pentru studiu.",
   },
   {
     icon: Users,
-    title: "Comunicare Facilă",
-    description: "Profesori, elevi și părinți conectați pe aceeași platformă pentru o comunicare eficientă.",
+    title: "Comunicare",
+    description:
+      "Mesaje și notificări între profesori, elevi și părinți, cu trasabilitate și acces controlat.",
   },
   {
     icon: FileText,
-    title: "Lecții Structurate",
-    description: "Profesorii pot adăuga lecții din programă, iar tu le găsești organizate și gata de studiu.",
+    title: "Rapoarte și Export",
+    description:
+      "Rapoarte print-ready și export CSV pentru situații pe elev/clasă și pentru condică.",
   },
 ];
 
@@ -37,17 +42,16 @@ const FeaturesSection = () => {
   return (
     <section id="features" className="py-24 bg-background">
       <div className="container mx-auto px-4">
-        {/* Section header */}
         <div className="text-center max-w-2xl mx-auto mb-16">
           <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
             Tot ce ai nevoie pentru școală
           </h2>
           <p className="text-lg text-muted-foreground">
-            O platformă completă care transformă modul în care înveți și te organizezi
+            O platformă completă pentru evidență, comunicare și rapoarte, fără promisiuni
+            „magice”.
           </p>
         </div>
 
-        {/* Features grid */}
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {features.map((feature, index) => (
             <div
@@ -58,12 +62,8 @@ const FeaturesSection = () => {
               <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mb-4 group-hover:bg-primary/20 transition-colors">
                 <feature.icon className="w-6 h-6 text-primary" />
               </div>
-              <h3 className="text-xl font-semibold text-foreground mb-2">
-                {feature.title}
-              </h3>
-              <p className="text-muted-foreground leading-relaxed">
-                {feature.description}
-              </p>
+              <h3 className="text-xl font-semibold text-foreground mb-2">{feature.title}</h3>
+              <p className="text-muted-foreground leading-relaxed">{feature.description}</p>
             </div>
           ))}
         </div>

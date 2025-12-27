@@ -1,33 +1,33 @@
-import { BookOpen, Brain, Calendar, FileText } from "lucide-react";
+import { BookOpen, Calendar, FileText, ClipboardList } from "lucide-react";
 import { Link } from "react-router-dom";
 
 const actions = [
   {
     icon: BookOpen,
-    label: "Vezi lecțiile",
-    description: "Accesează materialele",
+    label: "Materiale",
+    description: "Accesează resurse",
     href: "/dashboard/lessons",
     color: "primary",
   },
   {
-    icon: Brain,
-    label: "Explicații AI",
-    description: "Înțelege mai ușor",
-    href: "/dashboard/lessons",
+    icon: ClipboardList,
+    label: "Condică",
+    description: "Ore predate",
+    href: "/teacher",
     color: "accent",
   },
   {
     icon: Calendar,
     label: "Calendar",
-    description: "Planifică-ți timpul",
+    description: "Evenimente și teste",
     href: "/dashboard/calendar",
     color: "success",
   },
   {
     icon: FileText,
-    label: "Manuale",
-    description: "Cărți digitale",
-    href: "/dashboard/lessons",
+    label: "Rapoarte",
+    description: "Export / print",
+    href: "/reports",
     color: "warning",
   },
 ];
@@ -58,7 +58,11 @@ const QuickActions = () => {
             to={action.href}
             className="group flex flex-col items-center p-4 rounded-xl border border-border hover:border-primary/30 hover:shadow-md transition-all"
           >
-            <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-3 transition-colors ${getColorClasses(action.color)}`}>
+            <div
+              className={`w-12 h-12 rounded-xl flex items-center justify-center mb-3 transition-colors ${getColorClasses(
+                action.color
+              )}`}
+            >
               <action.icon className="w-6 h-6" />
             </div>
             <span className="font-medium text-foreground text-sm text-center">{action.label}</span>

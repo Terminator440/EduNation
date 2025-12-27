@@ -12,10 +12,10 @@ const Footer = () => {
               <div className="w-10 h-10 rounded-xl bg-gradient-primary flex items-center justify-center">
                 <BookOpen className="w-5 h-5 text-primary-foreground" />
               </div>
-              <span className="text-xl font-bold text-foreground">EduCatalog</span>
+              <span className="text-xl font-bold text-foreground">EduNation</span>
             </Link>
             <p className="text-muted-foreground text-sm leading-relaxed">
-              Catalogul electronic care nu doar măsoară școala, ci o și explică.
+              Catalog digital școlar pentru note, absențe, condică și comunicare.
             </p>
           </div>
 
@@ -86,7 +86,7 @@ const Footer = () => {
         {/* Bottom bar */}
         <div className="border-t border-border mt-12 pt-8 text-center">
           <p className="text-muted-foreground text-sm">
-            © {new Date().getFullYear()} EduCatalog. Toate drepturile rezervate.
+            © {new Date().getFullYear()} EduNation. Toate drepturile rezervate.
           </p>
         </div>
       </div>

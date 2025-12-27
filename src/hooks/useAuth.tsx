@@ -191,7 +191,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const active = (profileData?.active_role as AppRole | null) ?? null;
 
       // Persist role selection locally so the UI role switcher works even if DB updates are blocked by RLS.
-      const storedRoleRaw = safeStorageGet('eduro.activeRole');
+      const storedRoleRaw = safeStorageGet('edunation.activeRole');
       const storedRole = normalizeRole(storedRoleRaw);
 
       const pick =
@@ -201,7 +201,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       if (pick) {
         setActiveRole(pick);
-        safeStorageSet('eduro.activeRole', pick);
+        safeStorageSet('edunation.activeRole', pick);
 
         // Best-effort: update profile with active role (ignore failures if RLS blocks).
         try {
@@ -271,7 +271,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (!userRoles.includes(role)) return;
 
     setActiveRole(role);
-	    safeStorageSet('eduro.activeRole', role);
+	    safeStorageSet('edunation.activeRole', role);
 
     // Best-effort: persist selection in profile (ignore failures if RLS blocks).
     try {

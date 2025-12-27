@@ -99,7 +99,7 @@ export default function Auth() {
   // Redirect dacă ești deja logat
   useEffect(() => {
     if (!loading && user) {
-      const stored = (safeStorageGet("eduro.activeRole") as AppRole | null) ?? null;
+      const stored = (safeStorageGet("edunation.activeRole") as AppRole | null) ?? null;
       const role: AppRole = (stored ?? activeRole ?? "student") as AppRole;
       navigate(routeMap[role] ?? "/dashboard");
     }
@@ -232,7 +232,7 @@ export default function Auth() {
         });
       }
 
-      safeStorageSet("eduro.activeRole", activationRole);
+      safeStorageSet("edunation.activeRole", activationRole);
       navigate(routeMap[activationRole] ?? "/dashboard");
     } catch (err: unknown) {
       const message =
@@ -300,7 +300,7 @@ export default function Auth() {
       }
 
       toast({ title: "Cont creat cu succes", description: "Te-ai înregistrat cu succes!" });
-      safeStorageSet("eduro.activeRole", selectedRole);
+      safeStorageSet("edunation.activeRole", selectedRole);
       navigate(routeMap[selectedRole] ?? "/dashboard");
     } catch (err: unknown) {
       const message =
@@ -335,7 +335,7 @@ export default function Auth() {
             <div className="w-12 h-12 rounded-xl bg-gradient-primary flex items-center justify-center shadow-lg">
               <BookOpen className="w-6 h-6 text-primary-foreground" />
             </div>
-            <span className="text-2xl font-bold text-foreground">EduRO</span>
+            <span className="text-2xl font-bold text-foreground">EduNation</span>
           </Link>
 
           <h1 className="text-3xl font-bold text-foreground mb-2">
@@ -742,9 +742,9 @@ export default function Auth() {
           <div className="w-24 h-24 rounded-3xl bg-primary-foreground/20 flex items-center justify-center mx-auto mb-8 animate-float">
             <BookOpen className="w-12 h-12" />
           </div>
-          <h2 className="text-3xl font-bold mb-4">Catalogul care explică școala</h2>
+          <h2 className="text-3xl font-bold mb-4">EduNation – catalog digital școlar</h2>
           <p className="text-primary-foreground/80 text-lg leading-relaxed">
-            Tot ce ai nevoie pentru un an școlar de succes: note, absențe, calendar, lecții și explicații clare.
+            Tot ce ai nevoie pentru un an școlar organizat: note, absențe, calendar, condică și comunicare.
           </p>
         </div>
       </div>

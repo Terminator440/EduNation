@@ -1,4 +1,4 @@
-# EduRO
+# EduNation
 
 Catalog școlar digital (Vite + React + Supabase) generat/iterat în Lovable.
 

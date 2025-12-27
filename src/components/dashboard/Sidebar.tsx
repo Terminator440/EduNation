@@ -13,6 +13,7 @@ import {
   FileText,
   Shield,
   Bell,
+  Mail,
   Key,
   ClipboardCheck
 } from "lucide-react";
@@ -31,6 +32,8 @@ const menuItemsByRole: Record<AppRole, { icon: any; label: string; href: string 
     { icon: GraduationCap, label: "Note", href: "/dashboard/grades" },
     { icon: UserCircle, label: "Prezență", href: "/dashboard/attendance" },
     { icon: Calendar, label: "Calendar", href: "/dashboard/calendar" },
+    { icon: Bell, label: "Anunțuri", href: "/announcements" },
+    { icon: Mail, label: "Notificări", href: "/notifications" },
     { icon: BookText, label: "Lecții", href: "/dashboard/lessons" },
   ],
   parent: [
@@ -39,6 +42,8 @@ const menuItemsByRole: Record<AppRole, { icon: any; label: string; href: string 
     { icon: GraduationCap, label: "Note", href: "/dashboard/grades" },
     { icon: UserCircle, label: "Prezență", href: "/dashboard/attendance" },
     { icon: Calendar, label: "Calendar", href: "/dashboard/calendar" },
+    { icon: Bell, label: "Anunțuri", href: "/announcements" },
+    { icon: Mail, label: "Notificări", href: "/notifications" },
   ],
   teacher: [
     { icon: LayoutDashboard, label: "Panou principal", href: "/teacher" },
@@ -46,6 +51,8 @@ const menuItemsByRole: Record<AppRole, { icon: any; label: string; href: string 
     { icon: GraduationCap, label: "Catalog", href: "/teacher" },
     { icon: ClipboardCheck, label: "Fă prezența", href: "/teacher/attendance" },
     { icon: FileText, label: "Rapoarte", href: "/reports" },
+    { icon: Bell, label: "Anunțuri", href: "/announcements" },
+    { icon: Mail, label: "Notificări", href: "/notifications" },
     { icon: BookText, label: "Lecții", href: "/dashboard/lessons" },
     { icon: Calendar, label: "Calendar", href: "/dashboard/calendar" },
   ],
@@ -55,6 +62,8 @@ const menuItemsByRole: Record<AppRole, { icon: any; label: string; href: string 
     { icon: GraduationCap, label: "Catalog Profesor", href: "/teacher" },
     { icon: ClipboardCheck, label: "Fă prezența", href: "/teacher/attendance" },
     { icon: FileText, label: "Rapoarte", href: "/reports" },
+    { icon: Bell, label: "Anunțuri", href: "/announcements" },
+    { icon: Mail, label: "Notificări", href: "/notifications" },
     { icon: Calendar, label: "Calendar", href: "/dashboard/calendar" },
   ],
   secretariat: [
@@ -62,6 +71,8 @@ const menuItemsByRole: Record<AppRole, { icon: any; label: string; href: string 
     { icon: Users, label: "Elevi", href: "/secretariat" },
     { icon: GraduationCap, label: "Clase", href: "/secretariat" },
     { icon: FileText, label: "Rapoarte", href: "/reports" },
+    { icon: Bell, label: "Anunțuri", href: "/announcements" },
+    { icon: Mail, label: "Notificări", href: "/notifications" },
     { icon: Shield, label: "Director", href: "/director" },
     { icon: Calendar, label: "Calendar", href: "/dashboard/calendar" },
   ],
@@ -71,13 +82,16 @@ const menuItemsByRole: Record<AppRole, { icon: any; label: string; href: string 
     { icon: Key, label: "Diriginție", href: "/homeroom" },
     { icon: GraduationCap, label: "Catalog Profesor", href: "/teacher" },
     { icon: FileText, label: "Rapoarte", href: "/reports" },
-    { icon: Shield, label: "Audit", href: "/director" },
-    { icon: Bell, label: "Anunțuri", href: "/director" },
+    { icon: Shield, label: "Audit", href: "/audit" },
+    { icon: Bell, label: "Anunțuri", href: "/announcements" },
+    { icon: Mail, label: "Notificări", href: "/notifications" },
   ],
   uat_admin: [
     { icon: LayoutDashboard, label: "Panou principal", href: "/admin" },
     { icon: Users, label: "Utilizatori", href: "/admin" },
     { icon: FileText, label: "Rapoarte", href: "/reports" },
+    { icon: Bell, label: "Anunțuri", href: "/announcements" },
+    { icon: Mail, label: "Notificări", href: "/notifications" },
     { icon: Settings, label: "Configurare", href: "/admin" },
   ],
 };
@@ -117,7 +131,7 @@ const Sidebar = ({ isCollapsed, onToggle }: SidebarProps) => {
             <BookOpen className="w-5 h-5 text-primary-foreground" />
           </div>
           {!isCollapsed && (
-            <span className="text-lg font-bold text-sidebar-foreground">EduCatalog</span>
+            <span className="text-lg font-bold text-sidebar-foreground">EduNation</span>
           )}
         </Link>
         <Button
