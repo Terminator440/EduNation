@@ -89,6 +89,10 @@ CREATE POLICY "Teachers can manage lessons for their class" ON public.lessons
   );
 
 -- 5) messages: internal messaging (teacher/staff <-> student/parent)
+-- NOTE: Some older/local setups create a simplified `public.messages` table (user inbox style).
+-- To avoid migration failures, we keep this migration compatible with both schemas.
+
+-- If `public.messages` does not exist yet, create the full messaging schema.
 CREATE TABLE IF NOT EXISTS public.messages (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   sender_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -101,15 +105,40 @@ CREATE TABLE IF NOT EXISTS public.messages (
 
 ALTER TABLE public.messages ENABLE ROW LEVEL SECURITY;
 
-DROP POLICY IF EXISTS "Participants can view messages" ON public.messages;
-CREATE POLICY "Participants can view messages" ON public.messages
-  FOR SELECT USING (sender_id = auth.uid() OR recipient_id = auth.uid());
+-- Policies depend on which schema is present.
+DO $messages_policies$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='messages' AND column_name='sender_id'
+  ) THEN
+    -- Full messaging schema (sender_id/recipient_id)
+    DROP POLICY IF EXISTS "Participants can view messages" ON public.messages;
+    CREATE POLICY "Participants can view messages" ON public.messages
+      FOR SELECT USING (sender_id = auth.uid() OR recipient_id = auth.uid());
 
-DROP POLICY IF EXISTS "Users can send messages" ON public.messages;
-CREATE POLICY "Users can send messages" ON public.messages
-  FOR INSERT WITH CHECK (sender_id = auth.uid());
+    DROP POLICY IF EXISTS "Users can send messages" ON public.messages;
+    CREATE POLICY "Users can send messages" ON public.messages
+      FOR INSERT WITH CHECK (sender_id = auth.uid());
 
-DROP POLICY IF EXISTS "Recipient can mark read" ON public.messages;
-CREATE POLICY "Recipient can mark read" ON public.messages
-  FOR UPDATE USING (recipient_id = auth.uid())
-  WITH CHECK (recipient_id = auth.uid());
+    DROP POLICY IF EXISTS "Recipient can mark read" ON public.messages;
+    CREATE POLICY "Recipient can mark read" ON public.messages
+      FOR UPDATE USING (recipient_id = auth.uid())
+      WITH CHECK (recipient_id = auth.uid());
+  ELSE
+    -- Simplified inbox schema (user_id)
+    DROP POLICY IF EXISTS "Participants can view messages" ON public.messages;
+    CREATE POLICY "Participants can view messages" ON public.messages
+      FOR SELECT USING (auth.uid() = user_id);
+
+    DROP POLICY IF EXISTS "Users can send messages" ON public.messages;
+    CREATE POLICY "Users can send messages" ON public.messages
+      FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+    DROP POLICY IF EXISTS "Recipient can mark read" ON public.messages;
+    CREATE POLICY "Recipient can mark read" ON public.messages
+      FOR UPDATE USING (auth.uid() = user_id)
+      WITH CHECK (auth.uid() = user_id);
+  END IF;
+END
+$messages_policies$;

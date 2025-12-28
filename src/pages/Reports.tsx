@@ -153,9 +153,11 @@ const Reports = () => {
     }
     setLoading(true);
     try {
+      // Use '*' to avoid runtime failures if a deployment is missing some
+      // optional columns (e.g., contact_email/contact_phone).
       const { data: st, error: stErr } = await supabase
         .from("students")
-        .select("id, student_number, full_name, is_active, contact_email, contact_phone")
+        .select("*")
         .eq("class_id", classId)
         .order("student_number", { ascending: true });
       if (stErr) throw stErr;

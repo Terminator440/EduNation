@@ -168,6 +168,39 @@ CREATE TABLE IF NOT EXISTS public.attendance (
   UNIQUE (student_id, subject_id, date)
 );
 
+-- Optional but commonly used app tables. Keeping them in the bootstrap migration
+-- prevents PostgREST "schema cache" errors if later migrations were skipped.
+
+CREATE TABLE IF NOT EXISTS public.announcements (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  title text NOT NULL,
+  content text NOT NULL,
+  target_role public.app_role,
+  created_by uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.notifications (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  type text,
+  title text,
+  body text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  read_at timestamptz
+);
+
+-- Backwards-compat table used by some UI builds ("messages" == inbox/notifications).
+CREATE TABLE IF NOT EXISTS public.messages (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  type text,
+  title text,
+  body text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  read_at timestamptz
+);
+
 -- 3) Required helper functions
 CREATE OR REPLACE FUNCTION public.has_role(_user_id uuid, _role public.app_role)
 RETURNS boolean
