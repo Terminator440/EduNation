@@ -1,1 +1,10 @@
 project_id = "nhdjswrnlcfomfdyeadk"
+
+[db.seed]
+# Keep seeds enabled, but ensure the default seed file exists to avoid warnings.
+enabled = true
+sql_paths = ["./seed.sql"]
+
+[analytics]
+# Disable Logflare/Vector locally to avoid supabase_vector restart loops on Windows.
+enabled = false
