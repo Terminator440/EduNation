@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Sparkles } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
 
 const HeroSection = () => {
@@ -13,11 +13,6 @@ const HeroSection = () => {
 
       <div className="container mx-auto px-4 relative z-10">
         <div className="max-w-4xl mx-auto text-center">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 mb-8 animate-fade-up">
-            <Sparkles className="w-4 h-4 text-primary" />
-            <span className="text-sm font-medium text-primary">Catalog digital școlar</span>
-          </div>
-
           <h1
             className="text-4xl md:text-6xl lg:text-7xl font-bold text-foreground mb-6 animate-fade-up"
             style={{ animationDelay: "0.1s" }}
@@ -30,7 +25,8 @@ const HeroSection = () => {
             className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-10 animate-fade-up"
             style={{ animationDelay: "0.2s" }}
           >
-            Note, absențe, condică și comunicare — într-o platformă unitară pentru elevi, profesori și părinți.
+            O platformă unitară pentru elevi, profesori și părinți — cu fluxuri clare, informații consecvente și date
+            protejate.
           </p>
 
           <div
@@ -38,39 +34,15 @@ const HeroSection = () => {
             style={{ animationDelay: "0.3s" }}
           >
             <Button variant="hero" size="xl" asChild>
-              <Link to="/dashboard">
-                Intră în platformă
+              <Link to="/login">
+                Autentifică-te
                 <ArrowRight className="w-5 h-5" />
               </Link>
             </Button>
             <Button variant="hero-outline" size="xl" asChild>
-              <Link to="/login">Autentifică-te</Link>
+              <a href="#why">De ce EduNation</a>
             </Button>
           </div>
-
-          <div
-            className="grid grid-cols-3 gap-8 max-w-lg mx-auto mt-16 animate-fade-up"
-            style={{ animationDelay: "0.4s" }}
-          >
-            <div className="text-center">
-              <div className="text-3xl md:text-4xl font-bold text-foreground">Note</div>
-              <div className="text-sm text-muted-foreground mt-1">pe materii</div>
-            </div>
-            <div className="text-center">
-              <div className="text-3xl md:text-4xl font-bold text-foreground">Absențe</div>
-              <div className="text-sm text-muted-foreground mt-1">și motivări</div>
-            </div>
-            <div className="text-center">
-              <div className="text-3xl md:text-4xl font-bold text-foreground">Condică</div>
-              <div className="text-sm text-muted-foreground mt-1">ore predate</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 animate-bounce">
-        <div className="w-6 h-10 rounded-full border-2 border-muted-foreground/30 flex items-start justify-center p-2">
-          <div className="w-1 h-2 bg-muted-foreground/50 rounded-full" />
         </div>
       </div>
     </section>

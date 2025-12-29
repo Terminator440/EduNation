@@ -17,6 +17,11 @@ import Grades from "./pages/Grades";
 import Attendance from "./pages/Attendance";
 import SchoolCalendar from "./pages/SchoolCalendar";
 import Lessons from "./pages/Lessons";
+import Schedule from "./pages/Schedule";
+import Library from "./pages/resources/Library";
+import Manuals from "./pages/resources/Manuals";
+import Magazines from "./pages/resources/Magazines";
+import Documents from "./pages/resources/Documents";
 import TakeAttendance from "./pages/TakeAttendance";
 import Reports from "./pages/Reports";
 import AuditLogs from "./pages/AuditLogs";
@@ -162,6 +167,47 @@ const App = () => (
                 element={
                   <ProtectedRoute allowedRoles={["student", "parent", "teacher", "homeroom_teacher", "secretariat", "director", "uat_admin"]}>
                     <SchoolCalendar />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/dashboard/schedule"
+                element={
+                  <ProtectedRoute allowedRoles={["student", "parent", "teacher", "homeroom_teacher", "secretariat", "director", "uat_admin"]}>
+                    <Schedule />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/resources/library"
+                element={
+                  <ProtectedRoute allowedRoles={["student", "parent", "teacher", "homeroom_teacher", "secretariat", "director", "uat_admin"]}>
+                    <Library />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/resources/manuals"
+                element={
+                  <ProtectedRoute allowedRoles={["student", "parent", "teacher", "homeroom_teacher", "secretariat", "director", "uat_admin"]}>
+                    <Manuals />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/resources/magazines"
+                element={
+                  <ProtectedRoute allowedRoles={["student", "parent", "teacher", "homeroom_teacher", "secretariat", "director", "uat_admin"]}>
+                    <Magazines />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/resources/documents"
+                element={
+                  <ProtectedRoute allowedRoles={["student", "parent", "teacher", "homeroom_teacher", "secretariat", "director", "uat_admin"]}>
+                    <Documents />
                   </ProtectedRoute>
                 }
               />

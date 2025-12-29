@@ -15,7 +15,7 @@ const Footer = () => {
               <span className="text-xl font-bold text-foreground">EduNation</span>
             </Link>
             <p className="text-muted-foreground text-sm leading-relaxed">
-              Catalog digital școlar pentru note, absențe, condică și comunicare.
+              Platformă educațională pentru elevi, profesori și părinți — construită pentru claritate și încredere.
             </p>
           </div>
 
@@ -29,13 +29,8 @@ const Footer = () => {
                 </Link>
               </li>
               <li>
-                <a href="#features" className="text-muted-foreground hover:text-primary transition-colors text-sm">
-                  Funcționalități
-                </a>
-              </li>
-              <li>
-                <a href="#benefits" className="text-muted-foreground hover:text-primary transition-colors text-sm">
-                  Beneficii
+                <a href="#why" className="text-muted-foreground hover:text-primary transition-colors text-sm">
+                  De ce EduNation
                 </a>
               </li>
             </ul>

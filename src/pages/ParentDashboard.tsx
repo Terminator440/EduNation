@@ -4,6 +4,7 @@ import Sidebar from "@/components/dashboard/Sidebar";
 import StatsCard from "@/components/dashboard/StatsCard";
 import GradesTable from "@/components/dashboard/GradesTable";
 import UpcomingEvents from "@/components/dashboard/UpcomingEvents";
+import StatusBanners from "@/components/dashboard/StatusBanners";
 import RoleSwitcher from "@/components/RoleSwitcher";
 import ThemeToggle from "@/components/ThemeToggle";
 import { cn } from "@/lib/utils";
@@ -127,6 +128,7 @@ const ParentDashboard = () => {
         </header>
 
         <div className="p-8">
+          <StatusBanners />
           <div className="mb-6 flex flex-wrap gap-2">
             {(childrenQuery.data ?? []).map(child => (
               <button

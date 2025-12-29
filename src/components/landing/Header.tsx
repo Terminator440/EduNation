@@ -20,11 +20,8 @@ const Header = () => {
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center gap-8">
-            <a href="#features" className="text-muted-foreground hover:text-foreground transition-colors font-medium">
-              Funcționalități
-            </a>
-            <a href="#benefits" className="text-muted-foreground hover:text-foreground transition-colors font-medium">
-              Beneficii
+            <a href="#why" className="text-muted-foreground hover:text-foreground transition-colors font-medium">
+              De ce EduNation
             </a>
             <a href="#contact" className="text-muted-foreground hover:text-foreground transition-colors font-medium">
               Contact
@@ -33,11 +30,8 @@ const Header = () => {
 
           {/* Desktop CTA */}
           <div className="hidden md:flex items-center gap-3">
-            <Button variant="ghost" asChild>
-              <Link to="/login">Autentificare</Link>
-            </Button>
             <Button variant="hero" asChild>
-              <Link to="/dashboard">Începe acum</Link>
+              <Link to="/login">Autentifică-te</Link>
             </Button>
           </div>
 
@@ -54,21 +48,21 @@ const Header = () => {
         {isMenuOpen && (
           <div className="md:hidden py-4 border-t border-border animate-fade-in">
             <nav className="flex flex-col gap-4">
-              <a href="#features" className="text-muted-foreground hover:text-foreground transition-colors font-medium px-2 py-1">
-                Funcționalități
+              <a
+                href="#why"
+                className="text-muted-foreground hover:text-foreground transition-colors font-medium px-2 py-1"
+              >
+                De ce EduNation
               </a>
-              <a href="#benefits" className="text-muted-foreground hover:text-foreground transition-colors font-medium px-2 py-1">
-                Beneficii
-              </a>
-              <a href="#contact" className="text-muted-foreground hover:text-foreground transition-colors font-medium px-2 py-1">
+              <a
+                href="#contact"
+                className="text-muted-foreground hover:text-foreground transition-colors font-medium px-2 py-1"
+              >
                 Contact
               </a>
               <div className="flex flex-col gap-2 pt-4 border-t border-border">
-                <Button variant="outline" asChild>
-                  <Link to="/login">Autentificare</Link>
-                </Button>
                 <Button variant="hero" asChild>
-                  <Link to="/dashboard">Începe acum</Link>
+                  <Link to="/login">Autentifică-te</Link>
                 </Button>
               </div>
             </nav>

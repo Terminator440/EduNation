@@ -81,7 +81,7 @@ const Notifications = () => {
 
   return (
     <div className="min-h-screen bg-background flex">
-      <Sidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
+      <Sidebar isCollapsed={isCollapsed} onToggle={() => setIsCollapsed(!isCollapsed)} />
       <div className="flex-1">
         <div className="p-6 border-b border-border bg-card">
           <div className="flex items-center justify-between gap-4 flex-wrap">

@@ -5,6 +5,7 @@ import StatsCard from "@/components/dashboard/StatsCard";
 import GradesTable from "@/components/dashboard/GradesTable";
 import UpcomingEvents from "@/components/dashboard/UpcomingEvents";
 import QuickActions from "@/components/dashboard/QuickActions";
+import StatusBanners from "@/components/dashboard/StatusBanners";
 import RoleSwitcher from "@/components/RoleSwitcher";
 import ThemeToggle from "@/components/ThemeToggle";
 import { cn } from "@/lib/utils";
@@ -103,6 +104,7 @@ const Dashboard = () => {
         </header>
 
         <div className="p-8">
+          <StatusBanners />
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <StatsCard
               title="Media Generală"
