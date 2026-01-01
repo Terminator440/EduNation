@@ -108,27 +108,8 @@ const SchoolCalendar = () => {
   });
 
   const createEvent = async () => {
-    if (!user) return;
-    if (!newEvent.event_date || !newEvent.title) {
-      toast({ title: 'Eroare', description: 'Data și titlul sunt obligatorii.', variant: 'destructive' });
-      return;
-    }
-    const { error } = await supabase.from('school_events').insert({
-      event_date: newEvent.event_date,
-      event_time: newEvent.event_time || null,
-      type: newEvent.type,
-      title: newEvent.title,
-      subject: newEvent.subject || null,
-      description: newEvent.description || null,
-      created_by: user.id,
-    });
-    if (error) {
-      toast({ title: 'Eroare', description: error.message, variant: 'destructive' });
-      return;
-    }
-    toast({ title: 'Salvat', description: 'Evenimentul a fost adăugat.' });
-    setNewEvent({ event_date: '', event_time: '', type: 'event', title: '', subject: '', description: '' });
-    await eventsQuery.refetch();
+    // school_events table doesn't exist yet
+    toast({ title: 'Info', description: 'Tabela school_events nu există încă. Funcționalitate indisponibilă.', variant: 'destructive' });
   };
 
   return (

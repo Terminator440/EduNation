@@ -146,27 +146,8 @@ const DirectorDashboard = () => {
 
       setAuditLogs(logsData || []);
 
-      // Fetch pending attendance excuse requests
-      const { data: reqsData } = await supabase
-        .from('attendance_excuse_requests')
-        .select(`
-          id,
-          reason,
-          created_at,
-          status,
-          attendance:attendance_id (
-            id,
-            date,
-            status,
-            students:student_id ( full_name ),
-            subjects:subject_id ( name )
-          )
-        `)
-        .eq('status', 'pending')
-        .order('created_at', { ascending: false })
-        .limit(25);
-
-      setPendingExcuseRequests((reqsData as any) || []);
+      // attendance_excuse_requests table doesn't exist yet - skip
+      setPendingExcuseRequests([]);
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
@@ -174,29 +155,9 @@ const DirectorDashboard = () => {
     }
   };
 
-  const decideExcuseRequest = async (req: PendingExcuseRequest, decision: 'approved' | 'rejected') => {
-    if (!user) return;
-    try {
-      const now = new Date().toISOString();
-      const { error: updReqErr } = await supabase
-        .from('attendance_excuse_requests')
-        .update({ status: decision, decided_by: user.id, decided_at: now })
-        .eq('id', req.id);
-      if (updReqErr) throw updReqErr;
-
-      if (decision === 'approved' && req.attendance?.id) {
-        const { error: updAttErr } = await supabase
-          .from('attendance')
-          .update({ status: 'motivat', excuse_reason: req.reason, excused_by: user.id, excused_at: now })
-          .eq('id', req.attendance.id);
-        if (updAttErr) throw updAttErr;
-      }
-
-      toast({ title: 'Actualizat', description: 'Cererea a fost procesată.' });
-      fetchData();
-    } catch (e: any) {
-      toast({ title: 'Eroare', description: e?.message ?? 'Nu am putut procesa cererea.', variant: 'destructive' });
-    }
+  const decideExcuseRequest = async (_req: PendingExcuseRequest, _decision: 'approved' | 'rejected') => {
+    // attendance_excuse_requests table doesn't exist yet
+    toast({ title: 'Info', description: 'Funcționalitate indisponibilă - tabela nu există.' });
   };
 
   const getRoleLabel = (role: string) => {
