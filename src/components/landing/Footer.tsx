@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 
 const Footer = () => {
   return (
-    <footer id="contact" className="bg-card border-t border-border py-16">
+    <footer className="bg-card border-t border-border py-16">
       <div className="container mx-auto px-4">
         <div className="grid md:grid-cols-4 gap-12">
           {/* Brand */}
@@ -15,7 +15,7 @@ const Footer = () => {
               <span className="text-xl font-bold text-foreground">EduNation</span>
             </Link>
             <p className="text-muted-foreground text-sm leading-relaxed">
-              Platformă educațională pentru elevi, profesori și părinți — construită pentru claritate și încredere.
+              Catalog digital școlar pentru digitalizarea completă a proceselor educaționale din România.
             </p>
           </div>
 
@@ -24,13 +24,23 @@ const Footer = () => {
             <h4 className="font-semibold text-foreground mb-4">Platformă</h4>
             <ul className="space-y-2">
               <li>
-                <Link to="/dashboard" className="text-muted-foreground hover:text-primary transition-colors text-sm">
-                  Dashboard
-                </Link>
+                <a href="#benefits" className="text-muted-foreground hover:text-primary transition-colors text-sm">
+                  Beneficii
+                </a>
               </li>
               <li>
-                <a href="#why" className="text-muted-foreground hover:text-primary transition-colors text-sm">
-                  De ce EduNation
+                <a href="#features" className="text-muted-foreground hover:text-primary transition-colors text-sm">
+                  Funcționalități
+                </a>
+              </li>
+              <li>
+                <a href="#implementation" className="text-muted-foreground hover:text-primary transition-colors text-sm">
+                  Implementare
+                </a>
+              </li>
+              <li>
+                <a href="#demo" className="text-muted-foreground hover:text-primary transition-colors text-sm">
+                  Solicită demo
                 </a>
               </li>
             </ul>
@@ -64,7 +74,7 @@ const Footer = () => {
             <ul className="space-y-3">
               <li className="flex items-center gap-2 text-muted-foreground text-sm">
                 <Mail className="w-4 h-4" />
-                contact@educatalog.ro
+                contact@edunation.ro
               </li>
               <li className="flex items-center gap-2 text-muted-foreground text-sm">
                 <Phone className="w-4 h-4" />

@@ -85,10 +85,14 @@ const Announcements = () => {
 
     setLoading(true);
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Nu ești autentificat");
+
       const payload: any = {
         title: title.trim(),
         content: content.trim(),
         target_role: targetRole,
+        created_by: user.id,
       };
 
       const { error } = await (supabase as any).from("announcements").insert(payload);
