@@ -28,6 +28,7 @@ import AuditLogs from "./pages/AuditLogs";
 import Announcements from "./pages/Announcements";
 import Notifications from "./pages/Notifications";
 import Settings from "./pages/Settings";
+import Developer from "./pages/Developer";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
 import ErrorBoundary from "./components/ErrorBoundary";
@@ -224,6 +225,15 @@ const App = () => (
                 element={
                   <ProtectedRoute allowedRoles={["student", "parent", "teacher", "homeroom_teacher", "secretariat", "director", "uat_admin"]}>
                     <Settings />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/developer"
+                element={
+                  <ProtectedRoute allowedRoles={["director", "uat_admin"]}>
+                    <Developer />
                   </ProtectedRoute>
                 }
               />
