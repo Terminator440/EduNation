@@ -27,6 +27,7 @@ const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) => {
           secretariat: '/secretariat',
           director: '/director',
           uat_admin: '/admin',
+          developer: '/developer',
         };
         navigate(roleRoutes[activeRole] || '/dashboard');
       }

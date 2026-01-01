@@ -10,7 +10,6 @@ import {
   Book,
   Settings,
   LogOut,
-  Bug,
   ChevronLeft,
   UserCircle,
   Users,
@@ -135,6 +134,9 @@ const menuItemsByRole: Record<AppRole, { icon: any; label: string; href: string 
     { icon: FileText, label: "Documente", href: "/resources/documents" },
     { icon: Settings, label: "Configurare", href: "/admin" },
   ],
+  developer: [
+    { icon: Shield, label: "Diagnostic sistem", href: "/developer" },
+  ],
 };
 
 const homeRoutes: Record<AppRole, string> = {
@@ -145,6 +147,7 @@ const homeRoutes: Record<AppRole, string> = {
   secretariat: '/secretariat',
   director: '/director',
   uat_admin: '/admin',
+  developer: '/developer',
 };
 
 const Sidebar = ({ isCollapsed, onToggle }: SidebarProps) => {
@@ -225,13 +228,13 @@ const Sidebar = ({ isCollapsed, onToggle }: SidebarProps) => {
 
       {/* Bottom section */}
       <div className="p-3 border-t border-sidebar-border">
-        {(activeRole === "director" || activeRole === "uat_admin") && (
+        {(activeRole === 'developer' || activeRole === 'director' || activeRole === 'uat_admin') && (
           <Link
             to="/developer"
             className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
           >
-            <Bug className="w-5 h-5 text-muted-foreground" />
-            {!isCollapsed && <span className="font-medium">Diagnostic</span>}
+            <Shield className="w-5 h-5 text-muted-foreground" />
+            {!isCollapsed && <span className="font-medium">Developer</span>}
           </Link>
         )}
         <Link

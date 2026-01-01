@@ -17,6 +17,7 @@ const roleConfig: Record<AppRole, { label: string; icon: typeof GraduationCap; c
   secretariat: { label: 'Secretariat', icon: Building, color: 'text-orange-500', route: '/secretariat' },
   director: { label: 'Director', icon: Shield, color: 'text-red-500', route: '/director' },
   uat_admin: { label: 'Admin UAT', icon: Globe, color: 'text-gray-500', route: '/admin' },
+  developer: { label: 'Developer', icon: Shield, color: 'text-emerald-500', route: '/developer' },
 };
 
 const RoleSwitcher = () => {

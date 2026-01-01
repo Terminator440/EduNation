@@ -106,6 +106,15 @@ const App = () => (
               />
 
               <Route
+                path="/developer"
+                element={
+                  <ProtectedRoute allowedRoles={["developer", "director", "uat_admin"]}>
+                    <Developer />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
                 path="/announcements"
                 element={
                   <ProtectedRoute allowedRoles={["student", "parent", "teacher", "homeroom_teacher", "secretariat", "director", "uat_admin"]}>
@@ -143,6 +152,15 @@ const App = () => (
                 element={
                   <ProtectedRoute allowedRoles={["uat_admin"]}>
                     <AdminDashboard />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/developer"
+                element={
+                  <ProtectedRoute allowedRoles={["developer", "director", "uat_admin"]}>
+                    <Developer />
                   </ProtectedRoute>
                 }
               />
@@ -225,15 +243,6 @@ const App = () => (
                 element={
                   <ProtectedRoute allowedRoles={["student", "parent", "teacher", "homeroom_teacher", "secretariat", "director", "uat_admin"]}>
                     <Settings />
-                  </ProtectedRoute>
-                }
-              />
-
-              <Route
-                path="/developer"
-                element={
-                  <ProtectedRoute allowedRoles={["director", "uat_admin"]}>
-                    <Developer />
                   </ProtectedRoute>
                 }
               />

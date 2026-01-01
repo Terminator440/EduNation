@@ -1,314 +1,254 @@
 import { useEffect, useMemo, useState } from "react";
-import {
-  AlertTriangle,
-  Bell,
-  Bug,
-  CheckCircle,
-  Database,
-  GlobeLock,
-  KeyRound,
-  RefreshCw,
-  Server,
-  XCircle,
-} from "lucide-react";
-
+import { CheckCircle2, AlertTriangle, XCircle, Shield, Bell, Database, KeyRound } from "lucide-react";
 import Sidebar from "@/components/dashboard/Sidebar";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
-import { env } from "@/lib/env";
 import { cn } from "@/lib/utils";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
-type HealthStatus = "pending" | "ok" | "warning" | "error";
+type HealthLevel = "ok" | "warn" | "error";
 
 type HealthCheck = {
   id: string;
   title: string;
   description: string;
-  icon: any;
-  status: HealthStatus;
+  level: HealthLevel;
   detail?: string;
 };
 
-const statusMeta: Record<HealthStatus, { label: string; icon: any; className: string }> = {
-  pending: { label: "Verific…", icon: RefreshCw, className: "text-muted-foreground" },
-  ok: { label: "OK", icon: CheckCircle, className: "text-emerald-600" },
-  warning: { label: "Atenție", icon: AlertTriangle, className: "text-amber-600" },
-  error: { label: "Eroare", icon: XCircle, className: "text-destructive" },
+const levelToUi = (level: HealthLevel) => {
+  switch (level) {
+    case "ok":
+      return { icon: CheckCircle2, badge: "OK", badgeVariant: "default" as const };
+    case "warn":
+      return { icon: AlertTriangle, badge: "Atenție", badgeVariant: "secondary" as const };
+    case "error":
+      return { icon: XCircle, badge: "Eroare", badgeVariant: "destructive" as const };
+  }
 };
 
-const mask = (value: string, visibleEnd = 4) => {
-  if (!value) return "—";
-  if (value.length <= visibleEnd) return "••••";
-  return `${"•".repeat(Math.max(6, value.length - visibleEnd))}${value.slice(-visibleEnd)}`;
-};
-
-const Developer = () => {
+export default function Developer() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const { user, session, profile, activeRole } = useAuth();
-  const [checks, setChecks] = useState<HealthCheck[]>([]);
-  const [running, setRunning] = useState(false);
+  const { user, activeRole, userRoles } = useAuth();
 
-  const meta = useMemo(() => {
-    const url = env.VITE_SUPABASE_URL ?? "";
-    const key = env.VITE_SUPABASE_PUBLISHABLE_KEY ?? "";
-    return {
-      supabaseUrl: url || "(lipsește)",
-      supabaseKeyMasked: key ? mask(key, 6) : "(lipsește)",
-    };
-  }, []);
+  const [checks, setChecks] = useState<HealthCheck[]>([
+    {
+      id: "env",
+      title: "Config (ENV)",
+      description: "Verifică variabilele necesare pentru conectarea la Supabase.",
+      level: "warn",
+    },
+    {
+      id: "auth",
+      title: "Autentificare",
+      description: "Confirmă că sesiunea este validă și disponibilă.",
+      level: "warn",
+    },
+    {
+      id: "db",
+      title: "Bază de date",
+      description: "Rulează un query simplu (poate fi limitat de RLS).",
+      level: "warn",
+    },
+    {
+      id: "notifications",
+      title: "Notificări browser",
+      description: "Verifică permisiunea de notificări și oferă un buton de cerere.",
+      level: "warn",
+    },
+  ]);
 
-  const runChecks = async () => {
-    setRunning(true);
-    const initial: HealthCheck[] = [
-      {
-        id: "env",
-        title: "Config (ENV)",
-        description: "Verifică variabilele VITE necesare pentru conectare.",
-        icon: GlobeLock,
-        status: "pending",
-      },
-      {
-        id: "supabase",
-        title: "Conexiune Supabase",
-        description: "Testează dacă clientul Supabase poate face request-uri.",
-        icon: Server,
-        status: "pending",
-      },
-      {
-        id: "auth",
-        title: "Autentificare",
-        description: "Verifică dacă sesiunea curentă este validă.",
-        icon: KeyRound,
-        status: "pending",
-      },
-      {
-        id: "db",
-        title: "Bază de date (read)",
-        description: "Încearcă un query simplu (poate e blocat de RLS — e normal).",
-        icon: Database,
-        status: "pending",
-      },
-      {
-        id: "notifications",
-        title: "Notificări (browser)",
-        description: "Verifică suportul și permisiunea pentru notificări.",
-        icon: Bell,
-        status: "pending",
-      },
-      {
-        id: "runtime",
-        title: "Runtime",
-        description: "Verifică dacă aplicația rulează fără erori critice în UI.",
-        icon: Bug,
-        status: "pending",
-      },
-    ];
-    setChecks(initial);
+  const roleBadge = useMemo(() => {
+    const label = activeRole ?? "(necunoscut)";
+    return label;
+  }, [activeRole]);
 
-    const update = (id: string, patch: Partial<HealthCheck>) => {
-      setChecks(prev => prev.map(c => (c.id === id ? { ...c, ...patch } : c)));
-    };
+  const isDeveloper = activeRole === "developer";
 
-    // ENV
-    try {
-      const hasUrl = Boolean(env.VITE_SUPABASE_URL);
-      const hasKey = Boolean(env.VITE_SUPABASE_PUBLISHABLE_KEY);
-      if (hasUrl && hasKey) {
-        update("env", { status: "ok", detail: "Configurarea ENV pare completă." });
-      } else {
-        update("env", {
-          status: "error",
-          detail: `Lipsesc: ${[!hasUrl ? "VITE_SUPABASE_URL" : null, !hasKey ? "VITE_SUPABASE_PUBLISHABLE_KEY" : null]
-            .filter(Boolean)
-            .join(", ")}`,
-        });
-      }
-    } catch (e) {
-      update("env", { status: "error", detail: (e as Error).message });
-    }
+  const updateCheck = (id: string, patch: Partial<HealthCheck>) => {
+    setChecks((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c)));
+  };
 
-    // Supabase connectivity (very lightweight)
-    try {
-      const { error } = await supabase.auth.getSession();
-      if (error) {
-        update("supabase", { status: "error", detail: error.message });
-      } else {
-        update("supabase", { status: "ok", detail: "Request către Supabase a reușit." });
-      }
-    } catch (e) {
-      update("supabase", { status: "error", detail: (e as Error).message });
-    }
-
-    // Auth status
-    try {
-      if (session?.access_token && user) {
-        update("auth", { status: "ok", detail: `Autentificat ca ${user.email ?? "(fără email)"}` });
-      } else {
-        update("auth", { status: "warning", detail: "Nu există sesiune activă (ești logat?)." });
-      }
-    } catch (e) {
-      update("auth", { status: "error", detail: (e as Error).message });
-    }
-
-    // DB read check: this may fail with RLS — treat that as WARNING, not ERROR.
-    try {
-      const { error } = await supabase.from("profiles").select("id", { head: true, count: "exact" }).limit(1);
-      if (!error) {
-        update("db", { status: "ok", detail: "Query simplu pe 'profiles' a reușit." });
-      } else {
-        const msg = error.message.toLowerCase();
-        const isRls = msg.includes("row level security") || msg.includes("permission") || msg.includes("not allowed") || msg.includes("rls");
-        update("db", {
-          status: isRls ? "warning" : "error",
-          detail: isRls
-            ? "Query blocat de politici (RLS). Asta poate fi normal, în funcție de rol/politici."
-            : error.message,
-        });
-      }
-    } catch (e) {
-      update("db", { status: "error", detail: (e as Error).message });
+  useEffect(() => {
+    // ENV check
+    const url = (import.meta.env.VITE_SUPABASE_URL as string | undefined) ?? "";
+    const anon = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined) ?? "";
+    if (url && anon) {
+      updateCheck("env", { level: "ok", detail: "VITE_SUPABASE_URL și VITE_SUPABASE_ANON_KEY sunt setate." });
+    } else {
+      const missing: string[] = [];
+      if (!url) missing.push("VITE_SUPABASE_URL");
+      if (!anon) missing.push("VITE_SUPABASE_ANON_KEY");
+      updateCheck("env", {
+        level: "error",
+        detail: `Lipsesc: ${missing.join(", ")}. Verifică fișierul .env și rebuild.`,
+      });
     }
 
     // Notifications
     try {
-      if (typeof window === "undefined") {
-        update("notifications", { status: "warning", detail: "Fără context de browser." });
-      } else if (!("Notification" in window)) {
-        update("notifications", { status: "warning", detail: "Browserul nu suportă Notification API." });
-      } else {
+      if (typeof window !== "undefined" && "Notification" in window) {
         const perm = Notification.permission;
         if (perm === "granted") {
-          update("notifications", { status: "ok", detail: "Permisiune acordată (granted)." });
+          updateCheck("notifications", { level: "ok", detail: "Permisiunea este acordată." });
         } else if (perm === "denied") {
-          update("notifications", { status: "warning", detail: "Permisiune blocată (denied)." });
+          updateCheck("notifications", {
+            level: "warn",
+            detail: "Permisiunea este blocată în browser. Trebuie deblocată manual din setări.",
+          });
         } else {
-          update("notifications", { status: "warning", detail: "Permisiune necerută încă (default)." });
+          updateCheck("notifications", { level: "warn", detail: "Permisiunea nu a fost cerută încă." });
         }
+      } else {
+        updateCheck("notifications", { level: "warn", detail: "Browserul nu suportă Notification API." });
       }
-    } catch (e) {
-      update("notifications", { status: "error", detail: (e as Error).message });
+    } catch {
+      updateCheck("notifications", { level: "warn", detail: "Nu pot verifica permisiunile în acest context." });
     }
 
-    // Runtime: if the page rendered and we reached here, it's a good sign.
-    update("runtime", { status: "ok", detail: "UI render OK (ErrorBoundary nu a declanșat aici)." });
+    // Auth + DB checks (async)
+    (async () => {
+      try {
+        const { data: sessionRes, error } = await supabase.auth.getSession();
+        if (error) {
+          updateCheck("auth", { level: "error", detail: `Auth error: ${error.message}` });
+        } else if (sessionRes.session) {
+          updateCheck("auth", { level: "ok", detail: "Sesiune activă detectată." });
+        } else {
+          updateCheck("auth", { level: "warn", detail: "Nu există sesiune activă (neautentificat)." });
+        }
+      } catch (e: any) {
+        updateCheck("auth", { level: "error", detail: `Auth exception: ${e?.message ?? String(e)}` });
+      }
 
-    setRunning(false);
-  };
-
-  useEffect(() => {
-    // Auto-run once on open; keep it safe & silent.
-    runChecks();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+      // DB check: keep it non-destructive. RLS blocks should be treated as warning.
+      try {
+        const { error } = await supabase.from("profiles").select("id").limit(1);
+        if (!error) {
+          updateCheck("db", { level: "ok", detail: "Query simplu pe profiles a rulat." });
+        } else {
+          // Common: RLS denies select
+          updateCheck("db", {
+            level: "warn",
+            detail: `Query blocat sau eșuat (posibil RLS). Mesaj: ${error.message}`,
+          });
+        }
+      } catch (e: any) {
+        updateCheck("db", { level: "error", detail: `DB exception: ${e?.message ?? String(e)}` });
+      }
+    })();
   }, []);
 
   const requestNotifications = async () => {
     try {
-      if (typeof window === "undefined" || !("Notification" in window)) return;
-      await Notification.requestPermission();
-      runChecks();
+      if (typeof window !== "undefined" && "Notification" in window) {
+        const perm = await Notification.requestPermission();
+        if (perm === "granted") {
+          updateCheck("notifications", { level: "ok", detail: "Permisiunea este acordată." });
+        } else if (perm === "denied") {
+          updateCheck("notifications", { level: "warn", detail: "Permisiunea a fost refuzată." });
+        } else {
+          updateCheck("notifications", { level: "warn", detail: "Permisiunea a rămas în stare implicită." });
+        }
+      }
     } catch {
-      // ignore
+      updateCheck("notifications", { level: "warn", detail: "Cererea de permisiune a eșuat." });
     }
   };
 
   return (
     <div className="min-h-screen bg-background">
       <Sidebar isCollapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(!sidebarCollapsed)} />
-
-      <main className={cn("transition-all duration-300", sidebarCollapsed ? "ml-20" : "ml-64")}>
-        <header className="h-16 border-b border-border bg-card/50 backdrop-blur-sm flex items-center justify-between px-8 sticky top-0 z-30">
-          <div>
-            <h1 className="text-xl font-semibold text-foreground">Diagnostic sistem</h1>
-            <p className="text-sm text-muted-foreground">Verificări rapide pentru Supabase, roluri și notificări.</p>
-          </div>
-          <Button onClick={runChecks} disabled={running} className="gap-2">
-            <RefreshCw className={cn("w-4 h-4", running && "animate-spin")} />
-            Re-verifică
-          </Button>
-        </header>
-
-        <div className="p-8">
-          <div className="max-w-6xl mx-auto space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Context curent</CardTitle>
-                <CardDescription>Informații utile pentru debug (fără date sensibile).</CardDescription>
-              </CardHeader>
-              <CardContent className="grid md:grid-cols-3 gap-6">
-                <div>
-                  <div className="text-sm text-muted-foreground">Rol activ</div>
-                  <div className="font-medium">{activeRole ?? "—"}</div>
-                </div>
-                <div>
-                  <div className="text-sm text-muted-foreground">Utilizator</div>
-                  <div className="font-medium">{user?.email ?? profile?.email ?? "—"}</div>
-                </div>
-                <div>
-                  <div className="text-sm text-muted-foreground">Supabase URL</div>
-                  <div className="font-medium break-all">{meta.supabaseUrl}</div>
-                </div>
-                <div>
-                  <div className="text-sm text-muted-foreground">Supabase key</div>
-                  <div className="font-medium">{meta.supabaseKeyMasked}</div>
-                </div>
-                <div>
-                  <div className="text-sm text-muted-foreground">Build</div>
-                  <div className="font-medium">{import.meta.env.MODE}</div>
-                </div>
-                <div>
-                  <div className="text-sm text-muted-foreground">Timezone</div>
-                  <div className="font-medium">{Intl.DateTimeFormat().resolvedOptions().timeZone}</div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <div className="grid lg:grid-cols-2 gap-6">
-              {checks.map((c) => {
-                const sm = statusMeta[c.status];
-                const StatusIcon = sm.icon;
-                const ItemIcon = c.icon;
-                return (
-                  <Card key={c.id} className="relative overflow-hidden">
-                    <CardHeader className="flex flex-row items-start justify-between gap-4">
-                      <div className="flex items-start gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-secondary flex items-center justify-center flex-shrink-0">
-                          <ItemIcon className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <CardTitle className="text-base">{c.title}</CardTitle>
-                          <CardDescription>{c.description}</CardDescription>
-                        </div>
-                      </div>
-                      <div className={cn("flex items-center gap-2 text-sm font-medium", sm.className)}>
-                        <StatusIcon className={cn("w-4 h-4", c.status === "pending" && "animate-spin")} />
-                        {sm.label}
-                      </div>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      <Separator />
-                      <div className="text-sm">
-                        <span className="text-muted-foreground">Detalii: </span>
-                        <span className="text-foreground">{c.detail ?? "—"}</span>
-                      </div>
-                      {c.id === "notifications" && typeof window !== "undefined" && ("Notification" in window) && Notification.permission === "default" && (
-                        <Button variant="secondary" onClick={requestNotifications} className="gap-2">
-                          <Bell className="w-4 h-4" />
-                          Cere permisiune notificări
-                        </Button>
-                      )}
-                    </CardContent>
-                  </Card>
-                );
-              })}
+      <main
+        className={cn(
+          "transition-all duration-300",
+          sidebarCollapsed ? "ml-20" : "ml-64"
+        )}
+      >
+        <div className="p-6 max-w-6xl mx-auto">
+          <div className="flex items-start justify-between gap-4 mb-6">
+            <div>
+              <div className="flex items-center gap-2">
+                <Shield className="w-5 h-5" />
+                <h1 className="text-2xl font-bold">Developer · Diagnostic sistem</h1>
+              </div>
+              <p className="text-muted-foreground mt-1">
+                Pagina internă pentru verificări rapide (ENV, Auth, DB, notificări). Nu este destinată utilizatorilor finali.
+              </p>
             </div>
+
+            <div className="flex flex-col items-end gap-2">
+              <Badge variant="outline" className="px-3 py-1">
+                Rol detectat: <span className="ml-1 font-semibold">{roleBadge}</span>
+              </Badge>
+              <Badge variant="secondary" className="px-3 py-1">
+                {user?.email ?? "(fără email)"}
+              </Badge>
+            </div>
+          </div>
+
+          {!isDeveloper && (
+            <Alert className="mb-6" variant="destructive">
+              <AlertTitle>Acces în mod non-developer</AlertTitle>
+              <AlertDescription>
+                Contul curent nu are rolul <strong>developer</strong>. Pagina poate fi folosită pentru diagnostic, dar dacă vrei acces complet,
+                setează rolul în Supabase (tabelul <code>user_roles</code> sau <code>profiles</code>, în funcție de schema ta).
+                <div className="mt-2 text-sm opacity-90">
+                  Roluri detectate: <strong>{userRoles.length ? userRoles.join(", ") : "(niciun rol)"}</strong>
+                </div>
+              </AlertDescription>
+            </Alert>
+          )}
+
+          <div className="grid gap-4 md:grid-cols-2">
+            {checks.map((c) => {
+              const ui = levelToUi(c.level);
+              const Icon = ui.icon;
+              const extraIcon =
+                c.id === "auth" ? KeyRound : c.id === "db" ? Database : c.id === "notifications" ? Bell : Shield;
+              const Extra = extraIcon;
+
+              return (
+                <Card key={c.id} className="overflow-hidden">
+                  <CardHeader className="flex flex-row items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center">
+                        <Extra className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <CardTitle className="text-base">{c.title}</CardTitle>
+                        <div className="text-sm text-muted-foreground">{c.description}</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant={ui.badgeVariant}>{ui.badge}</Badge>
+                      <Icon className="w-5 h-5" />
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    {c.detail ? (
+                      <div className="text-sm leading-relaxed">{c.detail}</div>
+                    ) : (
+                      <div className="text-sm text-muted-foreground">Verificare în curs…</div>
+                    )}
+
+                    {c.id === "notifications" && typeof window !== "undefined" && "Notification" in window && (
+                      <div className="mt-3">
+                        <Button size="sm" variant="outline" onClick={requestNotifications}>
+                          Cere permisiune
+                        </Button>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         </div>
       </main>
     </div>
   );
-};
-
-export default Developer;
+}

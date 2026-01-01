@@ -39,6 +39,7 @@ const routeMap: Record<AppRole, string> = {
   secretariat: "/secretariat",
   director: "/director",
   uat_admin: "/admin",
+  developer: "/developer",
 };
 
 const normalizeActivationCode = (v: string) =>

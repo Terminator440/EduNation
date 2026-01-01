@@ -2,9 +2,26 @@ import { useState, useEffect, createContext, useContext, ReactNode } from 'react
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
-export type AppRole = 'student' | 'parent' | 'teacher' | 'homeroom_teacher' | 'secretariat' | 'director' | 'uat_admin';
+export type AppRole =
+  | 'student'
+  | 'parent'
+  | 'teacher'
+  | 'homeroom_teacher'
+  | 'secretariat'
+  | 'director'
+  | 'uat_admin'
+  | 'developer';
 
-const ALL_ROLES: AppRole[] = ['student', 'parent', 'teacher', 'homeroom_teacher', 'secretariat', 'director', 'uat_admin'];
+const ALL_ROLES: AppRole[] = [
+  'student',
+  'parent',
+  'teacher',
+  'homeroom_teacher',
+  'secretariat',
+  'director',
+  'uat_admin',
+  'developer',
+];
 
 const normalizeRole = (value: unknown): AppRole | null => {
   if (typeof value !== 'string') return null;
