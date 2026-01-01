@@ -1,40 +1,35 @@
-import { BookOpen, Calendar, GraduationCap, Users, FileText, ClipboardList } from "lucide-react";
+import { Calculator, Clock, Calendar, MessageSquare, BarChart3, History } from "lucide-react";
 
 const features = [
   {
-    icon: GraduationCap,
-    title: "Note și Absențe",
-    description:
-      "Urmărești notele și prezența pe materii și perioade, cu evidență clară pentru elevi și părinți.",
+    icon: Calculator,
+    title: "Note și medii calculate automat",
+    description: "Sistemul calculează automat mediile și situațiile școlare, eliminând erorile manuale.",
   },
   {
-    icon: ClipboardList,
-    title: "Condică (Profesor)",
-    description:
-      "Evidență pentru orele predate: dată, clasă, disciplină și status (predată/anulată/suplinire).",
+    icon: Clock,
+    title: "Gestionare absențe și motivări",
+    description: "Înregistrare și motivare absențe, cu notificări automate către părinți.",
   },
   {
     icon: Calendar,
-    title: "Calendar Școlar",
-    description: "Vacanțe, teste, evenimente — toate într-un calendar ușor de consultat.",
+    title: "Calendar școlar și evenimente",
+    description: "Toate evenimentele școlare într-un singur loc, sincronizate pentru toți.",
   },
   {
-    icon: BookOpen,
-    title: "Materiale și Resurse",
-    description:
-      "Profesorii pot atașa materiale (link-uri/documente) pe discipline, organizate pentru studiu.",
+    icon: MessageSquare,
+    title: "Mesagerie securizată școală–părinte",
+    description: "Comunicare directă și sigură între profesori și părinți, cu trasabilitate.",
   },
   {
-    icon: Users,
-    title: "Comunicare",
-    description:
-      "Mesaje și notificări între profesori, elevi și părinți, cu trasabilitate și acces controlat.",
+    icon: BarChart3,
+    title: "Statistici și rapoarte exportabile",
+    description: "Rapoarte CSV și print-ready pentru conducere și autorități, generate instant.",
   },
   {
-    icon: FileText,
-    title: "Rapoarte și Export",
-    description:
-      "Rapoarte print-ready și export CSV pentru situații pe elev/clasă și pentru condică.",
+    icon: History,
+    title: "Istoric complet și audit",
+    description: "Toate modificările sunt înregistrate și trasabile pentru transparență totală.",
   },
 ];
 
@@ -44,11 +39,10 @@ const FeaturesSection = () => {
       <div className="container mx-auto px-4">
         <div className="text-center max-w-2xl mx-auto mb-16">
           <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
-            Tot ce ai nevoie pentru școală
+            Funcționalități cheie
           </h2>
           <p className="text-lg text-muted-foreground">
-            O platformă completă pentru evidență, comunicare și rapoarte, fără promisiuni
-            „magice”.
+            Tot ce aveți nevoie pentru digitalizarea completă a catalogului școlar.
           </p>
         </div>
 
@@ -62,8 +56,8 @@ const FeaturesSection = () => {
               <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mb-4 group-hover:bg-primary/20 transition-colors">
                 <feature.icon className="w-6 h-6 text-primary" />
               </div>
-              <h3 className="text-xl font-semibold text-foreground mb-2">{feature.title}</h3>
-              <p className="text-muted-foreground leading-relaxed">{feature.description}</p>
+              <h3 className="text-lg font-semibold text-foreground mb-2">{feature.title}</h3>
+              <p className="text-muted-foreground text-sm leading-relaxed">{feature.description}</p>
             </div>
           ))}
         </div>

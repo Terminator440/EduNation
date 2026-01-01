@@ -1,6 +1,10 @@
 import Header from "@/components/landing/Header";
 import HeroSection from "@/components/landing/HeroSection";
-import PrinciplesSection from "@/components/landing/PrinciplesSection";
+import BenefitsSection from "@/components/landing/BenefitsSection";
+import FeaturesSection from "@/components/landing/FeaturesSection";
+import TrustSection from "@/components/landing/TrustSection";
+import ImplementationSection from "@/components/landing/ImplementationSection";
+import LeadFormSection from "@/components/landing/LeadFormSection";
 import Footer from "@/components/landing/Footer";
 
 const Index = () => {
@@ -9,7 +13,11 @@ const Index = () => {
       <Header />
       <main>
         <HeroSection />
-        <PrinciplesSection />
+        <BenefitsSection />
+        <FeaturesSection />
+        <TrustSection />
+        <ImplementationSection />
+        <LeadFormSection />
       </main>
       <Footer />
     </div>
