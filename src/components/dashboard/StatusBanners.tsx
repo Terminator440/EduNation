@@ -1,12 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { BellOff, CalendarX2 } from "lucide-react";
+import { BellOff } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
-import { useStudentScope } from "@/features/academics/queries";
-import { supabase } from "@/integrations/supabase/client";
-import { assertSupabaseOk } from "@/lib/supabase-helpers";
-import { useQuery } from "@tanstack/react-query";
 
 type Banner = {
   id: string;
@@ -19,12 +15,11 @@ type Banner = {
 };
 
 /**
- * Lightweight “status health” banners for the Home/Dashboard pages.
+ * Lightweight "status health" banners for the Home/Dashboard pages.
  * Keeps UI consistent and avoids dead/empty experiences.
  */
 export default function StatusBanners() {
-  const { user, activeRole } = useAuth();
-  const scopeQuery = useStudentScope(activeRole, user?.id ?? null);
+  const { activeRole } = useAuth();
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | null>(null);
 
   useEffect(() => {
@@ -32,37 +27,6 @@ export default function StatusBanners() {
     if (!("Notification" in window)) return;
     setNotificationPermission(Notification.permission);
   }, []);
-
-  const classIdQuery = useQuery({
-    queryKey: ["primary-student-class", activeRole, user?.id, scopeQuery.data?.studentIds],
-    enabled: (scopeQuery.data?.studentIds?.length ?? 0) > 0,
-    queryFn: async () => {
-      const studentId = scopeQuery.data!.studentIds[0];
-      const res = await supabase
-        .from("students")
-        .select("id,class_id")
-        .eq("id", studentId)
-        .maybeSingle();
-      const row = assertSupabaseOk(res, "students.select(class_id)");
-      return row?.class_id ?? null;
-    },
-  });
-
-  const todaysTimetableQuery = useQuery({
-    queryKey: ["timetable-today", classIdQuery.data],
-    enabled: Boolean(classIdQuery.data),
-    queryFn: async () => {
-      const weekday = new Date().getDay();
-      const res = await supabase
-        .from("timetable_entries")
-        .select("id")
-        .eq("class_id", classIdQuery.data as any)
-        .eq("weekday", weekday)
-        .limit(1);
-      const rows = assertSupabaseOk(res, "timetable_entries.select(today)") as any[];
-      return rows?.length ?? 0;
-    },
-  });
 
   const requestNotifications = async () => {
     if (typeof window === "undefined") return;
@@ -90,22 +54,10 @@ export default function StatusBanners() {
       });
     }
 
-    // Only show timetable warning for student/parent views.
-    if ((activeRole === "student" || activeRole === "parent") && classIdQuery.data) {
-      const count = todaysTimetableQuery.data ?? null;
-      if (count === 0) {
-        out.push({
-          id: "timetable",
-          icon: CalendarX2,
-          title: "Nu există orar pentru azi",
-          description: "Școala nu a publicat încă orele pentru ziua curentă sau nu ești asociat(ă) cu o clasă.",
-          tone: "warning",
-        });
-      }
-    }
+    // Timetable banner removed - timetable_entries table doesn't exist yet
 
     return out;
-  }, [notificationPermission, activeRole, classIdQuery.data, todaysTimetableQuery.data]);
+  }, [notificationPermission, activeRole]);
 
   if (banners.length === 0) return null;
 

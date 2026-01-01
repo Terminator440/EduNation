@@ -77,17 +77,11 @@ const ParentDashboard = () => {
     return { absences: abs, pct };
   }, [attendanceQuery.data]);
 
+  // Stub: school_events table doesn't exist yet
   const eventsQuery = useQuery({
     queryKey: ['school-events-upcoming-parent'],
     queryFn: async () => {
-      const today = new Date().toISOString().slice(0, 10);
-      const res = await supabase
-        .from('school_events')
-        .select('id,title,event_date,event_time,type,subject')
-        .gte('event_date', today)
-        .order('event_date', { ascending: true })
-        .limit(6);
-      return assertSupabaseOk(res, 'school_events.select(upcoming)') as any[];
+      return [] as any[];
     },
   });
 

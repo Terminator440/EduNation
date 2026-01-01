@@ -51,7 +51,7 @@ interface Student {
   full_name: string | null;
   is_active: boolean;
   user_id: string | null;
-  activation_code: string | null;
+  activation_code?: string | null;
   profile?: {
     email: string;
   } | null;
@@ -239,19 +239,21 @@ const HomeroomDashboard = () => {
 
       const threshold = 10;
 
-      const manyAbsences = (studentsData || [])
+      const manyAbsences: Student[] = (studentsData || [])
         .filter((s: any) => (absByStudent.get(s.id) || 0) >= threshold)
         .sort(
           (a: any, b: any) =>
             (absByStudent.get(b.id) || 0) - (absByStudent.get(a.id) || 0)
-        );
+        )
+        .map((s: any) => ({ ...s, activation_code: null }));
 
-      const noGrades = (studentsData || [])
+      const noGrades: Student[] = (studentsData || [])
         .filter((s: any) => (gradesByStudent.get(s.id) || 0) === 0)
         .sort(
           (a: any, b: any) =>
             (a.student_number ?? 9999) - (b.student_number ?? 9999)
-        );
+        )
+        .map((s: any) => ({ ...s, activation_code: null }));
 
       setAlerts({ manyAbsences, noGrades });
     } catch (err) {

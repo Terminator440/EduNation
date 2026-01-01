@@ -28,13 +28,12 @@ const AdminDashboard = () => {
   const statsQuery = useQuery({
     queryKey: ['admin-stats'],
     queryFn: async () => {
-      const [profiles, classes, students, grades, attendance, events] = await Promise.all([
+      const [profiles, classes, students, grades, attendance] = await Promise.all([
         supabase.from('profiles').select('id', { count: 'exact', head: true }),
         supabase.from('classes').select('id', { count: 'exact', head: true }),
         supabase.from('students').select('id', { count: 'exact', head: true }),
         supabase.from('grades').select('id', { count: 'exact', head: true }),
         supabase.from('attendance').select('id', { count: 'exact', head: true }),
-        supabase.from('school_events').select('id', { count: 'exact', head: true }),
       ]);
       return {
         profiles: profiles.count ?? 0,
@@ -42,7 +41,7 @@ const AdminDashboard = () => {
         students: students.count ?? 0,
         grades: grades.count ?? 0,
         attendance: attendance.count ?? 0,
-        events: events.count ?? 0,
+        events: 0,
       };
     },
   });

@@ -124,66 +124,15 @@ const TeacherDashboard = () => {
   };
 
   const fetchRegister = async () => {
-    if (!user) return;
-    setRegisterLoading(true);
-    try {
-      const weekday = new Date().getDay();
-      const todayKey = toDateKey(new Date());
-
-      const { data: entries, error: entriesErr } = await supabase
-        .from('timetable_entries')
-        .select(`
-          id,
-          weekday,
-          period,
-          start_time,
-          end_time,
-          room,
-          classes ( name ),
-          subjects ( name )
-        `)
-        .eq('teacher_id', user.id)
-        .eq('weekday', weekday)
-        .order('period', { ascending: true });
-
-      if (entriesErr) throw entriesErr;
-      setTimetableEntries((entries as any) || []);
-
-      const entryIds = (entries || []).map((e: any) => e.id);
-      if (entryIds.length === 0) {
-        setSignedEntryIds(new Set());
-        return;
-      }
-
-      const { data: signedRows, error: signedErr } = await supabase
-        .from('teacher_register')
-        .select('timetable_entry_id')
-        .eq('signed_by', user.id)
-        .eq('register_date', todayKey)
-        .in('timetable_entry_id', entryIds as any);
-
-      if (signedErr) throw signedErr;
-      setSignedEntryIds(new Set((signedRows || []).map((r: any) => r.timetable_entry_id)));
-    } catch (e) {
-      console.error('Error fetching register:', e);
-    } finally {
-      setRegisterLoading(false);
-    }
+    // timetable_entries and teacher_register tables don't exist yet
+    setTimetableEntries([]);
+    setSignedEntryIds(new Set());
+    setRegisterLoading(false);
   };
 
-  const handleSignRegister = async (timetableEntryId: string) => {
-    if (!user) return;
-    try {
-      const todayKey = toDateKey(new Date());
-      const { error } = await supabase
-        .from('teacher_register')
-        .insert({ timetable_entry_id: timetableEntryId, register_date: todayKey, signed_by: user.id, status: 'signed' });
-      if (error) throw error;
-      setSignedEntryIds(prev => new Set([...Array.from(prev), timetableEntryId]));
-      toast({ title: 'Semnat', description: 'Condica pentru ora aceasta a fost semnată.' });
-    } catch (e: any) {
-      toast({ title: 'Eroare', description: e?.message ?? 'Nu am putut semna condica.', variant: 'destructive' });
-    }
+  const handleSignRegister = async (_timetableEntryId: string) => {
+    // teacher_register table doesn't exist yet
+    toast({ title: 'Info', description: 'Funcționalitate indisponibilă - tabela nu există.' });
   };
 
   const fetchData = async () => {
