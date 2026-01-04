@@ -256,6 +256,53 @@ export type Database = {
         }
         Relationships: []
       }
+      school_events: {
+        Row: {
+          class_id: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          event_date: string
+          event_time: string | null
+          id: string
+          subject: string | null
+          title: string
+          type: string
+        }
+        Insert: {
+          class_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          event_date: string
+          event_time?: string | null
+          id?: string
+          subject?: string | null
+          title: string
+          type: string
+        }
+        Update: {
+          class_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          event_date?: string
+          event_time?: string | null
+          id?: string
+          subject?: string | null
+          title?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "school_events_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       student_activations: {
         Row: {
           activation_code: string
@@ -366,6 +413,60 @@ export type Database = {
             columns: ["class_id"]
             isOneToOne: false
             referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      timetable_entries: {
+        Row: {
+          class_id: string | null
+          created_at: string
+          end_time: string | null
+          id: string
+          period: number
+          room: string | null
+          start_time: string | null
+          subject_id: string | null
+          teacher_id: string | null
+          weekday: number
+        }
+        Insert: {
+          class_id?: string | null
+          created_at?: string
+          end_time?: string | null
+          id?: string
+          period: number
+          room?: string | null
+          start_time?: string | null
+          subject_id?: string | null
+          teacher_id?: string | null
+          weekday: number
+        }
+        Update: {
+          class_id?: string | null
+          created_at?: string
+          end_time?: string | null
+          id?: string
+          period?: number
+          room?: string | null
+          start_time?: string | null
+          subject_id?: string | null
+          teacher_id?: string | null
+          weekday?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "timetable_entries_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "timetable_entries_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
             referencedColumns: ["id"]
           },
         ]

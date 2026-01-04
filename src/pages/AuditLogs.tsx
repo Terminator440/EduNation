@@ -19,7 +19,7 @@ type AuditRow = {
   details: any;
 };
 
-const ALLOWED_ROLES = new Set(["director", "secretariat", "uat_admin"]);
+const ALLOWED_ROLES = new Set(["director", "secretariat", "uat_admin", "developer", "homeroom_teacher"]);
 
 function roleLabel(role: string | null) {
   const labels: Record<string, string> = {
@@ -30,6 +30,7 @@ function roleLabel(role: string | null) {
     secretariat: "Secretariat",
     director: "Director",
     uat_admin: "Admin UAT",
+    developer: "Developer",
   };
   if (!role) return "—";
   return labels[role] ?? role;
