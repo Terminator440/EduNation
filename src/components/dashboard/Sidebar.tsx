@@ -136,6 +136,10 @@ const menuItemsByRole: Record<AppRole, { icon: any; label: string; href: string 
   ],
   developer: [
     { icon: Shield, label: "Diagnostic sistem", href: "/developer" },
+    { icon: Shield, label: "Audit Log", href: "/audit" },
+    { icon: Clock, label: "Orar", href: "/dashboard/schedule" },
+    { icon: Calendar, label: "Calendar", href: "/dashboard/calendar" },
+    { icon: Settings, label: "Setări", href: "/dashboard/settings" },
   ],
 };
 
@@ -228,7 +232,7 @@ const Sidebar = ({ isCollapsed, onToggle }: SidebarProps) => {
 
       {/* Bottom section */}
       <div className="p-3 border-t border-sidebar-border">
-        {(activeRole === 'developer' || activeRole === 'director' || activeRole === 'uat_admin') && (
+        {activeRole === 'developer' && (
           <Link
             to="/developer"
             className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent transition-colors"

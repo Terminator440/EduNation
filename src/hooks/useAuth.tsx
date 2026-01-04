@@ -170,33 +170,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             ?? (BOOTSTRAP_ADMIN_EMAILS.includes((authUser.email ?? '').toLowerCase()) ? 'uat_admin' : null))
         : null;
 
-      // Prefer DB roles when available, otherwise fall back to metadata-derived roles.
+      // Use only DB roles for strictness. Fallback to metadata only for new users during bootstrap.
       let effectiveRoles: AppRole[] = roles.length > 0 ? roles : (metaRole ? [metaRole] : []);
 
-      // Convenience: homeroom teachers also have teacher role.
-      if (effectiveRoles.includes('homeroom_teacher') && !effectiveRoles.includes('teacher')) {
-        effectiveRoles = Array.from(new Set([...effectiveRoles, 'teacher']));
-      }
+      // STRICT: Do NOT auto-add roles like teacher->homeroom_teacher or vice versa.
+      // All roles must come from the database (user_roles table) explicitly.
+      // This prevents privilege escalation and ensures RoleSwitcher shows only real DB roles.
 
-      // Note: we do NOT auto-grant 'director' to teachers.
-      // Roles must come from the database (user_roles) or explicit metadata/bootstrap rules.
-
-      // Convenience: teachers may also act as homeroom teachers (diriginte) in your requested flow.
-      if (effectiveRoles.includes('teacher') && !effectiveRoles.includes('homeroom_teacher')) {
-        effectiveRoles = Array.from(new Set([...effectiveRoles, 'homeroom_teacher']));
-      }
-
-      // Best-effort bootstrap into DB so future sessions match the database. Ignore failures (often due to RLS).
+      // Best-effort bootstrap into DB only for the specific metadata role. Ignore failures (often due to RLS).
       if (roles.length === 0 && metaRole) {
         try {
           await supabase.from('user_roles').insert({ user_id: userId, role: metaRole });
-          if (metaRole === 'homeroom_teacher') {
-            await supabase.from('user_roles').insert({ user_id: userId, role: 'teacher' });
-          }
-          if (metaRole === 'teacher') {
-            await supabase.from('user_roles').insert({ user_id: userId, role: 'director' });
-            await supabase.from('user_roles').insert({ user_id: userId, role: 'homeroom_teacher' });
-          }
         } catch {
           // Ignore - DB policies may block inserts, but the app can still function using metadata + local selection.
         }
