@@ -39,7 +39,9 @@ const safeStorageGet = (key: string): string | null => {
 const safeStorageSet = (key: string, value: string): void => {
   try {
     window.localStorage.setItem(key, value);
-  } catch {}
+  } catch {
+    /* ignore */
+  }
 };
 
 const BOOTSTRAP_ADMIN_EMAILS =
@@ -132,6 +134,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const fullName =
           (authUser.user_metadata?.full_name as string | undefined) ?? "";
         const email = authUser.email ?? "";
+
         const { data: createdProfile } = await supabase
           .from("profiles")
           .upsert(
@@ -159,9 +162,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       const metaRole = authUser
         ? normalizeRole(authUser.user_metadata?.role) ??
-          (BOOTSTRAP_ADMIN_EMAILS.includes(
-            (authUser.email ?? "").toLowerCase()
-          )
+          (BOOTSTRAP_ADMIN_EMAILS.includes((authUser.email ?? "").toLowerCase())
             ? "uat_admin"
             : null)
         : null;
@@ -171,10 +172,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       if (roles.length === 0 && metaRole) {
         try {
-          await supabase
-            .from("user_roles")
-            .insert({ user_id: userId, role: metaRole });
-        } catch {}
+          await supabase.from("user_roles").insert({ user_id: userId, role: metaRole });
+        } catch {
+          /* ignore */
+        }
       }
 
       setUserRoles(effectiveRoles);
@@ -184,21 +185,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const storedRole = normalizeRole(storedRoleRaw);
 
       const pick =
-        (storedRole && effectiveRoles.includes(storedRole)
-          ? storedRole
-          : null) ??
+        (storedRole && effectiveRoles.includes(storedRole) ? storedRole : null) ??
         (dbActive && effectiveRoles.includes(dbActive) ? dbActive : null) ??
         (effectiveRoles.length > 0 ? effectiveRoles[0] : null);
 
       if (pick) {
         setActiveRole(pick);
         safeStorageSet("edunation.activeRole", pick);
+
         try {
           await supabase
             .from("profiles")
             .update({ active_role: pick })
             .eq("id", userId);
-        } catch {}
+        } catch {
+          /* ignore */
+        }
       }
     } catch (error) {
       console.error("Error fetching user data:", error);
@@ -216,6 +218,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   ) => {
     try {
       const redirectUrl = `${window.location.origin}/`;
+
       const { error } = await supabase.auth.signUp({
         email,
         password,
@@ -224,6 +227,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           data: { full_name: fullName, role, phone: phone ?? null },
         },
       });
+
       if (error) throw error;
       return { error: null };
     } catch (error) {
@@ -237,6 +241,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         email,
         password,
       });
+
       if (error) throw error;
       return { error: null };
     } catch (error) {
@@ -266,7 +271,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         .from("profiles")
         .update({ active_role: role })
         .eq("id", user.id);
-    } catch {}
+    } catch {
+      /* ignore */
+    }
   };
 
   return (
