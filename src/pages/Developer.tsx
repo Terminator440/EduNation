@@ -73,15 +73,15 @@ export default function Developer() {
   };
 
   useEffect(() => {
-    // ENV check
+    // ENV check - use VITE_SUPABASE_PUBLISHABLE_KEY (correct name for Lovable Cloud)
     const url = (import.meta.env.VITE_SUPABASE_URL as string | undefined) ?? "";
-    const anon = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined) ?? "";
-    if (url && anon) {
-      updateCheck("env", { level: "ok", detail: "VITE_SUPABASE_URL și VITE_SUPABASE_ANON_KEY sunt setate." });
+    const publishableKey = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined) ?? "";
+    if (url && publishableKey) {
+      updateCheck("env", { level: "ok", detail: "VITE_SUPABASE_URL și VITE_SUPABASE_PUBLISHABLE_KEY sunt setate." });
     } else {
       const missing: string[] = [];
       if (!url) missing.push("VITE_SUPABASE_URL");
-      if (!anon) missing.push("VITE_SUPABASE_ANON_KEY");
+      if (!publishableKey) missing.push("VITE_SUPABASE_PUBLISHABLE_KEY");
       updateCheck("env", {
         level: "error",
         detail: `Lipsesc: ${missing.join(", ")}. Verifică fișierul .env și rebuild.`,

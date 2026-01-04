@@ -232,7 +232,7 @@ const App = () => (
               <Route
                 path="/dashboard/settings"
                 element={
-                  <ProtectedRoute allowedRoles={["student", "parent", "teacher", "homeroom_teacher", "secretariat", "director", "uat_admin"]}>
+                  <ProtectedRoute allowedRoles={["student", "parent", "teacher", "homeroom_teacher", "secretariat", "director", "uat_admin", "developer"]}>
                     <Settings />
                   </ProtectedRoute>
                 }
