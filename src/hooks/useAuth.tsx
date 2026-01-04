@@ -1,35 +1,33 @@
-import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
-import { User, Session } from '@supabase/supabase-js';
-import { supabase } from '@/integrations/supabase/client';
+import { useState, useEffect, createContext, useContext, ReactNode } from "react";
+import { User, Session } from "@supabase/supabase-js";
+import { supabase } from "@/integrations/supabase/client";
 
 export type AppRole =
-  | 'student'
-  | 'parent'
-  | 'teacher'
-  | 'homeroom_teacher'
-  | 'secretariat'
-  | 'director'
-  | 'uat_admin'
-  | 'developer';
+  | "student"
+  | "parent"
+  | "teacher"
+  | "homeroom_teacher"
+  | "secretariat"
+  | "director"
+  | "uat_admin"
+  | "developer";
 
 const ALL_ROLES: AppRole[] = [
-  'student',
-  'parent',
-  'teacher',
-  'homeroom_teacher',
-  'secretariat',
-  'director',
-  'uat_admin',
-  'developer',
+  "student",
+  "parent",
+  "teacher",
+  "homeroom_teacher",
+  "secretariat",
+  "director",
+  "uat_admin",
+  "developer",
 ];
 
 const normalizeRole = (value: unknown): AppRole | null => {
-  if (typeof value !== 'string') return null;
+  if (typeof value !== "string") return null;
   return (ALL_ROLES as string[]).includes(value) ? (value as AppRole) : null;
 };
 
-// Some environments (sandboxed iframes / strict privacy settings) can throw
-// DOMException("The operation is insecure") on localStorage access. Guard reads/writes.
 const safeStorageGet = (key: string): string | null => {
   try {
     return window.localStorage.getItem(key);
@@ -41,22 +39,14 @@ const safeStorageGet = (key: string): string | null => {
 const safeStorageSet = (key: string, value: string): void => {
   try {
     window.localStorage.setItem(key, value);
-  } catch {
-    // ignore
-  }
+  } catch {}
 };
 
-// Optional bootstrap mechanism: allow the very first admin to be granted automatically
-// based on email (useful when the database has no triggers/seed data yet).
-// Example: VITE_BOOTSTRAP_ADMIN_EMAILS="admin@example.com,other@example.com"
-const BOOTSTRAP_ADMIN_EMAILS = (import.meta.env.VITE_BOOTSTRAP_ADMIN_EMAILS as string | undefined)
-  ?.split(',')
-  .map(s => s.trim().toLowerCase())
-  .filter(Boolean) ?? [];
-
-interface UserRole {
-  role: AppRole;
-}
+const BOOTSTRAP_ADMIN_EMAILS =
+  (import.meta.env.VITE_BOOTSTRAP_ADMIN_EMAILS as string | undefined)
+    ?.split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean) ?? [];
 
 interface Profile {
   id: string;
@@ -72,7 +62,13 @@ interface AuthContextType {
   userRoles: AppRole[];
   activeRole: AppRole | null;
   loading: boolean;
-  signUp: (email: string, password: string, fullName: string, role: AppRole) => Promise<{ error: Error | null }>;
+  signUp: (
+    email: string,
+    password: string,
+    fullName: string,
+    role: AppRole,
+    phone?: string | null
+  ) => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   switchRole: (role: AppRole) => Promise<void>;
@@ -89,32 +85,30 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Set up auth state listener FIRST
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        
-        // Defer fetching profile data
-        if (session?.user) {
-          setTimeout(() => {
-            fetchUserData(session.user.id);
-          }, 0);
-        } else {
-          setProfile(null);
-          setUserRoles([]);
-          setActiveRole(null);
-        }
-      }
-    );
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_, nextSession) => {
+      setSession(nextSession);
+      setUser(nextSession?.user ?? null);
 
-    // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      
-      if (session?.user) {
-        fetchUserData(session.user.id);
+      if (nextSession?.user) {
+        setTimeout(() => {
+          fetchUserData(nextSession.user.id);
+        }, 0);
+      } else {
+        setProfile(null);
+        setUserRoles([]);
+        setActiveRole(null);
+        setLoading(false);
+      }
+    });
+
+    supabase.auth.getSession().then(({ data: { session: existingSession } }) => {
+      setSession(existingSession);
+      setUser(existingSession?.user ?? null);
+
+      if (existingSession?.user) {
+        fetchUserData(existingSession.user.id);
       } else {
         setLoading(false);
       }
@@ -125,116 +119,111 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const fetchUserData = async (userId: string) => {
     try {
-      // Always derive truth from the authenticated user record (metadata can be used for bootstrap).
       const { data: authUserRes } = await supabase.auth.getUser();
       const authUser = authUserRes.user;
 
-      // Fetch profile
       let { data: profileData } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
+        .from("profiles")
+        .select("*")
+        .eq("id", userId)
         .maybeSingle();
 
-      // If profile row is missing, create it from auth metadata.
       if (!profileData && authUser) {
-        const fullName = (authUser.user_metadata?.full_name as string | undefined) ?? '';
-        const email = authUser.email ?? '';
+        const fullName =
+          (authUser.user_metadata?.full_name as string | undefined) ?? "";
+        const email = authUser.email ?? "";
         const { data: createdProfile } = await supabase
-          .from('profiles')
-          .upsert({ id: userId, full_name: fullName, email, active_role: null }, { onConflict: 'id' })
-          .select('*')
+          .from("profiles")
+          .upsert(
+            { id: userId, full_name: fullName, email, active_role: null },
+            { onConflict: "id" }
+          )
+          .select("*")
           .maybeSingle();
-        // Prefer the created profile if returned.
-        if (createdProfile) {
-          profileData = createdProfile;
-        }
+
+        if (createdProfile) profileData = createdProfile;
       }
-      
+
       setProfile(profileData as Profile | null);
+
       if (profileData?.active_role) {
         setActiveRole(profileData.active_role as AppRole);
       }
 
-      // Fetch all roles
       const { data: rolesData } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', userId);
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", userId);
 
-      const roles = (rolesData || []).map(r => r.role as AppRole);
+      const roles = (rolesData || []).map((r) => r.role as AppRole);
 
-      // Determine role(s) even if DB role rows are missing (common when RLS/policies prevent inserts).
       const metaRole = authUser
-        ? (normalizeRole(authUser.user_metadata?.role)
-            ?? (BOOTSTRAP_ADMIN_EMAILS.includes((authUser.email ?? '').toLowerCase()) ? 'uat_admin' : null))
+        ? normalizeRole(authUser.user_metadata?.role) ??
+          (BOOTSTRAP_ADMIN_EMAILS.includes(
+            (authUser.email ?? "").toLowerCase()
+          )
+            ? "uat_admin"
+            : null)
         : null;
 
-      // Use only DB roles for strictness. Fallback to metadata only for new users during bootstrap.
-      let effectiveRoles: AppRole[] = roles.length > 0 ? roles : (metaRole ? [metaRole] : []);
+      const effectiveRoles: AppRole[] =
+        roles.length > 0 ? roles : metaRole ? [metaRole] : [];
 
-      // STRICT: Do NOT auto-add roles like teacher->homeroom_teacher or vice versa.
-      // All roles must come from the database (user_roles table) explicitly.
-      // This prevents privilege escalation and ensures RoleSwitcher shows only real DB roles.
-
-      // Best-effort bootstrap into DB only for the specific metadata role. Ignore failures (often due to RLS).
       if (roles.length === 0 && metaRole) {
         try {
-          await supabase.from('user_roles').insert({ user_id: userId, role: metaRole });
-        } catch {
-          // Ignore - DB policies may block inserts, but the app can still function using metadata + local selection.
-        }
+          await supabase
+            .from("user_roles")
+            .insert({ user_id: userId, role: metaRole });
+        } catch {}
       }
 
       setUserRoles(effectiveRoles);
-      
-      // If no active role set but user has roles, set first role as active
-      const active = (profileData?.active_role as AppRole | null) ?? null;
 
-      // Persist role selection locally so the UI role switcher works even if DB updates are blocked by RLS.
-      const storedRoleRaw = safeStorageGet('edunation.activeRole');
+      const dbActive = (profileData?.active_role as AppRole | null) ?? null;
+      const storedRoleRaw = safeStorageGet("edunation.activeRole");
       const storedRole = normalizeRole(storedRoleRaw);
 
       const pick =
-        (storedRole && effectiveRoles.includes(storedRole) ? storedRole : null) ??
-        (active && effectiveRoles.includes(active) ? active : null) ??
+        (storedRole && effectiveRoles.includes(storedRole)
+          ? storedRole
+          : null) ??
+        (dbActive && effectiveRoles.includes(dbActive) ? dbActive : null) ??
         (effectiveRoles.length > 0 ? effectiveRoles[0] : null);
 
       if (pick) {
         setActiveRole(pick);
-        safeStorageSet('edunation.activeRole', pick);
-
-        // Best-effort: update profile with active role (ignore failures if RLS blocks).
+        safeStorageSet("edunation.activeRole", pick);
         try {
-          await supabase.from('profiles').update({ active_role: pick }).eq('id', userId);
-        } catch {
-          // ignore
-        }
+          await supabase
+            .from("profiles")
+            .update({ active_role: pick })
+            .eq("id", userId);
+        } catch {}
       }
     } catch (error) {
-      console.error('Error fetching user data:', error);
+      console.error("Error fetching user data:", error);
     } finally {
       setLoading(false);
     }
   };
 
-  const signUp = async (email: string, password: string, fullName: string, role: AppRole, phone?: string | null) => {
+  const signUp = async (
+    email: string,
+    password: string,
+    fullName: string,
+    role: AppRole,
+    phone?: string | null
+  ) => {
     try {
       const redirectUrl = `${window.location.origin}/`;
-      
       const { error } = await supabase.auth.signUp({
         email,
         password,
         options: {
           emailRedirectTo: redirectUrl,
-          data: {
-            full_name: fullName,
-            role: role,
-            phone: phone ?? null,
-          },
+          data: { full_name: fullName, role, phone: phone ?? null },
         },
       });
-
       if (error) throw error;
       return { error: null };
     } catch (error) {
@@ -248,7 +237,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         email,
         password,
       });
-
       if (error) throw error;
       return { error: null };
     } catch (error) {
@@ -263,38 +251,39 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setProfile(null);
     setUserRoles([]);
     setActiveRole(null);
+    setLoading(false);
   };
 
   const switchRole = async (role: AppRole) => {
     if (!user) return;
-
-    // Allow switching only among roles the app considers available for this user.
     if (!userRoles.includes(role)) return;
 
     setActiveRole(role);
-	    safeStorageSet('edunation.activeRole', role);
+    safeStorageSet("edunation.activeRole", role);
 
-    // Best-effort: persist selection in profile (ignore failures if RLS blocks).
     try {
-      await supabase.from('profiles').update({ active_role: role }).eq('id', user.id);
-    } catch {
-      // ignore
-    }
+      await supabase
+        .from("profiles")
+        .update({ active_role: role })
+        .eq("id", user.id);
+    } catch {}
   };
 
   return (
-    <AuthContext.Provider value={{
-      user,
-      session,
-      profile,
-      userRoles,
-      activeRole,
-      loading,
-      signUp,
-      signIn,
-      signOut,
-      switchRole,
-    }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        session,
+        profile,
+        userRoles,
+        activeRole,
+        loading,
+        signUp,
+        signIn,
+        signOut,
+        switchRole,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
@@ -303,7 +292,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
 };
