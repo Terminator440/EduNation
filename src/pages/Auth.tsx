@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useState, useCallback, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   BookOpen,
@@ -6,27 +6,30 @@ import {
   Lock,
   Eye,
   EyeOff,
-  GraduationCap,
-  Users,
-  UserCircle,
   User,
   Phone,
   Key,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth, AppRole } from "@/hooks/useAuth";
+import { useAuth, type AppRole } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { z } from "zod";
+import {
+  validateInvitationCode,
+  claimInvitation,
+  hashInvitationCode,
+  getRoleLabelRo,
+  type Invitation,
+  type InvitationRole,
+} from "@/lib/invitations";
 
 type FormErrors = Partial<
-  Record<"email" | "password" | "fullName" | "activationCode" | "staffCode", string>
+  Record<"email" | "password" | "fullName" | "invitationCode", string>
 >;
-
-const STAFF_SIGNUP_CODE = import.meta.env.VITE_STAFF_SIGNUP_CODE as string | undefined;
 
 const emailSchema = z.string().email("Email invalid");
 const passwordSchema = z.string().min(6, "Parola trebuie să aibă cel puțin 6 caractere");
@@ -42,10 +45,9 @@ const routeMap: Record<AppRole, string> = {
   developer: "/developer",
 };
 
-const normalizeActivationCode = (v: string) =>
-  v.trim().toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8);
+const normalizeInvitationCode = (v: string) =>
+  v.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 12);
 
-// În unele contexte (iframe sandbox / privacy mode), localStorage poate arunca DOMException.
 const safeStorageGet = (key: string): string | null => {
   try {
     return window.localStorage.getItem(key);
@@ -65,46 +67,70 @@ const safeStorageSet = (key: string, value: string): void => {
 export default function Auth() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { signIn, signUp, user, loading, activeRole } = useAuth();
+  const { signIn, user, loading, activeRole } = useAuth();
 
   // Mode
   const [isLogin, setIsLogin] = useState(true);
-  const [showActivation, setShowActivation] = useState(false);
 
-  // Common
+  // Common fields
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  // Signup / Activation common fields
+  // Signup fields
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
+  const [invitationCode, setInvitationCode] = useState("");
 
-  // Signup: only Parent or Teacher gated
-  const [selectedRole, setSelectedRole] = useState<AppRole>("parent");
-  const [staffCode, setStaffCode] = useState("");
-
-  // Activation
-  const [activationRole, setActivationRole] = useState<AppRole>("student");
-  const [activationCode, setActivationCode] = useState("");
+  // Invitation validation
+  const [validatingCode, setValidatingCode] = useState(false);
+  const [validatedInvitation, setValidatedInvitation] = useState<Invitation | null>(null);
+  const [codeError, setCodeError] = useState<string | null>(null);
 
   // UX
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
 
-  const isTeacherSignup = useMemo(
-    () => !isLogin && !showActivation && selectedRole === "teacher",
-    [isLogin, showActivation, selectedRole]
-  );
-
-  // Redirect dacă ești deja logat
+  // Redirect if already logged in
   useEffect(() => {
     if (!loading && user) {
-      const stored = (safeStorageGet("edunation.activeRole") as AppRole | null) ?? null;
+      const stored = safeStorageGet("edunation.activeRole") as AppRole | null;
       const role: AppRole = (stored ?? activeRole ?? "student") as AppRole;
       navigate(routeMap[role] ?? "/dashboard");
     }
   }, [user, loading, navigate, activeRole]);
+
+  // Validate invitation code with debounce
+  const validateCode = useCallback(async (code: string) => {
+    const normalized = normalizeInvitationCode(code);
+    if (normalized.length < 8) {
+      setValidatedInvitation(null);
+      setCodeError(null);
+      return;
+    }
+
+    setValidatingCode(true);
+    const result = await validateInvitationCode(normalized);
+    setValidatingCode(false);
+
+    if (result.valid && result.invitation) {
+      setValidatedInvitation(result.invitation);
+      setCodeError(null);
+    } else {
+      setValidatedInvitation(null);
+      setCodeError(result.error || "Cod invalid");
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!isLogin && invitationCode.length >= 8) {
+      const timer = setTimeout(() => validateCode(invitationCode), 500);
+      return () => clearTimeout(timer);
+    } else {
+      setValidatedInvitation(null);
+      setCodeError(null);
+    }
+  }, [invitationCode, isLogin, validateCode]);
 
   const validateCommonAuth = (): FormErrors => {
     const newErrors: FormErrors = {};
@@ -126,109 +152,54 @@ export default function Auth() {
     return newErrors;
   };
 
-  const validateForm = (): boolean => {
+  const validateSignupForm = (): boolean => {
     const newErrors: FormErrors = validateCommonAuth();
 
-    if (!isLogin && !showActivation && !fullName.trim()) {
+    if (!fullName.trim()) {
       newErrors.fullName = "Numele este obligatoriu";
     }
 
-    if (isTeacherSignup) {
-      if (!STAFF_SIGNUP_CODE) {
-        newErrors.staffCode = "Înscrierea cadrelor didactice este dezactivată (lipsește VITE_STAFF_SIGNUP_CODE)";
-      } else if (!staffCode.trim()) {
-        newErrors.staffCode = "Codul de invitație este obligatoriu";
-      } else if (staffCode.trim() !== STAFF_SIGNUP_CODE) {
-        newErrors.staffCode = "Cod de invitație incorect";
-      }
+    if (!invitationCode.trim()) {
+      newErrors.invitationCode = "Codul de invitație este obligatoriu";
+    } else if (!validatedInvitation) {
+      newErrors.invitationCode = codeError || "Codul de invitație nu este valid";
     }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleActivateAccount = async () => {
-    const code = normalizeActivationCode(activationCode);
-    const newErrors: FormErrors = validateCommonAuth();
-
-    if (!fullName.trim()) newErrors.fullName = "Numele este obligatoriu";
-    if (!code) newErrors.activationCode = "Codul de activare este obligatoriu";
-
-    if (Object.keys(newErrors).length) {
-      setErrors(newErrors);
-      return;
-    }
+  const handleLogin = async (e: FormEvent) => {
+    e.preventDefault();
+    
+    const newErrors = validateCommonAuth();
+    setErrors(newErrors);
+    if (Object.keys(newErrors).length > 0) return;
 
     setIsLoading(true);
-    setErrors({});
 
     try {
-      const { data: activation, error: fetchError } = await supabase
-        .from("student_activations")
-        .select("*")
-        .eq("activation_code", code)
-        .eq("is_used", false)
-        .single();
-
-      if (fetchError || !activation) {
+      const { error } = await signIn(email, password);
+      if (error) {
+        const isInvalid = error.message?.toLowerCase().includes("invalid login credentials");
         toast({
-          title: "Cod invalid",
-          description: "Codul de activare nu este valid sau a fost deja folosit.",
+          title: "Eroare de autentificare",
+          description: isInvalid ? "Email sau parolă incorectă." : error.message,
           variant: "destructive",
         });
         return;
       }
 
-      if (activation.expires_at && new Date(activation.expires_at) < new Date()) {
-        toast({
-          title: "Cod expirat",
-          description: "Codul de activare a expirat. Contactează secretariatul.",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      // Creează contul (rol = elev/părinte în funcție de activare)
-      const { error: signUpError } = await signUp(
-        email,
-        password,
-        fullName,
-        activationRole
-      );
-      if (signUpError) {
-        toast({ title: "Eroare", description: signUpError.message, variant: "destructive" });
-        return;
-      }
-
-      // Autentifică imediat (dacă e permis)
-      const { error: signInError } = await signIn(email, password);
-      if (signInError) {
-        toast({
-          title: "Confirmare necesară",
-          description:
-            "Contul a fost creat. Dacă ai confirmare pe email activată, confirmă emailul apoi autentifică-te și reîncearcă activarea.",
-        });
-        return;
-      }
-
-      // Note: claim_student_activation and claim_parent_relation RPC functions don't exist yet
-      // For now, just navigate to dashboard after signup
-      toast({
-        title: "Cont creat",
-        description: "Contul tău a fost creat cu succes.",
-      });
-
-      safeStorageSet("edunation.activeRole", activationRole);
-      navigate(routeMap[activationRole] ?? "/dashboard");
+      toast({ title: "Autentificare reușită", description: "Bine ai venit!" });
+      navigate("/dashboard");
     } catch (err: unknown) {
       const message =
         typeof err === "object" && err !== null && "message" in err
           ? String((err as { message?: unknown }).message ?? "")
-          : "A apărut o eroare la activare.";
-
+          : "A apărut o eroare.";
       toast({
         title: "Eroare",
-        description: message || "A apărut o eroare la activare.",
+        description: message || "A apărut o eroare.",
         variant: "destructive",
       });
     } finally {
@@ -236,40 +207,31 @@ export default function Auth() {
     }
   };
 
-  const handleSubmit = async (e: FormEvent) => {
+  const handleSignup = async (e: FormEvent) => {
     e.preventDefault();
-    if (!validateForm()) return;
+    if (!validateSignupForm()) return;
+    if (!validatedInvitation) return;
 
     setIsLoading(true);
-    setErrors({});
 
     try {
-      if (isLogin) {
-        const { error } = await signIn(email, password);
-        if (error) {
-          const isInvalid = error.message?.toLowerCase().includes("invalid login credentials");
-          toast({
-            title: "Eroare de autentificare",
-            description: isInvalid ? "Email sau parolă incorectă." : error.message,
-            variant: "destructive",
-          });
-          return;
-        }
+      const normalizedCode = normalizeInvitationCode(invitationCode);
+      const role = validatedInvitation.role as AppRole;
 
-        toast({ title: "Autentificare reușită", description: "Bine ai venit!" });
-
-        // Nu alegem rol din UI; rolul vine din profil/permisiuni.
-        navigate("/dashboard");
-        return;
-      }
-
-      // Signup (părinte sau teacher gated)
-      const { error: signUpError } = await signUp(
+      // Create user account
+      const redirectUrl = `${window.location.origin}/`;
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
-        fullName,
-        selectedRole
-      );
+        options: {
+          emailRedirectTo: redirectUrl,
+          data: {
+            full_name: fullName,
+            role,
+            phone: phone || null,
+          },
+        },
+      });
 
       if (signUpError) {
         const msg = signUpError.message || "Înregistrare eșuată.";
@@ -284,15 +246,77 @@ export default function Auth() {
         return;
       }
 
-      toast({ title: "Cont creat cu succes", description: "Te-ai înregistrat cu succes!" });
-      safeStorageSet("edunation.activeRole", selectedRole);
-      navigate(routeMap[selectedRole] ?? "/dashboard");
+      const userId = signUpData.user?.id;
+      if (!userId) {
+        toast({
+          title: "Eroare",
+          description: "Nu s-a putut crea contul. Încearcă din nou.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Claim the invitation
+      const claimResult = await claimInvitation(normalizedCode, userId);
+
+      if (!claimResult.success) {
+        toast({
+          title: "Eroare la validarea invitației",
+          description: claimResult.error_message || "Codul nu mai este valid.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Update user profile with school_id
+      if (claimResult.school_id) {
+        await supabase
+          .from("profiles")
+          .update({ school_id: claimResult.school_id })
+          .eq("id", userId);
+      }
+
+      // For students, link to class
+      if (role === "student" && claimResult.class_id) {
+        // Check if student record exists and update, or create new
+        const { data: existingStudent } = await supabase
+          .from("students")
+          .select("id")
+          .eq("user_id", userId)
+          .maybeSingle();
+
+        if (!existingStudent) {
+          await supabase.from("students").insert({
+            user_id: userId,
+            class_id: claimResult.class_id,
+            full_name: fullName,
+            is_active: true,
+          });
+        }
+      }
+
+      // For parents, create relation to student
+      if (role === "parent" && claimResult.student_id) {
+        await supabase.from("parent_student_relations").insert({
+          parent_user_id: userId,
+          student_id: claimResult.student_id,
+          is_primary: true,
+        });
+      }
+
+      toast({
+        title: "Cont creat cu succes!",
+        description: `Te-ai înregistrat ca ${getRoleLabelRo(role)}.`,
+      });
+
+      safeStorageSet("edunation.activeRole", role);
+      navigate(routeMap[role] ?? "/dashboard");
     } catch (err: unknown) {
+      console.error("Signup error:", err);
       const message =
         typeof err === "object" && err !== null && "message" in err
           ? String((err as { message?: unknown }).message ?? "")
           : "A apărut o eroare.";
-
       toast({
         title: "Eroare",
         description: message || "A apărut o eroare.",
@@ -324,33 +348,18 @@ export default function Auth() {
           </Link>
 
           <h1 className="text-3xl font-bold text-foreground mb-2">
-            {isLogin ? "Bine ai revenit!" : showActivation ? "Activare cont" : "Creează un cont"}
+            {isLogin ? "Bine ai revenit!" : "Creează un cont"}
           </h1>
 
           <p className="text-muted-foreground mb-8">
             {isLogin
               ? "Autentifică-te pentru a accesa catalogul"
-              : showActivation
-              ? "Introdu codul primit de la secretariat"
-              : "Înregistrează-te pentru a accesa catalogul"}
+              : "Înregistrează-te cu codul primit de la administrator"}
           </p>
 
-          {!isLogin && (
-            <Tabs defaultValue="register" className="mb-6">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="register" onClick={() => setShowActivation(false)}>
-                  Înregistrare
-                </TabsTrigger>
-                <TabsTrigger value="activate" onClick={() => setShowActivation(true)}>
-                  Activare cont
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-          )}
-
           {isLogin ? (
-            // LOGIN
-            <form onSubmit={handleSubmit} className="space-y-4">
+            // LOGIN FORM
+            <form onSubmit={handleLogin} className="space-y-4">
               <div>
                 <Label htmlFor="email">Email</Label>
                 <div className="relative mt-1">
@@ -407,11 +416,47 @@ export default function Auth() {
                 {isLoading ? "Se procesează..." : "Autentificare"}
               </Button>
             </form>
-          ) : showActivation ? (
-            // ACTIVARE
-            <div className="space-y-4">
+          ) : (
+            // SIGNUP FORM
+            <form onSubmit={handleSignup} className="space-y-4">
+              {/* Invitation Code - FIRST AND MANDATORY */}
               <div>
-                <Label htmlFor="fullName">Nume complet</Label>
+                <Label htmlFor="invitationCode">Cod de invitație *</Label>
+                <div className="relative mt-1">
+                  <Key className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                  <Input
+                    id="invitationCode"
+                    type="text"
+                    placeholder="XXXXXXXXXXXX"
+                    value={invitationCode}
+                    onChange={(e) => setInvitationCode(normalizeInvitationCode(e.target.value))}
+                    className={`pl-10 pr-10 uppercase font-mono tracking-wider ${
+                      errors.invitationCode || codeError ? "border-destructive" : ""
+                    } ${validatedInvitation ? "border-green-500" : ""}`}
+                    maxLength={12}
+                    autoComplete="one-time-code"
+                  />
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    {validatingCode && <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />}
+                  </div>
+                </div>
+                {(errors.invitationCode || codeError) && (
+                  <p className="text-sm text-destructive mt-1">{errors.invitationCode || codeError}</p>
+                )}
+                {validatedInvitation && (
+                  <div className="mt-2 p-3 rounded-lg bg-green-500/10 border border-green-500/20">
+                    <p className="text-sm text-green-700 dark:text-green-400 font-medium">
+                      ✓ Cod valid pentru rol: {getRoleLabelRo(validatedInvitation.role as any)}
+                    </p>
+                  </div>
+                )}
+                <p className="text-xs text-muted-foreground mt-1">
+                  Codul de 12 caractere primit de la administrator. Fără cod nu te poți înregistra.
+                </p>
+              </div>
+
+              <div>
+                <Label htmlFor="fullName">Nume complet *</Label>
                 <div className="relative mt-1">
                   <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                   <Input
@@ -428,7 +473,23 @@ export default function Auth() {
               </div>
 
               <div>
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="phone">Telefon (opțional)</Label>
+                <div className="relative mt-1">
+                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                  <Input
+                    id="phone"
+                    type="tel"
+                    placeholder="07xx xxx xxx"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    className="pl-10"
+                    autoComplete="tel"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="email">Email *</Label>
                 <div className="relative mt-1">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                   <Input
@@ -445,7 +506,7 @@ export default function Auth() {
               </div>
 
               <div>
-                <Label htmlFor="password">Parolă</Label>
+                <Label htmlFor="password">Parolă *</Label>
                 <div className="relative mt-1">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                   <Input
@@ -469,238 +530,16 @@ export default function Auth() {
                 {errors.password && <p className="text-sm text-destructive mt-1">{errors.password}</p>}
               </div>
 
-              <div>
-                <Label className="text-sm text-muted-foreground mb-3 block">Tip activare</Label>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setActivationRole("student")}
-                    className={`p-4 rounded-xl border-2 transition-all ${
-                      activationRole === "student"
-                        ? "border-primary bg-primary/5"
-                        : "border-border hover:border-primary/50"
-                    }`}
-                  >
-                    <div className="flex items-center justify-center gap-2">
-                      <GraduationCap className="w-5 h-5" />
-                      <span className="font-medium">Elev</span>
-                    </div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setActivationRole("parent")}
-                    className={`p-4 rounded-xl border-2 transition-all ${
-                      activationRole === "parent"
-                        ? "border-primary bg-primary/5"
-                        : "border-border hover:border-primary/50"
-                    }`}
-                  >
-                    <div className="flex items-center justify-center gap-2">
-                      <UserCircle className="w-5 h-5" />
-                      <span className="font-medium">Părinte</span>
-                    </div>
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <Label htmlFor="phone">Număr de telefon (opțional)</Label>
-                <div className="relative mt-1">
-                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                  <Input
-                    id="phone"
-                    type="tel"
-                    placeholder="07xx xxx xxx"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    className="pl-10"
-                    autoComplete="tel"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <Label htmlFor="activationCode">Cod de activare</Label>
-                <div className="relative mt-1">
-                  <Key className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                  <Input
-                    id="activationCode"
-                    type="text"
-                    placeholder="XXXXXXXX"
-                    value={activationCode}
-                    onChange={(e) => setActivationCode(normalizeActivationCode(e.target.value))}
-                    className="pl-10 uppercase"
-                    maxLength={8}
-                    autoComplete="one-time-code"
-                  />
-                </div>
-                {errors.activationCode && <p className="text-sm text-destructive mt-1">{errors.activationCode}</p>}
-              </div>
-
               <Button
+                type="submit"
                 variant="hero"
                 size="lg"
                 className="w-full"
-                disabled={isLoading}
-                onClick={handleActivateAccount}
+                disabled={isLoading || !validatedInvitation}
               >
-                {isLoading ? "Se procesează..." : "Activează contul"}
+                {isLoading ? "Se procesează..." : "Creează cont"}
               </Button>
-
-              <Button variant="ghost" className="w-full" onClick={() => setShowActivation(false)}>
-                Înapoi la înregistrare
-              </Button>
-            </div>
-          ) : (
-            // SIGNUP
-            <>
-              <div className="mb-6">
-                <Label className="text-sm text-muted-foreground mb-3 block">Tip cont</Label>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedRole("parent")}
-                    className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${
-                      selectedRole === "parent"
-                        ? "border-green-500 bg-green-500/5"
-                        : "border-border hover:border-muted-foreground/30"
-                    }`}
-                  >
-                    <UserCircle
-                      className={`w-6 h-6 ${
-                        selectedRole === "parent" ? "text-green-600" : "text-muted-foreground"
-                      }`}
-                    />
-                    <span className="font-medium">Părinte</span>
-                    <span className="text-xs text-muted-foreground text-center">Acces la situația copiilor</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setSelectedRole("teacher")}
-                    disabled={!STAFF_SIGNUP_CODE}
-                    className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${
-                      selectedRole === "teacher"
-                        ? "border-accent bg-accent/5"
-                        : "border-border hover:border-muted-foreground/30"
-                    } ${!STAFF_SIGNUP_CODE ? "opacity-60 cursor-not-allowed" : ""}`}
-                  >
-                    <Users
-                      className={`w-6 h-6 ${
-                        selectedRole === "teacher" ? "text-accent" : "text-muted-foreground"
-                      }`}
-                    />
-                    <span className="font-medium">Cadru didactic</span>
-                    <span className="text-xs text-muted-foreground text-center">Doar cu invitație</span>
-                  </button>
-                </div>
-
-                {isTeacherSignup && (
-                  <div className="mt-4 space-y-2">
-                    <Label htmlFor="staffCode">Cod invitație</Label>
-                    <div className="relative">
-                      <Key className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                      <Input
-                        id="staffCode"
-                        value={staffCode}
-                        onChange={(e) => setStaffCode(e.target.value)}
-                        placeholder="Cod primit de la școală"
-                        className={`pl-10 ${errors.staffCode ? "border-destructive" : ""}`}
-                        autoComplete="off"
-                      />
-                    </div>
-                    {errors.staffCode && <p className="text-xs text-destructive">{errors.staffCode}</p>}
-                    {!STAFF_SIGNUP_CODE && (
-                      <p className="text-xs text-muted-foreground">
-                        Înscrierea cadrelor didactice este dezactivată (lipsește VITE_STAFF_SIGNUP_CODE).
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <Label htmlFor="fullName">Nume complet</Label>
-                  <div className="relative mt-1">
-                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                    <Input
-                      id="fullName"
-                      type="text"
-                      placeholder="Ion Popescu"
-                      value={fullName}
-                      onChange={(e) => setFullName(e.target.value)}
-                      className="pl-10"
-                      autoComplete="name"
-                    />
-                  </div>
-                  {errors.fullName && <p className="text-sm text-destructive mt-1">{errors.fullName}</p>}
-                </div>
-
-                <div>
-                  <Label htmlFor="phone">Număr de telefon (opțional)</Label>
-                  <div className="relative mt-1">
-                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                    <Input
-                      id="phone"
-                      type="tel"
-                      placeholder="07xx xxx xxx"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      className="pl-10"
-                      autoComplete="tel"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <Label htmlFor="email">Email</Label>
-                  <div className="relative mt-1">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                    <Input
-                      id="email"
-                      type="email"
-                      placeholder="nume@scoala.ro"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="pl-10"
-                      autoComplete="email"
-                    />
-                  </div>
-                  {errors.email && <p className="text-sm text-destructive mt-1">{errors.email}</p>}
-                </div>
-
-                <div>
-                  <Label htmlFor="password">Parolă</Label>
-                  <div className="relative mt-1">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                    <Input
-                      id="password"
-                      type={showPassword ? "text" : "password"}
-                      placeholder="••••••••"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="pl-10 pr-10"
-                      autoComplete="new-password"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword((s) => !s)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                      aria-label={showPassword ? "Ascunde parola" : "Afișează parola"}
-                    >
-                      {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                    </button>
-                  </div>
-                  {errors.password && <p className="text-sm text-destructive mt-1">{errors.password}</p>}
-                </div>
-
-                <Button type="submit" variant="hero" size="lg" className="w-full" disabled={isLoading}>
-                  {isLoading ? "Se procesează..." : "Creează cont"}
-                </Button>
-              </form>
-            </>
+            </form>
           )}
 
           <p className="text-center text-sm text-muted-foreground mt-6">
@@ -708,8 +547,10 @@ export default function Auth() {
             <button
               onClick={() => {
                 setIsLogin((v) => !v);
-                setShowActivation(false);
                 setErrors({});
+                setInvitationCode("");
+                setValidatedInvitation(null);
+                setCodeError(null);
               }}
               className="text-primary hover:underline font-medium"
               type="button"
@@ -717,6 +558,12 @@ export default function Auth() {
               {isLogin ? "Înregistrează-te" : "Autentifică-te"}
             </button>
           </p>
+
+          {!isLogin && (
+            <p className="text-center text-xs text-muted-foreground mt-4">
+              Nu ai un cod? Contactează administratorul școlii sau dirigintele clasei.
+            </p>
+          )}
         </div>
       </div>
 

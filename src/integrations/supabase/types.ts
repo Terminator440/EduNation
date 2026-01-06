@@ -127,6 +127,7 @@ export type Database = {
           created_at: string | null
           id: string
           name: string
+          school_id: string | null
           section: string
           teacher_id: string | null
           year: number
@@ -135,6 +136,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           name: string
+          school_id?: string | null
           section: string
           teacher_id?: string | null
           year: number
@@ -143,11 +145,20 @@ export type Database = {
           created_at?: string | null
           id?: string
           name?: string
+          school_id?: string | null
           section?: string
           teacher_id?: string | null
           year?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "classes_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       grades: {
         Row: {
@@ -197,6 +208,79 @@ export type Database = {
           },
         ]
       }
+      invitations: {
+        Row: {
+          class_id: string | null
+          code_hash: string
+          created_at: string
+          created_by_user_id: string
+          current_uses: number
+          expires_at: string
+          id: string
+          max_uses: number
+          revoked_at: string | null
+          role: Database["public"]["Enums"]["invitation_role"]
+          school_id: string
+          student_id: string | null
+          used_at: string | null
+          used_by_user_id: string | null
+        }
+        Insert: {
+          class_id?: string | null
+          code_hash: string
+          created_at?: string
+          created_by_user_id: string
+          current_uses?: number
+          expires_at?: string
+          id?: string
+          max_uses?: number
+          revoked_at?: string | null
+          role: Database["public"]["Enums"]["invitation_role"]
+          school_id: string
+          student_id?: string | null
+          used_at?: string | null
+          used_by_user_id?: string | null
+        }
+        Update: {
+          class_id?: string | null
+          code_hash?: string
+          created_at?: string
+          created_by_user_id?: string
+          current_uses?: number
+          expires_at?: string
+          id?: string
+          max_uses?: number
+          revoked_at?: string | null
+          role?: Database["public"]["Enums"]["invitation_role"]
+          school_id?: string
+          student_id?: string | null
+          used_at?: string | null
+          used_by_user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invitations_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invitations_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invitations_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       parent_student_relations: {
         Row: {
           created_at: string | null
@@ -236,6 +320,7 @@ export type Database = {
           email: string
           full_name: string
           id: string
+          school_id: string | null
           updated_at: string | null
         }
         Insert: {
@@ -244,6 +329,7 @@ export type Database = {
           email: string
           full_name: string
           id: string
+          school_id?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -252,9 +338,18 @@ export type Database = {
           email?: string
           full_name?: string
           id?: string
+          school_id?: string | null
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       school_events: {
         Row: {
@@ -302,6 +397,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      schools: {
+        Row: {
+          address: string | null
+          code: string | null
+          created_at: string
+          email: string | null
+          id: string
+          name: string
+          phone: string | null
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          code?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          name: string
+          phone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          code?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string
+          phone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       student_activations: {
         Row: {
@@ -494,7 +622,36 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      claim_invitation: {
+        Args: { p_code_hash: string; p_user_id: string }
+        Returns: {
+          class_id: string
+          error_message: string
+          invitation_id: string
+          role: Database["public"]["Enums"]["invitation_role"]
+          school_id: string
+          student_id: string
+          success: boolean
+        }[]
+      }
+      create_invitation: {
+        Args: {
+          p_class_id?: string
+          p_created_by?: string
+          p_expires_hours?: number
+          p_max_uses?: number
+          p_role: Database["public"]["Enums"]["invitation_role"]
+          p_school_id: string
+          p_student_id?: string
+        }
+        Returns: {
+          error_message: string
+          invitation_id: string
+          plain_code: string
+        }[]
+      }
       generate_activation_code: { Args: never; Returns: string }
+      generate_invitation_code: { Args: never; Returns: string }
       get_teacher_class_id: { Args: { _user_id: string }; Returns: string }
       has_role: {
         Args: {
@@ -503,6 +660,8 @@ export type Database = {
         }
         Returns: boolean
       }
+      hash_invitation_code: { Args: { code: string }; Returns: string }
+      is_invitation_valid: { Args: { inv_id: string }; Returns: boolean }
       log_audit: {
         Args: {
           _action: string
@@ -515,6 +674,7 @@ export type Database = {
         }
         Returns: string
       }
+      revoke_invitation: { Args: { p_invitation_id: string }; Returns: boolean }
     }
     Enums: {
       app_role:
@@ -526,6 +686,12 @@ export type Database = {
         | "director"
         | "uat_admin"
         | "developer"
+      invitation_role:
+        | "director"
+        | "teacher"
+        | "homeroom_teacher"
+        | "student"
+        | "parent"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -662,6 +828,13 @@ export const Constants = {
         "director",
         "uat_admin",
         "developer",
+      ],
+      invitation_role: [
+        "director",
+        "teacher",
+        "homeroom_teacher",
+        "student",
+        "parent",
       ],
     },
   },
