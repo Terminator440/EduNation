@@ -187,7 +187,7 @@ export const createInvitation = async (
     return {
       success: true,
       invitation_id: result.invitation_id,
-      plain_code: result.plain_code ?? result.code, // compatibilitate: unele RPC-uri returnează "code"
+      plain_code: result.plain_code,
     };
   } catch (err: any) {
     console.error("Error creating invitation:", err);

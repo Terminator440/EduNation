@@ -24,12 +24,14 @@ import { createInvitation, type InvitationRole, getRoleLabelRo } from "@/lib/inv
 interface CreateInvitationDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSuccess: () => void;
+  onSuccess?: () => void;
+  onCreated?: () => void;
   schoolId: string;
-  allowedRoles: InvitationRole[];
+  allowedRoles?: InvitationRole[];
   classId?: string;
   studentId?: string;
   defaultRole?: InvitationRole;
+  role?: InvitationRole; // alias for defaultRole
   title?: string;
   description?: string;
 }
@@ -38,15 +40,19 @@ export function CreateInvitationDialog({
   open,
   onOpenChange,
   onSuccess,
+  onCreated,
   schoolId,
   allowedRoles,
   classId,
   studentId,
   defaultRole,
+  role,
   title = "Creează invitație",
   description = "Generează un cod de invitație pentru un utilizator nou.",
 }: CreateInvitationDialogProps) {
-  const [role, setRole] = useState<InvitationRole>(defaultRole || allowedRoles[0]);
+  const effectiveDefaultRole = defaultRole || role;
+  const effectiveAllowedRoles = allowedRoles || (effectiveDefaultRole ? [effectiveDefaultRole] : ["teacher" as InvitationRole]);
+  const [selectedRole, setSelectedRole] = useState<InvitationRole>(effectiveDefaultRole || effectiveAllowedRoles[0]);
   const [expiresHours, setExpiresHours] = useState("24");
   const [invitedEmail, setInvitedEmail] = useState("");
   const [invitedPhone, setInvitedPhone] = useState("");
@@ -60,16 +66,16 @@ export function CreateInvitationDialog({
     if (open) {
       setGeneratedCode(null);
       setCopied(false);
-      setRole(defaultRole || allowedRoles[0]);
+      setSelectedRole(effectiveDefaultRole || effectiveAllowedRoles[0]);
       setInvitedEmail("");
       setInvitedPhone("");
     }
-  }, [open, defaultRole, allowedRoles]);
+  }, [open, effectiveDefaultRole, effectiveAllowedRoles]);
 
   const handleCreate = async () => {
     setCreating(true);
 
-    const result = await createInvitation(role, schoolId, {
+    const result = await createInvitation(selectedRole, schoolId, {
       classId,
       studentId,
       expiresHours: parseInt(expiresHours, 10),
@@ -79,7 +85,7 @@ export function CreateInvitationDialog({
 
     setCreating(false);
 
-    const finalCode = result.plain_code || result.code;
+    const finalCode = result.plain_code;
 
     if (result.success && finalCode) {
       setGeneratedCode(finalCode);
@@ -108,7 +114,8 @@ export function CreateInvitationDialog({
 
   const handleClose = () => {
     if (generatedCode) {
-      onSuccess();
+      onSuccess?.();
+      onCreated?.();
     }
     onOpenChange(false);
   };
@@ -124,15 +131,15 @@ export function CreateInvitationDialog({
         {!generatedCode ? (
           <>
             <div className="space-y-4 py-4">
-              {allowedRoles.length > 1 && (
+              {effectiveAllowedRoles.length > 1 && (
                 <div className="space-y-2">
                   <Label>Rol</Label>
-                  <Select value={role} onValueChange={(v) => setRole(v as InvitationRole)}>
+                  <Select value={selectedRole} onValueChange={(v) => setSelectedRole(v as InvitationRole)}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {allowedRoles.map((r) => (
+                      {effectiveAllowedRoles.map((r) => (
                         <SelectItem key={r} value={r}>
                           {getRoleLabelRo(r)}
                         </SelectItem>
@@ -193,7 +200,7 @@ export function CreateInvitationDialog({
             <div className="py-6">
               <div className="text-center mb-4">
                 <p className="text-sm text-muted-foreground mb-2">
-                  Codul de invitație pentru {getRoleLabelRo(role)}:
+                  Codul de invitație pentru {getRoleLabelRo(selectedRole)}:
                 </p>
                 <div className="relative">
                   <Input

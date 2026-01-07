@@ -11,8 +11,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import CreateInvitationDialog from "@/components/invitations/CreateInvitationDialog";
-import { listInvitations, revokeInvitation, getRoleLabelRo, getInvitationStatusLabel, type InvitationRole } from "@/lib/invitations";
+import { CreateInvitationDialog } from "@/components/invitations/CreateInvitationDialog";
+import { listInvitations, revokeInvitation, getRoleLabelRo, getStatusLabelRo, getInvitationStatus, type InvitationRole } from "@/lib/invitations";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -986,7 +987,7 @@ setStudents(enrichedStudents);
                     {homeroomInvitations.map((inv) => (
                       <TableRow key={inv.id}>
                         <TableCell>{getRoleLabelRo(inv.role)}</TableCell>
-                        <TableCell>{getInvitationStatusLabel(inv)}</TableCell>
+                        <TableCell>{getStatusLabelRo(getInvitationStatus(inv))}</TableCell>
                         <TableCell>
                           {inv.created_at ? new Date(inv.created_at).toLocaleString("ro-RO") : "-"}
                         </TableCell>

@@ -8,8 +8,8 @@ import ThemeToggle from "@/components/ThemeToggle";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import CreateInvitationDialog from "@/components/invitations/CreateInvitationDialog";
-import { listInvitations, revokeInvitation, getRoleLabelRo, getInvitationStatusLabel, type InvitationRole } from "@/lib/invitations";
+import { CreateInvitationDialog } from "@/components/invitations/CreateInvitationDialog";
+import { listInvitations, revokeInvitation, getRoleLabelRo, getStatusLabelRo, getInvitationStatus, type InvitationRole } from "@/lib/invitations";
 
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -458,15 +458,6 @@ const DirectorDashboard = () => {
                 >
                   Invită diriginte
                 </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setInvRole("secretariat");
-                    setInvDialogOpen(true);
-                  }}
-                >
-                  Invită secretariat
-                </Button>
               </div>
             </CardHeader>
             <CardContent>
@@ -494,7 +485,7 @@ const DirectorDashboard = () => {
                     {directorInvitations.map((inv) => (
                       <TableRow key={inv.id}>
                         <TableCell>{getRoleLabelRo(inv.role)}</TableCell>
-                        <TableCell>{getInvitationStatusLabel(inv)}</TableCell>
+                        <TableCell>{getStatusLabelRo(getInvitationStatus(inv))}</TableCell>
                         <TableCell>
                           {inv.created_at ? new Date(inv.created_at).toLocaleString("ro-RO") : "-"}
                         </TableCell>

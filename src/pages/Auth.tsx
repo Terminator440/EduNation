@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth, type AppRole } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { validateInvitationCode, claimInvitation, getRoleLabelRo, type Invitation } from "@/lib/invitations";
+import { validateInvitationCode, claimInvitation, getRoleLabelRo, invitationRoleToAppRole, type Invitation, type InvitationRole } from "@/lib/invitations";
 
 const routeMap: Record<AppRole, string> = {
   student: "/dashboard",
@@ -74,7 +74,7 @@ export default function Auth() {
 
     setIsLoading(true);
     try {
-      const role = validatedInvitation.role as AppRole;
+      const role = invitationRoleToAppRole(validatedInvitation.role as InvitationRole);
 
       // 1. Sign Up în Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -114,15 +114,15 @@ export default function Auth() {
       }
 
       if (role === "parent" && claimResult.student_id) {
-        await supabase.from("parent_students").insert({
-          parent_id: authData.user.id,
+        await supabase.from("parent_student_relations").insert({
+          parent_user_id: authData.user.id,
           student_id: claimResult.student_id,
         });
       }
 
       toast({ 
         title: "Cont creat!", 
-        description: `Înregistrat ca ${getRoleLabelRo(role)}` 
+        description: `Înregistrat ca ${getRoleLabelRo(validatedInvitation.role as InvitationRole)}` 
       });
       
       navigate(routeMap[role] || "/dashboard");
