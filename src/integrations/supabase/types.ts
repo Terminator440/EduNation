@@ -95,6 +95,9 @@ export type Database = {
           entity_id: string | null
           entity_type: string | null
           id: string
+          new_data: Json | null
+          old_data: Json | null
+          school_id: string | null
           user_id: string
           user_name: string
         }
@@ -106,6 +109,9 @@ export type Database = {
           entity_id?: string | null
           entity_type?: string | null
           id?: string
+          new_data?: Json | null
+          old_data?: Json | null
+          school_id?: string | null
           user_id: string
           user_name: string
         }
@@ -117,6 +123,9 @@ export type Database = {
           entity_id?: string | null
           entity_type?: string | null
           id?: string
+          new_data?: Json | null
+          old_data?: Json | null
+          school_id?: string | null
           user_id?: string
           user_name?: string
         }
@@ -669,6 +678,21 @@ export type Database = {
           _details?: Json
           _entity_id?: string
           _entity_type?: string
+          _user_id: string
+          _user_name: string
+        }
+        Returns: string
+      }
+      log_audit_extended: {
+        Args: {
+          _action: string
+          _active_role: Database["public"]["Enums"]["app_role"]
+          _details?: Json
+          _entity_id?: string
+          _entity_type?: string
+          _new_data?: Json
+          _old_data?: Json
+          _school_id?: string
           _user_id: string
           _user_name: string
         }
