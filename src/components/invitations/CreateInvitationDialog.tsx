@@ -79,9 +79,7 @@ export function CreateInvitationDialog({
 
     setCreating(false);
 
-    // Am folosit 'plain_code' din upstream, presupunând că este noua structură a API-ului.
-    // Dacă API-ul returnează încă 'code', schimbă aici în 'result.code'.
-    const finalCode = result.plain_code || result.code; 
+    const finalCode = result.plain_code || result.code;
 
     if (result.success && finalCode) {
       setGeneratedCode(finalCode);
