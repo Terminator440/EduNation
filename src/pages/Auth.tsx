@@ -21,10 +21,8 @@ import { z } from "zod";
 import {
   validateInvitationCode,
   claimInvitation,
-  hashInvitationCode,
   getRoleLabelRo,
   type Invitation,
-  type InvitationRole,
 } from "@/lib/invitations";
 
 type FormErrors = Partial<

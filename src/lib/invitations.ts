@@ -1,7 +1,8 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { AppRole } from "@/hooks/useAuth";
 
-export type InvitationRole = "director" | "teacher" | "homeroom_teacher" | "student" | "parent";
+// Am adăugat 'secretariat' în tip, deoarece apărea în getRoleLabelRo din modificările tale
+export type InvitationRole = "director" | "teacher" | "homeroom_teacher" | "student" | "parent" | "secretariat";
 
 export const invitationRoleToAppRole = (role: InvitationRole): AppRole => role as AppRole;
 
@@ -147,7 +148,10 @@ export interface CreateInvitationResult {
   success: boolean;
   invitation_id?: string;
   plain_code?: string;
+  code?: string; // Menținut pentru compatibilitate cu ambele versiuni
   error_message?: string;
+  expires_at?: string;
+  max_uses?: number;
 }
 
 export const createInvitation = async (
@@ -156,6 +160,8 @@ export const createInvitation = async (
   options?: {
     classId?: string;
     studentId?: string;
+    invitedEmail?: string;
+    invitedPhone?: string;
     maxUses?: number;
     expiresHours?: number;
   }
@@ -166,6 +172,8 @@ export const createInvitation = async (
       p_school_id: schoolId,
       p_class_id: options?.classId || null,
       p_student_id: options?.studentId || null,
+      p_invited_email: options?.invitedEmail || null,
+      p_invited_phone: options?.invitedPhone || null,
       p_max_uses: options?.maxUses || 1,
       p_expires_hours: options?.expiresHours || 24,
     });
@@ -184,14 +192,18 @@ export const createInvitation = async (
       };
     }
 
+    // Combinăm rezultatele pentru a suporta atât 'plain_code' cât și 'code'
     return {
       success: true,
       invitation_id: result.invitation_id,
-      plain_code: result.plain_code,
+      plain_code: result.plain_code || result.code,
+      code: result.code || result.plain_code,
+      expires_at: result.expires_at,
+      max_uses: result.max_uses,
     };
-  } catch (err) {
+  } catch (err: any) {
     console.error("Error creating invitation:", err);
-    return { success: false, error_message: "Eroare la crearea invitației." };
+    return { success: false, error_message: err?.message || "Eroare la crearea invitației." };
   }
 };
 
@@ -220,6 +232,7 @@ export const getRoleLabelRo = (role: InvitationRole): string => {
     homeroom_teacher: "Diriginte",
     student: "Elev",
     parent: "Părinte",
+    secretariat: "Secretariat",
   };
   return labels[role] || role;
 };
@@ -244,4 +257,34 @@ export const getStatusColor = (
     revoked: "destructive",
   };
   return colors[status] || "outline";
+};
+
+// Aceasta este funcția nouă din Stashed changes, păstrată
+export const listInvitations = async ({
+  schoolId,
+  classId,
+  createdByUserId,
+  limit = 50,
+}: {
+  schoolId?: string | null;
+  classId?: string | null;
+  createdByUserId?: string | null;
+  limit?: number;
+}) => {
+  let query = supabase
+    .from("invitations")
+    .select(
+      "id, role, school_id, class_id, student_id, created_by_user_id, created_at, expires_at, used_at, revoked_at, max_uses, uses_count, invited_email, invited_phone"
+    )
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (schoolId) query = query.eq("school_id", schoolId);
+  if (classId) query = query.eq("class_id", classId);
+  if (createdByUserId) query = query.eq("created_by_user_id", createdByUserId);
+
+  const { data, error } = await query;
+  if (error) throw error;
+
+  return data || [];
 };

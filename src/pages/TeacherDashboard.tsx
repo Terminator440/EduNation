@@ -11,6 +11,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import CreateInvitationDialog from "@/components/invitations/CreateInvitationDialog";
+import { listInvitations, revokeInvitation, getRoleLabelRo, getInvitationStatusLabel, type InvitationRole } from "@/lib/invitations";
+
 import { useToast } from "@/hooks/use-toast";
 import {
   Table,
@@ -99,6 +102,15 @@ const TeacherDashboard = () => {
   const [signedEntryIds, setSignedEntryIds] = useState<Set<string>>(new Set());
   const [registerLoading, setRegisterLoading] = useState(false);
 
+  // Invitatii (doar pentru diriginte)
+  const [invitationDialogOpen, setInvitationDialogOpen] = useState(false);
+  const [invitationRole, setInvitationRole] = useState<InvitationRole>("student");
+  const [homeroomClassId, setHomeroomClassId] = useState<string | null>(null);
+  const [schoolId, setSchoolId] = useState<string | null>(null);
+  const [homeroomInvitations, setHomeroomInvitations] = useState<any[]>([]);
+  const [invitesLoading, setInvitesLoading] = useState(false);
+
+
   const { user, activeRole, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -115,6 +127,54 @@ const TeacherDashboard = () => {
       fetchRegister();
     }
   }, [user, activeRole]);
+  useEffect(() => {
+    const loadHomeroomContext = async () => {
+      try {
+        if (!user || activeRole !== "homeroom_teacher") return;
+
+        setInvitesLoading(true);
+
+        const { data: profileData, error: profileErr } = await supabase
+          .from("profiles")
+          .select("school_id")
+          .eq("id", user.id)
+          .maybeSingle();
+
+        if (profileErr) throw profileErr;
+
+        const sid = (profileData as any)?.school_id || null;
+        setSchoolId(sid);
+
+        const { data: classData, error: classErr } = await supabase
+          .from("classes")
+          .select("id")
+          .eq("teacher_id", user.id)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (classErr) throw classErr;
+
+        const cid = (classData as any)?.id || null;
+        setHomeroomClassId(cid);
+
+        if (sid && cid) {
+          const invs = await listInvitations({ schoolId: sid, classId: cid, limit: 50 });
+          setHomeroomInvitations(invs);
+        } else {
+          setHomeroomInvitations([]);
+        }
+      } catch (e) {
+        console.error("Failed to load homeroom invitations:", e);
+        setHomeroomInvitations([]);
+      } finally {
+        setInvitesLoading(false);
+      }
+    };
+
+    void loadHomeroomContext();
+  }, [user, activeRole]);
+
 
   const toDateKey = (d: Date): string => {
     const y = d.getFullYear();
@@ -876,6 +936,119 @@ setStudents(enrichedStudents);
               </Table>
             )}
           </div>
+        {activeRole === "homeroom_teacher" && (
+          <Card className="mt-8">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0">
+              <CardTitle>Invitații (diriginte)</CardTitle>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setInvitationRole("student");
+                    setInvitationDialogOpen(true);
+                  }}
+                >
+                  Invită elev
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setInvitationRole("parent");
+                    setInvitationDialogOpen(true);
+                  }}
+                >
+                  Invită părinte
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {!schoolId || !homeroomClassId ? (
+                <p className="text-sm text-muted-foreground">
+                  Nu pot încărca invitațiile: lipsesc datele de școală/clasă pentru contul tău.
+                </p>
+              ) : invitesLoading ? (
+                <p className="text-sm text-muted-foreground">Se încarcă invitațiile...</p>
+              ) : homeroomInvitations.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Nu ai invitații create.</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Rol</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Creat</TableHead>
+                      <TableHead>Expiră</TableHead>
+                      <TableHead>Contact</TableHead>
+                      <TableHead className="text-right">Acțiuni</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {homeroomInvitations.map((inv) => (
+                      <TableRow key={inv.id}>
+                        <TableCell>{getRoleLabelRo(inv.role)}</TableCell>
+                        <TableCell>{getInvitationStatusLabel(inv)}</TableCell>
+                        <TableCell>
+                          {inv.created_at ? new Date(inv.created_at).toLocaleString("ro-RO") : "-"}
+                        </TableCell>
+                        <TableCell>
+                          {inv.expires_at ? new Date(inv.expires_at).toLocaleString("ro-RO") : "-"}
+                        </TableCell>
+                        <TableCell>
+                          {inv.invited_email || inv.invited_phone ? (
+                            <div className="text-xs">
+                              {inv.invited_email && <div>{inv.invited_email}</div>}
+                              {inv.invited_phone && <div>{inv.invited_phone}</div>}
+                            </div>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={!!inv.revoked_at || !!inv.used_at}
+                            onClick={async () => {
+                              try {
+                                await revokeInvitation(inv.id);
+                                const invs = await listInvitations({
+                                  schoolId,
+                                  classId: homeroomClassId,
+                                  limit: 50,
+                                });
+                                setHomeroomInvitations(invs);
+                              } catch (e) {
+                                console.error("Failed to revoke invitation:", e);
+                              }
+                            }}
+                          >
+                            Revocă
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        <CreateInvitationDialog
+          open={invitationDialogOpen}
+          onOpenChange={setInvitationDialogOpen}
+          schoolId={schoolId || ""}
+          role={invitationRole}
+          classId={invitationRole === "student" || invitationRole === "parent" ? homeroomClassId : undefined}
+          studentId={undefined}
+          onCreated={async () => {
+            if (schoolId && homeroomClassId) {
+              const invs = await listInvitations({ schoolId, classId: homeroomClassId, limit: 50 });
+              setHomeroomInvitations(invs);
+            }
+          }}
+        />
+
         </div>
       </main>
     </div>

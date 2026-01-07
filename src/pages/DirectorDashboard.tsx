@@ -8,6 +8,9 @@ import ThemeToggle from "@/components/ThemeToggle";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import CreateInvitationDialog from "@/components/invitations/CreateInvitationDialog";
+import { listInvitations, revokeInvitation, getRoleLabelRo, getInvitationStatusLabel, type InvitationRole } from "@/lib/invitations";
+
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -71,6 +74,14 @@ const DirectorDashboard = () => {
   const { toast } = useToast();
 
   const { user, profile, activeRole, loading: authLoading } = useAuth();
+
+  // Invitatii (director)
+  const [invDialogOpen, setInvDialogOpen] = useState(false);
+  const [invRole, setInvRole] = useState<InvitationRole>("teacher");
+  const [directorSchoolId, setDirectorSchoolId] = useState<string | null>(null);
+  const [directorInvitations, setDirectorInvitations] = useState<any[]>([]);
+  const [directorInvLoading, setDirectorInvLoading] = useState(false);
+
   const navigate = useNavigate();
 
   const displayName = profile?.full_name || user?.email?.split('@')[0] || 'Utilizator';
@@ -80,6 +91,42 @@ const DirectorDashboard = () => {
       navigate('/auth');
     }
   }, [user, activeRole, authLoading, navigate]);
+
+  useEffect(() => {
+    const loadDirectorInvitations = async () => {
+      try {
+        if (!user || activeRole !== "director") return;
+
+        setDirectorInvLoading(true);
+
+        const { data: profileData, error: profileErr } = await supabase
+          .from("profiles")
+          .select("school_id")
+          .eq("id", user.id)
+          .maybeSingle();
+
+        if (profileErr) throw profileErr;
+
+        const sid = (profileData as any)?.school_id || null;
+        setDirectorSchoolId(sid);
+
+        if (sid) {
+          const invs = await listInvitations({ schoolId: sid, limit: 100 });
+          setDirectorInvitations(invs);
+        } else {
+          setDirectorInvitations([]);
+        }
+      } catch (e) {
+        console.error("Failed to load director invitations:", e);
+        setDirectorInvitations([]);
+      } finally {
+        setDirectorInvLoading(false);
+      }
+    };
+
+    void loadDirectorInvitations();
+  }, [user, activeRole]);
+
 
   useEffect(() => {
     if (user && activeRole === 'director') {
@@ -388,6 +435,124 @@ const DirectorDashboard = () => {
               </Card>
             </div>
           </div>
+        {activeRole === "director" && (
+          <Card className="mt-8">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0">
+              <CardTitle>Invitații (director)</CardTitle>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setInvRole("teacher");
+                    setInvDialogOpen(true);
+                  }}
+                >
+                  Invită profesor
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setInvRole("homeroom_teacher");
+                    setInvDialogOpen(true);
+                  }}
+                >
+                  Invită diriginte
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setInvRole("secretariat");
+                    setInvDialogOpen(true);
+                  }}
+                >
+                  Invită secretariat
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {!directorSchoolId ? (
+                <p className="text-sm text-muted-foreground">
+                  Nu pot încărca invitațiile: profilul nu are setat school_id.
+                </p>
+              ) : directorInvLoading ? (
+                <p className="text-sm text-muted-foreground">Se încarcă invitațiile...</p>
+              ) : directorInvitations.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Nu ai invitații create.</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Rol</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Creat</TableHead>
+                      <TableHead>Expiră</TableHead>
+                      <TableHead>Contact</TableHead>
+                      <TableHead className="text-right">Acțiuni</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {directorInvitations.map((inv) => (
+                      <TableRow key={inv.id}>
+                        <TableCell>{getRoleLabelRo(inv.role)}</TableCell>
+                        <TableCell>{getInvitationStatusLabel(inv)}</TableCell>
+                        <TableCell>
+                          {inv.created_at ? new Date(inv.created_at).toLocaleString("ro-RO") : "-"}
+                        </TableCell>
+                        <TableCell>
+                          {inv.expires_at ? new Date(inv.expires_at).toLocaleString("ro-RO") : "-"}
+                        </TableCell>
+                        <TableCell>
+                          {inv.invited_email || inv.invited_phone ? (
+                            <div className="text-xs">
+                              {inv.invited_email && <div>{inv.invited_email}</div>}
+                              {inv.invited_phone && <div>{inv.invited_phone}</div>}
+                            </div>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={!!inv.revoked_at || !!inv.used_at}
+                            onClick={async () => {
+                              try {
+                                await revokeInvitation(inv.id);
+                                if (directorSchoolId) {
+                                  const invs = await listInvitations({ schoolId: directorSchoolId, limit: 100 });
+                                  setDirectorInvitations(invs);
+                                }
+                              } catch (e) {
+                                console.error("Failed to revoke invitation:", e);
+                              }
+                            }}
+                          >
+                            Revocă
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        <CreateInvitationDialog
+          open={invDialogOpen}
+          onOpenChange={setInvDialogOpen}
+          schoolId={directorSchoolId || ""}
+          role={invRole}
+          onCreated={async () => {
+            if (directorSchoolId) {
+              const invs = await listInvitations({ schoolId: directorSchoolId, limit: 100 });
+              setDirectorInvitations(invs);
+            }
+          }}
+        />
+
         </div>
       </main>
     </div>

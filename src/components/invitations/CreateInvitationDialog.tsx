@@ -48,6 +48,9 @@ export function CreateInvitationDialog({
 }: CreateInvitationDialogProps) {
   const [role, setRole] = useState<InvitationRole>(defaultRole || allowedRoles[0]);
   const [expiresHours, setExpiresHours] = useState("24");
+  const [invitedEmail, setInvitedEmail] = useState("");
+  const [invitedPhone, setInvitedPhone] = useState("");
+  
   const [creating, setCreating] = useState(false);
   const [generatedCode, setGeneratedCode] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -58,6 +61,8 @@ export function CreateInvitationDialog({
       setGeneratedCode(null);
       setCopied(false);
       setRole(defaultRole || allowedRoles[0]);
+      setInvitedEmail("");
+      setInvitedPhone("");
     }
   }, [open, defaultRole, allowedRoles]);
 
@@ -68,12 +73,18 @@ export function CreateInvitationDialog({
       classId,
       studentId,
       expiresHours: parseInt(expiresHours, 10),
+      invitedEmail: invitedEmail.trim() || undefined,
+      invitedPhone: invitedPhone.trim() || undefined,
     });
 
     setCreating(false);
 
-    if (result.success && result.plain_code) {
-      setGeneratedCode(result.plain_code);
+    // Am folosit 'plain_code' din upstream, presupunând că este noua structură a API-ului.
+    // Dacă API-ul returnează încă 'code', schimbă aici în 'result.code'.
+    const finalCode = result.plain_code || result.code; 
+
+    if (result.success && finalCode) {
+      setGeneratedCode(finalCode);
       toast({ title: "Invitație creată!", description: "Copiază codul și trimite-l utilizatorului." });
     } else {
       toast({
@@ -146,6 +157,26 @@ export function CreateInvitationDialog({
                     <SelectItem value="168">7 zile</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Email (opțional)</Label>
+                <Input
+                  value={invitedEmail}
+                  onChange={(e) => setInvitedEmail(e.target.value)}
+                  placeholder="ex: parinte@email.com"
+                  type="email"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Telefon (opțional)</Label>
+                <Input
+                  value={invitedPhone}
+                  onChange={(e) => setInvitedPhone(e.target.value)}
+                  placeholder="ex: 07xx xxx xxx"
+                  type="tel"
+                />
               </div>
             </div>
 
