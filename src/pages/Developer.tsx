@@ -65,14 +65,14 @@ export default function Developer() {
   ]);
 
   const [canaryChecks, setCanaryChecks] = useState<CanaryCheck[]>([
-    { id: "grades", table: "grades", title: "Note (grades)", level: "warn" },
-    { id: "attendance", table: "attendance", title: "Absențe (attendance)", level: "warn" },
-    { id: "announcements", table: "announcements", title: "Anunțuri (announcements)", level: "warn" },
-    { id: "audit_logs", table: "audit_logs", title: "Audit Log", level: "warn" },
-    { id: "classes", table: "classes", title: "Clase (classes)", level: "warn" },
-    { id: "students", table: "students", title: "Elevi (students)", level: "warn" },
-    { id: "timetable_entries", table: "timetable_entries", title: "Orar (timetable)", level: "warn" },
-    { id: "school_events", table: "school_events", title: "Calendar (events)", level: "warn" },
+    { id: "grades", table: "grades", title: "Tabela: grades", level: "warn" },
+    { id: "attendance", table: "attendance", title: "Tabela: attendance", level: "warn" },
+    { id: "announcements", table: "announcements", title: "Tabela: announcements", level: "warn" },
+    { id: "audit_logs", table: "audit_logs", title: "Tabela: audit_logs", level: "warn" },
+    { id: "classes", table: "classes", title: "Tabela: classes", level: "warn" },
+    { id: "students", table: "students", title: "Tabela: students", level: "warn" },
+    { id: "timetable_entries", table: "timetable_entries", title: "Tabela: timetable_entries", level: "warn" },
+    { id: "school_events", table: "school_events", title: "Tabela: school_events", level: "warn" },
   ]);
 
   const [notifStatus, setNotifStatus] = useState<{
