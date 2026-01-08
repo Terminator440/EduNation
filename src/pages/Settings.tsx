@@ -1,18 +1,17 @@
 import { useState, useEffect } from "react";
-import { User, Bell, Shield, Palette, LogOut, Sun, Moon } from "lucide-react";
+import { User, Bell, Shield, Palette, Sun, Moon, Lock, Info } from "lucide-react";
 import Sidebar from "@/components/dashboard/Sidebar";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 const Settings = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [activeTab, setActiveTab] = useState("profile");
-  const navigate = useNavigate();
   const { toast } = useToast();
 
   const [isDark, setIsDark] = useState(() => {
@@ -66,20 +65,14 @@ const Settings = () => {
     });
   };
 
-  const handleLogout = () => {
-    toast({
-      title: "Deconectat",
-      description: "Ai fost deconectat cu succes.",
-    });
-    navigate("/");
-  };
-
   const tabs = [
     { id: "profile", label: "Profil", icon: User },
     { id: "notifications", label: "Notificări", icon: Bell },
     { id: "security", label: "Securitate", icon: Shield },
     { id: "appearance", label: "Aspect", icon: Palette },
   ];
+
+  // Removed handleLogout from Settings tabs - logout is only in Sidebar
 
   return (
     <div className="min-h-screen bg-background">
@@ -117,13 +110,6 @@ const Settings = () => {
                       <span className="font-medium">{tab.label}</span>
                     </button>
                   ))}
-                  <button
-                    onClick={handleLogout}
-                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left text-destructive hover:bg-destructive/10 transition-colors mt-4"
-                  >
-                    <LogOut className="w-5 h-5" />
-                    <span className="font-medium">Deconectare</span>
-                  </button>
                 </nav>
               </div>
 
@@ -150,7 +136,7 @@ const Settings = () => {
                           <Label htmlFor="lastName">Nume</Label>
                           <Input id="lastName" defaultValue="Popescu" className="mt-1" />
                         </div>
-                        <div>
+                        <div className="sm:col-span-2">
                           <Label htmlFor="email">Email</Label>
                           <Input id="email" type="email" defaultValue="alexandru.popescu@scoala.ro" className="mt-1" />
                         </div>
@@ -159,13 +145,51 @@ const Settings = () => {
                           <Input id="phone" type="tel" defaultValue="+40 700 000 000" className="mt-1" />
                         </div>
                       </div>
-                      <div>
-                        <Label htmlFor="school">Școala</Label>
-                        <Input id="school" defaultValue='Liceul Teoretic "Nicolae Bălcescu"' className="mt-1" disabled />
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <Label htmlFor="school">Școala</Label>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Info className="w-4 h-4 text-muted-foreground cursor-help" />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Câmp informativ – se modifică doar de către administrație</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </div>
+                        <div className="relative">
+                          <Input 
+                            id="school" 
+                            defaultValue='Liceul Teoretic "Nicolae Bălcescu"' 
+                            className="mt-1 pr-10 bg-muted/50 text-muted-foreground cursor-not-allowed" 
+                            disabled 
+                            readOnly
+                          />
+                          <Lock className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                        </div>
                       </div>
-                      <div>
-                        <Label htmlFor="class">Clasa</Label>
-                        <Input id="class" defaultValue="a X-a B" className="mt-1" disabled />
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <Label htmlFor="class">Clasa</Label>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Info className="w-4 h-4 text-muted-foreground cursor-help" />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Câmp informativ – se modifică doar de către administrație</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </div>
+                        <div className="relative">
+                          <Input 
+                            id="class" 
+                            defaultValue="a X-a B" 
+                            className="mt-1 pr-10 bg-muted/50 text-muted-foreground cursor-not-allowed" 
+                            disabled 
+                            readOnly
+                          />
+                          <Lock className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                        </div>
                       </div>
                       <Button variant="hero" onClick={handleSave}>Salvează modificările</Button>
                     </div>

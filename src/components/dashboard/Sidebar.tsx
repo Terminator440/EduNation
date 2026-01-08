@@ -139,7 +139,6 @@ const menuItemsByRole: Record<AppRole, { icon: any; label: string; href: string 
     { icon: Shield, label: "Audit Log", href: "/audit" },
     { icon: Clock, label: "Orar", href: "/dashboard/schedule" },
     { icon: Calendar, label: "Calendar", href: "/dashboard/calendar" },
-    { icon: Settings, label: "Setări", href: "/dashboard/settings" },
   ],
 };
 
