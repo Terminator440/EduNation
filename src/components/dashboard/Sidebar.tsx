@@ -137,6 +137,7 @@ const menuItemsByRole: Record<AppRole, { icon: any; label: string; href: string 
   developer: [
     { icon: Shield, label: "Diagnostic sistem", href: "/developer" },
     { icon: Shield, label: "Audit Log", href: "/audit" },
+    { icon: Key, label: "Invitații Director", href: "/developer/invitations" },
   ],
 };
 

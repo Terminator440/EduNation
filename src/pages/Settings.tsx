@@ -9,12 +9,26 @@ import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 
 const Settings = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [activeTab, setActiveTab] = useState("profile");
   const { toast } = useToast();
-  const { activeRole } = useAuth();
+  const { activeRole, user, profile } = useAuth();
+  
+  // Email din sesiunea Auth (sursa de adevăr)
+  const [authEmail, setAuthEmail] = useState<string | null>(null);
+  
+  useEffect(() => {
+    const fetchAuthEmail = async () => {
+      const { data } = await supabase.auth.getUser();
+      if (data?.user?.email) {
+        setAuthEmail(data.user.email);
+      }
+    };
+    fetchAuthEmail();
+  }, []);
 
   const [isDark, setIsDark] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -192,13 +206,28 @@ const Settings = () => {
                           <Input id="lastName" defaultValue="Popescu" className="mt-1" />
                         </div>
                         <div className="sm:col-span-2">
-                          <Label htmlFor="email">Email</Label>
-                          <Input 
-                            id="email" 
-                            type="email" 
-                            defaultValue="alexandru.popescu@scoala.ro" 
-                            className="mt-1 w-full overflow-x-auto" 
-                          />
+                          <div className="flex items-center gap-2">
+                            <Label htmlFor="email">Email</Label>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Info className="w-4 h-4 text-muted-foreground cursor-help" />
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Email-ul este gestionat de sistemul de autentificare</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </div>
+                          <div className="relative">
+                            <Input 
+                              id="email" 
+                              type="email" 
+                              value={authEmail || user?.email || "Email indisponibil"}
+                              className="mt-1 w-full pr-10 bg-muted/50 text-muted-foreground cursor-not-allowed" 
+                              disabled
+                              readOnly
+                            />
+                            <Lock className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                          </div>
                         </div>
                         <div className={isDeveloper ? "sm:col-span-2" : ""}>
                           <Label htmlFor="phone">Telefon</Label>
