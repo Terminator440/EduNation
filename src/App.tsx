@@ -29,6 +29,7 @@ import Announcements from "./pages/Announcements";
 import Notifications from "./pages/Notifications";
 import Settings from "./pages/Settings";
 import Developer from "./pages/Developer";
+import DeveloperDirectorInvites from "./pages/DeveloperDirectorInvites";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
 import ErrorBoundary from "./components/ErrorBoundary";
@@ -152,6 +153,14 @@ const App = () => (
                 element={
                   <ProtectedRoute allowedRoles={["developer"]}>
                     <Developer />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/developer/invitations"
+                element={
+                  <ProtectedRoute allowedRoles={["developer"]}>
+                    <DeveloperDirectorInvites />
                   </ProtectedRoute>
                 }
               />
