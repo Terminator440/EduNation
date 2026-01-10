@@ -137,8 +137,6 @@ const menuItemsByRole: Record<AppRole, { icon: any; label: string; href: string 
   developer: [
     { icon: Shield, label: "Diagnostic sistem", href: "/developer" },
     { icon: Shield, label: "Audit Log", href: "/audit" },
-    { icon: Clock, label: "Orar", href: "/dashboard/schedule" },
-    { icon: Calendar, label: "Calendar", href: "/dashboard/calendar" },
   ],
 };
 
@@ -231,15 +229,6 @@ const Sidebar = ({ isCollapsed, onToggle }: SidebarProps) => {
 
       {/* Bottom section */}
       <div className="p-3 border-t border-sidebar-border">
-        {activeRole === 'developer' && (
-          <Link
-            to="/developer"
-            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
-          >
-            <Shield className="w-5 h-5 text-muted-foreground" />
-            {!isCollapsed && <span className="font-medium">Developer</span>}
-          </Link>
-        )}
         <Link
           to="/dashboard/settings"
           className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
