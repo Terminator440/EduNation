@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Shield, Copy, Check, Loader2, Plus, RefreshCw } from "lucide-react";
+import { Shield, Copy, Check, Loader2, Plus, RefreshCw, PlusCircle, AlertCircle } from "lucide-react";
 import Sidebar from "@/components/dashboard/Sidebar";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -36,6 +37,8 @@ import {
 import { useAuditLog } from "@/hooks/useAuditLog";
 import { format } from "date-fns";
 import { ro } from "date-fns/locale";
+import { toFriendlySupabaseError } from "@/utils/supabaseErrors";
+import AddSchoolDialog from "@/components/schools/AddSchoolDialog";
 
 interface School {
   id: string;
@@ -60,6 +63,7 @@ const DeveloperDirectorInvites = () => {
   // State
   const [schools, setSchools] = useState<School[]>([]);
   const [loadingSchools, setLoadingSchools] = useState(true);
+  const [schoolsError, setSchoolsError] = useState<string | null>(null);
   const [selectedSchoolId, setSelectedSchoolId] = useState<string>("");
   const [intendedFor, setIntendedFor] = useState("");
   const [expiresHours, setExpiresHours] = useState("168"); // 7 days default
@@ -73,30 +77,38 @@ const DeveloperDirectorInvites = () => {
   const [invitations, setInvitations] = useState<(Invitation & { intended_for?: string | null })[]>([]);
   const [loadingInvitations, setLoadingInvitations] = useState(true);
 
-  // Fetch schools
-  useEffect(() => {
-    const fetchSchools = async () => {
-      setLoadingSchools(true);
-      const { data, error } = await supabase
-        .from("schools")
-        .select("id, name, code")
-        .order("name");
-      
-      if (error) {
-        console.error("Error fetching schools:", error);
-        toast({
-          title: "Eroare",
-          description: "Nu s-au putut încărca școlile.",
-          variant: "destructive",
-        });
-      } else {
-        setSchools(data || []);
-      }
-      setLoadingSchools(false);
-    };
+  // Add school dialog
+  const [showAddSchoolDialog, setShowAddSchoolDialog] = useState(false);
 
+  // Fetch schools
+  const fetchSchools = async () => {
+    setLoadingSchools(true);
+    setSchoolsError(null);
+    
+    const { data, error } = await supabase
+      .from("schools")
+      .select("id, name, code")
+      .order("name");
+    
+    if (error) {
+      console.error("Error fetching schools:", error);
+      setSchoolsError(toFriendlySupabaseError(error));
+      toast({
+        title: "Eroare la încărcarea școlilor",
+        description: toFriendlySupabaseError(error),
+        variant: "destructive",
+      });
+      setSchools([]);
+    } else {
+      console.log("Schools fetched:", data);
+      setSchools(data || []);
+    }
+    setLoadingSchools(false);
+  };
+
+  useEffect(() => {
     fetchSchools();
-  }, [toast]);
+  }, []);
 
   // Fetch director invitations
   const fetchInvitations = async () => {
@@ -234,16 +246,50 @@ const DeveloperDirectorInvites = () => {
               <CardContent className="space-y-6">
                 {!generatedCode ? (
                   <>
+                    {/* Error message */}
+                    {schoolsError && (
+                      <Alert variant="destructive">
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertDescription>
+                          Eroare la încărcarea școlilor: {schoolsError}
+                        </AlertDescription>
+                      </Alert>
+                    )}
+
+                    {/* Empty state */}
+                    {!loadingSchools && !schoolsError && schools.length === 0 && (
+                      <Alert>
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertDescription className="flex items-center justify-between">
+                          <span>Nu există școli în sistem.</span>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => setShowAddSchoolDialog(true)}
+                          >
+                            <PlusCircle className="w-4 h-4 mr-2" />
+                            Adaugă prima școală
+                          </Button>
+                        </AlertDescription>
+                      </Alert>
+                    )}
+
                     <div className="grid sm:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label>Școala *</Label>
                         <Select 
                           value={selectedSchoolId} 
-                          onValueChange={setSelectedSchoolId}
+                          onValueChange={(value) => {
+                            if (value === "__add_school__") {
+                              setShowAddSchoolDialog(true);
+                            } else {
+                              setSelectedSchoolId(value);
+                            }
+                          }}
                           disabled={loadingSchools}
                         >
                           <SelectTrigger>
-                            <SelectValue placeholder={loadingSchools ? "Se încarcă..." : "Selectează școala"} />
+                            <SelectValue placeholder={loadingSchools ? "Se încarcă..." : schools.length === 0 ? "Nu există școli" : "Selectează școala"} />
                           </SelectTrigger>
                           <SelectContent>
                             {schools.map((school) => (
@@ -251,13 +297,19 @@ const DeveloperDirectorInvites = () => {
                                 {school.name} {school.code && `(${school.code})`}
                               </SelectItem>
                             ))}
+                            <SelectItem value="__add_school__" className="text-primary font-medium">
+                              <span className="flex items-center gap-2">
+                                <PlusCircle className="w-4 h-4" />
+                                Adaugă școală nouă
+                              </span>
+                            </SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
 
                       <div className="space-y-2">
                         <Label>Numele directorului (opțional)</Label>
-                        <Input 
+                        <Input
                           value={intendedFor}
                           onChange={(e) => setIntendedFor(e.target.value)}
                           placeholder="ex: Ion Popescu"
@@ -419,6 +471,16 @@ const DeveloperDirectorInvites = () => {
           </div>
         </div>
       </main>
+
+      {/* Add School Dialog */}
+      <AddSchoolDialog
+        open={showAddSchoolDialog}
+        onOpenChange={setShowAddSchoolDialog}
+        onSchoolAdded={(newSchool) => {
+          setSchools((prev) => [...prev, newSchool].sort((a, b) => a.name.localeCompare(b.name)));
+          setSelectedSchoolId(newSchool.id);
+        }}
+      />
     </div>
   );
 };
