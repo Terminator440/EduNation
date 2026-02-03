@@ -226,6 +226,7 @@ export type Database = {
           current_uses: number
           expires_at: string
           id: string
+          intended_for: string | null
           max_uses: number
           revoked_at: string | null
           role: Database["public"]["Enums"]["invitation_role"]
@@ -242,6 +243,7 @@ export type Database = {
           current_uses?: number
           expires_at?: string
           id?: string
+          intended_for?: string | null
           max_uses?: number
           revoked_at?: string | null
           role: Database["public"]["Enums"]["invitation_role"]
@@ -258,6 +260,7 @@ export type Database = {
           current_uses?: number
           expires_at?: string
           id?: string
+          intended_for?: string | null
           max_uses?: number
           revoked_at?: string | null
           role?: Database["public"]["Enums"]["invitation_role"]
@@ -643,22 +646,40 @@ export type Database = {
           success: boolean
         }[]
       }
-      create_invitation: {
-        Args: {
-          p_class_id?: string
-          p_created_by?: string
-          p_expires_hours?: number
-          p_max_uses?: number
-          p_role: Database["public"]["Enums"]["invitation_role"]
-          p_school_id: string
-          p_student_id?: string
-        }
-        Returns: {
-          error_message: string
-          invitation_id: string
-          plain_code: string
-        }[]
-      }
+      create_invitation:
+        | {
+            Args: {
+              p_class_id?: string
+              p_created_by?: string
+              p_expires_hours?: number
+              p_intended_for?: string
+              p_max_uses?: number
+              p_role: Database["public"]["Enums"]["invitation_role"]
+              p_school_id: string
+              p_student_id?: string
+            }
+            Returns: {
+              error_message: string
+              invitation_id: string
+              plain_code: string
+            }[]
+          }
+        | {
+            Args: {
+              p_class_id?: string
+              p_created_by?: string
+              p_expires_hours?: number
+              p_max_uses?: number
+              p_role: Database["public"]["Enums"]["invitation_role"]
+              p_school_id: string
+              p_student_id?: string
+            }
+            Returns: {
+              error_message: string
+              invitation_id: string
+              plain_code: string
+            }[]
+          }
       generate_activation_code: { Args: never; Returns: string }
       generate_invitation_code: { Args: never; Returns: string }
       get_teacher_class_id: { Args: { _user_id: string }; Returns: string }

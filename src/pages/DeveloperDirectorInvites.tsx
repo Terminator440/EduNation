@@ -61,14 +61,16 @@ const DeveloperDirectorInvites = () => {
   const [schools, setSchools] = useState<School[]>([]);
   const [loadingSchools, setLoadingSchools] = useState(true);
   const [selectedSchoolId, setSelectedSchoolId] = useState<string>("");
+  const [intendedFor, setIntendedFor] = useState("");
   const [expiresHours, setExpiresHours] = useState("168"); // 7 days default
   const [maxUses, setMaxUses] = useState("1");
   
   const [creating, setCreating] = useState(false);
   const [generatedCode, setGeneratedCode] = useState<string | null>(null);
+  const [generatedForName, setGeneratedForName] = useState<string>("");
   const [copied, setCopied] = useState(false);
 
-  const [invitations, setInvitations] = useState<Invitation[]>([]);
+  const [invitations, setInvitations] = useState<(Invitation & { intended_for?: string | null })[]>([]);
   const [loadingInvitations, setLoadingInvitations] = useState(true);
 
   // Fetch schools
@@ -101,7 +103,7 @@ const DeveloperDirectorInvites = () => {
     setLoadingInvitations(true);
     const { data, error } = await supabase
       .from("invitations")
-      .select("*")
+      .select("id, code_hash, role, school_id, class_id, student_id, created_by_user_id, expires_at, max_uses, current_uses, used_at, used_by_user_id, revoked_at, created_at, intended_for")
       .eq("role", "director")
       .order("created_at", { ascending: false })
       .limit(50);
@@ -109,7 +111,7 @@ const DeveloperDirectorInvites = () => {
     if (error) {
       console.error("Error fetching invitations:", error);
     } else {
-      setInvitations((data as Invitation[]) || []);
+      setInvitations((data as (Invitation & { intended_for?: string | null })[]) || []);
     }
     setLoadingInvitations(false);
   };
@@ -135,11 +137,13 @@ const DeveloperDirectorInvites = () => {
     const result = await createInvitation("director", selectedSchoolId, {
       expiresHours: parseInt(expiresHours, 10),
       maxUses: parseInt(maxUses, 10),
+      intendedFor: intendedFor.trim() || undefined,
     });
 
     setCreating(false);
 
     if (result.success && result.plain_code) {
+      setGeneratedForName(intendedFor.trim() || getSchoolName(selectedSchoolId));
       setGeneratedCode(result.plain_code);
       
       // Audit log
@@ -160,6 +164,8 @@ const DeveloperDirectorInvites = () => {
       });
 
       // Refresh list
+      // Reset form
+      setIntendedFor("");
       fetchInvitations();
     } else {
       toast({
@@ -228,7 +234,7 @@ const DeveloperDirectorInvites = () => {
               <CardContent className="space-y-6">
                 {!generatedCode ? (
                   <>
-                    <div className="grid sm:grid-cols-3 gap-4">
+                    <div className="grid sm:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label>Școala *</Label>
                         <Select 
@@ -249,6 +255,17 @@ const DeveloperDirectorInvites = () => {
                         </Select>
                       </div>
 
+                      <div className="space-y-2">
+                        <Label>Numele directorului (opțional)</Label>
+                        <Input 
+                          value={intendedFor}
+                          onChange={(e) => setIntendedFor(e.target.value)}
+                          placeholder="ex: Ion Popescu"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid sm:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label>Valabilitate</Label>
                         <Select value={expiresHours} onValueChange={setExpiresHours}>
@@ -287,40 +304,37 @@ const DeveloperDirectorInvites = () => {
                   </>
                 ) : (
                   <div className="space-y-4">
-                    <div className="text-center">
-                      <p className="text-sm text-muted-foreground mb-2">
-                        Cod de invitație pentru Director:
-                      </p>
-                      <div className="relative max-w-md mx-auto">
-                        <Input
-                          value={generatedCode}
-                          readOnly
-                          className="text-center text-2xl font-mono tracking-[0.3em] py-6 bg-muted"
-                        />
+                    <div className="bg-primary/5 border border-primary/20 rounded-lg p-6">
+                      <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                        <div className="text-center sm:text-left">
+                          <p className="text-sm text-muted-foreground">Invitație pentru:</p>
+                          <p className="text-lg font-semibold text-foreground">{generatedForName}</p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <div className="bg-background border-2 border-primary/30 rounded-lg px-4 py-2">
+                            <span className="text-2xl font-mono tracking-[0.2em] text-primary font-bold">
+                              {generatedCode}
+                            </span>
+                          </div>
+                          <Button variant="outline" size="icon" onClick={handleCopy}>
+                            {copied ? (
+                              <Check className="w-4 h-4 text-green-500" />
+                            ) : (
+                              <Copy className="w-4 h-4" />
+                            )}
+                          </Button>
+                        </div>
                       </div>
                     </div>
 
-                    <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-4 text-center max-w-md mx-auto">
+                    <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-4 text-center">
                       <p className="text-sm text-amber-700 dark:text-amber-400">
                         ⚠️ Acest cod va fi afișat <strong>o singură dată</strong>. Copiază-l acum!
                       </p>
                     </div>
 
-                    <div className="flex justify-center gap-3">
-                      <Button variant="outline" onClick={handleCopy}>
-                        {copied ? (
-                          <>
-                            <Check className="w-4 h-4 mr-2" />
-                            Copiat!
-                          </>
-                        ) : (
-                          <>
-                            <Copy className="w-4 h-4 mr-2" />
-                            Copiază codul
-                          </>
-                        )}
-                      </Button>
-                      <Button onClick={() => setGeneratedCode(null)}>
+                    <div className="flex justify-center">
+                      <Button onClick={() => { setGeneratedCode(null); setGeneratedForName(""); }}>
                         Generează altă invitație
                       </Button>
                     </div>
@@ -358,7 +372,7 @@ const DeveloperDirectorInvites = () => {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Școala</TableHead>
+                        <TableHead>Director / Școala</TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead>Utilizări</TableHead>
                         <TableHead>Expiră</TableHead>
@@ -370,8 +384,15 @@ const DeveloperDirectorInvites = () => {
                         const status = getInvitationStatus(inv);
                         return (
                           <TableRow key={inv.id}>
-                            <TableCell className="font-medium">
-                              {getSchoolName(inv.school_id)}
+                            <TableCell>
+                              <div className="flex flex-col">
+                                {inv.intended_for && (
+                                  <span className="font-semibold text-foreground">{inv.intended_for}</span>
+                                )}
+                                <span className={inv.intended_for ? "text-sm text-muted-foreground" : "font-medium"}>
+                                  {getSchoolName(inv.school_id)}
+                                </span>
+                              </div>
                             </TableCell>
                             <TableCell>
                               <Badge variant={getStatusColor(status)}>
