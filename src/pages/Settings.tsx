@@ -1,25 +1,51 @@
 import { useState, useEffect } from "react";
-import { User, Bell, Shield, Palette, LogOut, Sun, Moon } from "lucide-react";
+import { User, Bell, Shield, Palette, Sun, Moon, Lock, Info } from "lucide-react";
 import Sidebar from "@/components/dashboard/Sidebar";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 
 const Settings = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [activeTab, setActiveTab] = useState("profile");
-  const navigate = useNavigate();
   const { toast } = useToast();
+  const { activeRole, user, profile } = useAuth();
+  
+  // Email din sesiunea Auth (sursa de adevăr)
+  const [authEmail, setAuthEmail] = useState<string | null>(null);
+  
+  useEffect(() => {
+    const fetchAuthEmail = async () => {
+      const { data } = await supabase.auth.getUser();
+      if (data?.user?.email) {
+        setAuthEmail(data.user.email);
+      }
+    };
+    fetchAuthEmail();
+  }, []);
 
   const [isDark, setIsDark] = useState(() => {
     if (typeof window !== 'undefined') {
       return document.documentElement.classList.contains('dark');
     }
     return false;
+  });
+
+  // Password form state
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
+  const [passwordErrors, setPasswordErrors] = useState({
+    newPassword: "",
+    confirmPassword: "",
   });
 
   useEffect(() => {
@@ -66,13 +92,47 @@ const Settings = () => {
     });
   };
 
-  const handleLogout = () => {
-    toast({
-      title: "Deconectat",
-      description: "Ai fost deconectat cu succes.",
-    });
-    navigate("/");
+  // Password validation
+  const validatePassword = () => {
+    const errors = { newPassword: "", confirmPassword: "" };
+    let isValid = true;
+
+    if (!passwordForm.newPassword) {
+      errors.newPassword = "Parola nouă este obligatorie";
+      isValid = false;
+    } else if (passwordForm.newPassword.length < 6) {
+      errors.newPassword = "Parola trebuie să aibă cel puțin 6 caractere";
+      isValid = false;
+    }
+
+    if (!passwordForm.confirmPassword) {
+      errors.confirmPassword = "Confirmarea parolei este obligatorie";
+      isValid = false;
+    } else if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      errors.confirmPassword = "Parolele nu coincid";
+      isValid = false;
+    }
+
+    setPasswordErrors(errors);
+    return isValid;
   };
+
+  const handlePasswordChange = () => {
+    if (validatePassword()) {
+      toast({
+        title: "Parolă schimbată",
+        description: "Parola a fost actualizată cu succes.",
+      });
+      setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
+      setPasswordErrors({ newPassword: "", confirmPassword: "" });
+    }
+  };
+
+  const isPasswordFormValid = 
+    passwordForm.currentPassword.length > 0 &&
+    passwordForm.newPassword.length >= 6 &&
+    passwordForm.confirmPassword.length > 0 &&
+    passwordForm.newPassword === passwordForm.confirmPassword;
 
   const tabs = [
     { id: "profile", label: "Profil", icon: User },
@@ -80,6 +140,8 @@ const Settings = () => {
     { id: "security", label: "Securitate", icon: Shield },
     { id: "appearance", label: "Aspect", icon: Palette },
   ];
+
+  const isDeveloper = activeRole === 'developer';
 
   return (
     <div className="min-h-screen bg-background">
@@ -96,7 +158,7 @@ const Settings = () => {
           </div>
         </header>
 
-        <div className="p-8">
+        <div className="p-8 pt-8">
           <div className="max-w-4xl mx-auto">
             <div className="grid md:grid-cols-4 gap-8">
               {/* Tabs */}
@@ -117,13 +179,6 @@ const Settings = () => {
                       <span className="font-medium">{tab.label}</span>
                     </button>
                   ))}
-                  <button
-                    onClick={handleLogout}
-                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left text-destructive hover:bg-destructive/10 transition-colors mt-4"
-                  >
-                    <LogOut className="w-5 h-5" />
-                    <span className="font-medium">Deconectare</span>
-                  </button>
                 </nav>
               </div>
 
@@ -150,24 +205,93 @@ const Settings = () => {
                           <Label htmlFor="lastName">Nume</Label>
                           <Input id="lastName" defaultValue="Popescu" className="mt-1" />
                         </div>
-                        <div>
-                          <Label htmlFor="email">Email</Label>
-                          <Input id="email" type="email" defaultValue="alexandru.popescu@scoala.ro" className="mt-1" />
+                        <div className="sm:col-span-2">
+                          <div className="flex items-center gap-2">
+                            <Label htmlFor="email">Email</Label>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Info className="w-4 h-4 text-muted-foreground cursor-help" />
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Email-ul este gestionat de sistemul de autentificare</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </div>
+                          <div className="relative">
+                            <Input 
+                              id="email" 
+                              type="email" 
+                              value={authEmail || user?.email || "Email indisponibil"}
+                              className="mt-1 w-full pr-10 bg-muted/50 text-muted-foreground cursor-not-allowed" 
+                              disabled
+                              readOnly
+                            />
+                            <Lock className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                          </div>
                         </div>
-                        <div>
+                        <div className={isDeveloper ? "sm:col-span-2" : ""}>
                           <Label htmlFor="phone">Telefon</Label>
                           <Input id="phone" type="tel" defaultValue="+40 700 000 000" className="mt-1" />
                         </div>
                       </div>
-                      <div>
-                        <Label htmlFor="school">Școala</Label>
-                        <Input id="school" defaultValue='Liceul Teoretic "Nicolae Bălcescu"' className="mt-1" disabled />
+                      
+                      {/* Only show School and Class for non-developer roles */}
+                      {!isDeveloper && (
+                        <>
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <Label htmlFor="school">Școala</Label>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Info className="w-4 h-4 text-muted-foreground cursor-help" />
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Câmp informativ – se modifică doar de către administrație</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </div>
+                            <div className="relative">
+                              <Input 
+                                id="school" 
+                                defaultValue='Liceul Teoretic "Nicolae Bălcescu"' 
+                                className="mt-1 pr-10 bg-muted/50 text-muted-foreground cursor-not-allowed" 
+                                disabled 
+                                readOnly
+                              />
+                              <Lock className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                            </div>
+                          </div>
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <Label htmlFor="class">Clasa</Label>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Info className="w-4 h-4 text-muted-foreground cursor-help" />
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Câmp informativ – se modifică doar de către administrație</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </div>
+                            <div className="relative">
+                              <Input 
+                                id="class" 
+                                defaultValue="a X-a B" 
+                                className="mt-1 pr-10 bg-muted/50 text-muted-foreground cursor-not-allowed" 
+                                disabled 
+                                readOnly
+                              />
+                              <Lock className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                            </div>
+                          </div>
+                        </>
+                      )}
+                      
+                      <div className="pt-4 border-t border-border">
+                        <Button variant="hero" onClick={handleSave} className="min-w-[180px]">
+                          Salvează modificările
+                        </Button>
                       </div>
-                      <div>
-                        <Label htmlFor="class">Clasa</Label>
-                        <Input id="class" defaultValue="a X-a B" className="mt-1" disabled />
-                      </div>
-                      <Button variant="hero" onClick={handleSave}>Salvează modificările</Button>
                     </div>
                   )}
 
@@ -193,7 +317,11 @@ const Settings = () => {
                           </div>
                         ))}
                       </div>
-                      <Button variant="hero" onClick={handleSave}>Salvează preferințele</Button>
+                      <div className="pt-4 border-t border-border">
+                        <Button variant="hero" onClick={handleSave} className="min-w-[180px]">
+                          Salvează preferințele
+                        </Button>
+                      </div>
                     </div>
                   )}
 
@@ -203,18 +331,61 @@ const Settings = () => {
                       <div className="space-y-4">
                         <div>
                           <Label htmlFor="currentPassword">Parola curentă</Label>
-                          <Input id="currentPassword" type="password" className="mt-1" />
+                          <Input 
+                            id="currentPassword" 
+                            type="password" 
+                            className="mt-1" 
+                            value={passwordForm.currentPassword}
+                            onChange={(e) => setPasswordForm(prev => ({ ...prev, currentPassword: e.target.value }))}
+                          />
                         </div>
                         <div>
                           <Label htmlFor="newPassword">Parola nouă</Label>
-                          <Input id="newPassword" type="password" className="mt-1" />
+                          <Input 
+                            id="newPassword" 
+                            type="password" 
+                            className={cn("mt-1", passwordErrors.newPassword && "border-destructive")}
+                            value={passwordForm.newPassword}
+                            onChange={(e) => {
+                              setPasswordForm(prev => ({ ...prev, newPassword: e.target.value }));
+                              if (passwordErrors.newPassword) {
+                                setPasswordErrors(prev => ({ ...prev, newPassword: "" }));
+                              }
+                            }}
+                          />
+                          {passwordErrors.newPassword && (
+                            <p className="text-sm text-destructive mt-1">{passwordErrors.newPassword}</p>
+                          )}
                         </div>
                         <div>
                           <Label htmlFor="confirmPassword">Confirmă parola</Label>
-                          <Input id="confirmPassword" type="password" className="mt-1" />
+                          <Input 
+                            id="confirmPassword" 
+                            type="password" 
+                            className={cn("mt-1", passwordErrors.confirmPassword && "border-destructive")}
+                            value={passwordForm.confirmPassword}
+                            onChange={(e) => {
+                              setPasswordForm(prev => ({ ...prev, confirmPassword: e.target.value }));
+                              if (passwordErrors.confirmPassword) {
+                                setPasswordErrors(prev => ({ ...prev, confirmPassword: "" }));
+                              }
+                            }}
+                          />
+                          {passwordErrors.confirmPassword && (
+                            <p className="text-sm text-destructive mt-1">{passwordErrors.confirmPassword}</p>
+                          )}
                         </div>
                       </div>
-                      <Button variant="hero" onClick={handleSave}>Schimbă parola</Button>
+                      <div className="pt-4 border-t border-border">
+                        <Button 
+                          variant="hero" 
+                          onClick={handlePasswordChange} 
+                          className="min-w-[180px]"
+                          disabled={!isPasswordFormValid}
+                        >
+                          Schimbă parola
+                        </Button>
+                      </div>
                     </div>
                   )}
 

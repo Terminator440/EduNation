@@ -1,65 +1,134 @@
-# EduNation
+EduNation
 
-Catalog școlar digital (Vite + React + Supabase) generat/iterat în Lovable.
+Catalog școlar digital modern construit cu Vite + React + Supabase.
+Proiect orientat pe arhitectură sigură, separare clară a responsabilităților și control riguros al accesului pe roluri.
 
-## Rulare locală
+Scopul proiectului
 
-### 1) Cerințe
-- Node.js 18+ (sau Bun)
-- Un proiect Supabase (URL + anon key)
+EduNation este o aplicație web pentru gestionarea situației școlare, concepută astfel încât:
 
-### 2) Configurează variabilele de mediu
-Copiază fișierul exemplu și completează valorile:
+să ofere acces diferențiat pe roluri (elev, părinte, profesor etc.)
 
-```sh
+să asigure protecția datelor prin politici la nivel de bază de date (RLS)
+
+să fie scalabilă și ușor de extins
+
+să respecte principiul „database-ul este sursa adevărului”
+
+Proiectul este generat și iterat în Lovable, dar structura și logica aplicației sunt controlate manual.
+
+Stack Tehnologic
+
+Frontend:
+
+React
+
+Vite
+
+TypeScript
+
+Backend & Bază de date:
+
+Supabase (PostgreSQL + Auth + RLS)
+
+CI:
+
+GitHub Actions (lint + build automat la push/PR)
+
+Arhitectură și securitate
+
+Controlul accesului este implementat pe două niveluri:
+
+UI (routing și interfață) – ascunde funcționalități în funcție de rol
+
+Database (Row Level Security) – restricționează efectiv accesul la date
+
+Roluri implementate:
+
+student
+
+parent
+
+teacher
+
+homeroom_teacher
+
+secretariat
+
+director
+
+uat_admin
+
+În producție, RLS este autoritatea finală. UI-ul doar reflectă permisiunile.
+
+Rulare locală
+1) Cerințe
+
+Node.js 18+ sau Bun
+
+Proiect Supabase (URL + anon key)
+
+2) Configurare mediu
 cp .env.example .env
-```
+
 
 Variabile necesare:
-- `VITE_SUPABASE_URL`
-- `VITE_SUPABASE_PUBLISHABLE_KEY` (anon key Supabase)
 
-> Important: `.env` este ignorat de Git. Nu comite chei reale.
+VITE_SUPABASE_URL
 
-### 3) Instalează dependențele și pornește
-Cu Bun (recomandat aici, există `bun.lockb`):
+VITE_SUPABASE_PUBLISHABLE_KEY
 
-```sh
+Fișierul .env este ignorat de Git. Cheile reale nu trebuie comise.
+
+3) Instalare și pornire
+
+Cu Bun:
+
 bun install
 bun run dev
-```
+
 
 Cu npm:
 
-```sh
-npm i
+npm install
 npm run dev
-```
 
-## Supabase
+Supabase
 
-Migrațiile se află în `supabase/migrations/`.
+Migrațiile se află în:
+
+supabase/migrations/
+
 
 Pentru producție:
-- confirmă că RLS (Row Level Security) e activ pe toate tabelele
-- confirmă că politicile pentru roluri corespund exact rolurilor din aplicație (`student`, `parent`, `teacher`, `homeroom_teacher`, `secretariat`, `director`, `uat_admin`)
 
-## CI
+verificați că RLS este activ pe toate tabelele
 
-Repository-ul include un workflow GitHub Actions care rulează lint + build la push/PR pe `main`.
+validați politicile pentru fiecare rol
 
-## Deploy
+confirmați că permisiunile din DB corespund exact logicii aplicației
 
-### Deploy în Lovable
-În Lovable: Share → Publish.
+Deploy
+Lovable
 
-### Deploy în alt hosting (Vercel/Netlify/etc.)
-- rulează build: `bun run build` (sau `npm run build`)
-- setează variabilele de mediu în platforma de deploy:
-  - `VITE_SUPABASE_URL`
-  - `VITE_SUPABASE_PUBLISHABLE_KEY`
+Share → Publish
 
-## Note despre producție
+Alte platforme (Vercel, Netlify etc.)
 
-- Variabilele de mediu sunt validate la startup. Dacă lipsesc, aplicația va da eroare explicită (mai bine decât “merge pe local, moare în prod”).
-- Rolurile sunt enforce-uite atât în UI (routing), cât și în DB (RLS). Pentru producție, DB este “adevărul”.
+bun run build sau npm run build
+
+setați variabilele de mediu:
+
+VITE_SUPABASE_URL
+
+VITE_SUPABASE_PUBLISHABLE_KEY
+
+Considerații pentru producție
+
+Variabilele de mediu sunt validate la startup
+
+Orice lipsă produce eroare explicită
+
+Separarea clară între control UI și securitate DB
+
+Model de roluri extensibil pentru scenarii administrative complexe

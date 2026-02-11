@@ -26,6 +26,7 @@ export interface Invitation {
   used_by_user_id: string | null;
   revoked_at: string | null;
   created_at: string;
+  intended_for: string | null;
 }
 
 export interface InvitationWithDetails extends Invitation {
@@ -156,6 +157,7 @@ export const createInvitation = async (
     invitedPhone?: string;
     maxUses?: number;
     expiresHours?: number;
+    intendedFor?: string;
   }
 ): Promise<CreateInvitationResult> => {
   try {
@@ -164,10 +166,9 @@ export const createInvitation = async (
       p_school_id: schoolId,
       p_class_id: options?.classId ?? null,
       p_student_id: options?.studentId ?? null,
-      p_invited_email: options?.invitedEmail ?? null,
-      p_invited_phone: options?.invitedPhone ?? null,
       p_max_uses: options?.maxUses ?? 1,
       p_expires_hours: options?.expiresHours ?? 24,
+      p_intended_for: options?.intendedFor ?? null,
     });
 
     if (error) {
@@ -271,7 +272,7 @@ export const listInvitations = async ({
   let query = supabase
     .from("invitations")
     .select(
-      "id, role, school_id, class_id, student_id, created_by_user_id, created_at, expires_at, used_at, revoked_at, max_uses, current_uses, invited_email, invited_phone"
+      "id, role, school_id, class_id, student_id, created_by_user_id, created_at, expires_at, used_at, revoked_at, max_uses, current_uses, intended_for"
     )
     .order("created_at", { ascending: false })
     .limit(limit);
