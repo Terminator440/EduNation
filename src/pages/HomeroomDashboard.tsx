@@ -14,6 +14,7 @@ import {
   FileCheck,
   Calendar,
   School,
+  Mail,
 } from "lucide-react";
 import Sidebar from "@/components/dashboard/Sidebar";
 import StatsCard from "@/components/dashboard/StatsCard";
@@ -44,6 +45,8 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
+import { CreateInvitationDialog } from "@/components/invitations/CreateInvitationDialog";
+import { listInvitations, getInvitationStatus, getStatusLabelRo, getRoleLabelRo, type InvitationRole, type Invitation } from "@/lib/invitations";
 
 interface Student {
   id: string;
@@ -87,6 +90,7 @@ const HomeroomDashboard = () => {
     name: string;
     section: string;
     year: number;
+    school_id: string | null;
   } | null>(null);
   const [generatingCode, setGeneratingCode] = useState<string | null>(null);
   const [isAddStudentOpen, setIsAddStudentOpen] = useState(false);
@@ -108,6 +112,12 @@ const HomeroomDashboard = () => {
   }>({ manyAbsences: [], noGrades: [] });
   const [loading, setLoading] = useState(true);
 
+  // Invitation state
+  const [invDialogOpen, setInvDialogOpen] = useState(false);
+  const [invRole, setInvRole] = useState<InvitationRole>("student");
+  const [homeroomInvitations, setHomeroomInvitations] = useState<Invitation[]>([]);
+  const [homeroomInvLoading, setHomeroomInvLoading] = useState(false);
+
   const { user, profile, activeRole, loading: authLoading } = useAuth();
   const navigate = useNavigate();
 
@@ -123,16 +133,30 @@ const HomeroomDashboard = () => {
   useEffect(() => {
     if (user && activeRole === "homeroom_teacher") {
       void fetchData();
+      void fetchHomeroomInvitations();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, activeRole]);
+
+  const fetchHomeroomInvitations = async () => {
+    if (!user) return;
+    setHomeroomInvLoading(true);
+    try {
+      const invs = await listInvitations({ createdByUserId: user.id, limit: 50 });
+      setHomeroomInvitations(invs as Invitation[]);
+    } catch (e) {
+      console.error("Failed to load homeroom invitations:", e);
+    } finally {
+      setHomeroomInvLoading(false);
+    }
+  };
 
   const fetchData = async () => {
     setLoading(true);
     try {
       const { data: classData } = await supabase
         .from("classes")
-        .select("id, name, section, year")
+        .select("id, name, section, year, school_id")
         .eq("teacher_id", user?.id)
         .maybeSingle();
 
@@ -713,6 +737,22 @@ const HomeroomDashboard = () => {
               </div>
 
               <div className="flex flex-wrap gap-3 mb-6">
+                <Button
+                  variant="outline"
+                  className="gap-2"
+                  onClick={() => { setInvRole("student"); setInvDialogOpen(true); }}
+                >
+                  <Mail className="h-4 w-4" />
+                  Invită Elev
+                </Button>
+                <Button
+                  variant="outline"
+                  className="gap-2"
+                  onClick={() => { setInvRole("parent"); setInvDialogOpen(true); }}
+                >
+                  <Mail className="h-4 w-4" />
+                  Invită Părinte
+                </Button>
                 <Dialog open={isAddStudentOpen} onOpenChange={setIsAddStudentOpen}>
                   <DialogTrigger asChild>
                     <Button className="gap-2">
@@ -970,6 +1010,15 @@ const HomeroomDashboard = () => {
             </>
           )}
         </div>
+
+        <CreateInvitationDialog
+          open={invDialogOpen}
+          onOpenChange={setInvDialogOpen}
+          schoolId={classInfo?.school_id || ""}
+          classId={classInfo?.id}
+          role={invRole}
+          onCreated={() => void fetchHomeroomInvitations()}
+        />
       </main>
     </div>
   );

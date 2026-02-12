@@ -106,8 +106,8 @@ const menuItemsByRole: Record<AppRole, { icon: any; label: string; href: string 
   ],
   director: [
     { icon: LayoutDashboard, label: "Panou Director", href: "/director" },
+    { icon: Key, label: "Invitații", href: "/director" },
     { icon: Users, label: "Secretariat", href: "/secretariat" },
-    { icon: Key, label: "Diriginție", href: "/homeroom" },
     { icon: GraduationCap, label: "Catalog Profesor", href: "/teacher" },
     { icon: Clock, label: "Orar", href: "/dashboard/schedule" },
     { icon: FileText, label: "Rapoarte", href: "/reports" },
