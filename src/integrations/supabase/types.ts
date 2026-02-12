@@ -557,6 +557,64 @@ export type Database = {
           },
         ]
       }
+      teacher_register: {
+        Row: {
+          class_id: string | null
+          created_at: string
+          date: string
+          id: string
+          notes: string | null
+          signed_at: string
+          subject_id: string | null
+          teacher_id: string
+          timetable_entry_id: string
+        }
+        Insert: {
+          class_id?: string | null
+          created_at?: string
+          date?: string
+          id?: string
+          notes?: string | null
+          signed_at?: string
+          subject_id?: string | null
+          teacher_id: string
+          timetable_entry_id: string
+        }
+        Update: {
+          class_id?: string | null
+          created_at?: string
+          date?: string
+          id?: string
+          notes?: string | null
+          signed_at?: string
+          subject_id?: string | null
+          teacher_id?: string
+          timetable_entry_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teacher_register_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teacher_register_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teacher_register_timetable_entry_id_fkey"
+            columns: ["timetable_entry_id"]
+            isOneToOne: false
+            referencedRelation: "timetable_entries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       timetable_entries: {
         Row: {
           class_id: string | null
