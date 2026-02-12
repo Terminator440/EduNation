@@ -79,6 +79,8 @@ interface TimetableEntry {
   start_time: string | null;
   end_time: string | null;
   room: string | null;
+  class_id?: string | null;
+  subject_id?: string | null;
   classes?: { name: string } | null;
   subjects?: { name: string } | null;
 }
@@ -184,16 +186,109 @@ const TeacherDashboard = () => {
     return `${y}-${m}-${day}`;
   };
 
-  const fetchRegister = async () => {
-    // timetable_entries and teacher_register tables don't exist yet
-    setTimetableEntries([]);
-    setSignedEntryIds(new Set());
-    setRegisterLoading(false);
+  const getJsWeekday = (d: Date): number => {
+    const js = d.getDay();
+    return js === 0 ? 7 : js;
   };
 
-  const handleSignRegister = async (_timetableEntryId: string) => {
-    // teacher_register table doesn't exist yet
-    toast({ title: 'Info', description: 'Funcționalitate indisponibilă - tabela nu există.' });
+  const fetchRegister = async () => {
+    if (!user) return;
+    setRegisterLoading(true);
+    try {
+      const today = new Date();
+      const weekday = getJsWeekday(today);
+      const dateStr = toDateKey(today);
+
+      const { data: entries, error: entriesErr } = await supabase
+        .from("timetable_entries")
+        .select("id, weekday, period, start_time, end_time, room, class_id, subject_id")
+        .eq("teacher_id", user.id)
+        .eq("weekday", weekday)
+        .order("period", { ascending: true });
+
+      if (entriesErr) throw entriesErr;
+
+      if (!entries || entries.length === 0) {
+        setTimetableEntries([]);
+        setSignedEntryIds(new Set());
+        return;
+      }
+
+      // Fetch class + subject names
+      const classIds = [...new Set(entries.map(e => e.class_id).filter(Boolean))] as string[];
+      const subjectIds = [...new Set(entries.map(e => e.subject_id).filter(Boolean))] as string[];
+
+      const [classesRes, subjectsRes, registerRes] = await Promise.all([
+        classIds.length > 0
+          ? supabase.from("classes").select("id, name").in("id", classIds)
+          : { data: [], error: null },
+        subjectIds.length > 0
+          ? supabase.from("subjects").select("id, name").in("id", subjectIds)
+          : { data: [], error: null },
+        supabase
+          .from("teacher_register")
+          .select("id, timetable_entry_id")
+          .eq("teacher_id", user.id)
+          .eq("date", dateStr),
+      ]);
+
+      const classMap = new Map((classesRes.data || []).map((c: any) => [c.id, c.name]));
+      const subjectMap = new Map((subjectsRes.data || []).map((s: any) => [s.id, s.name]));
+      const signedIds = new Set((registerRes.data || []).map((r: any) => r.timetable_entry_id as string));
+
+      const mapped: TimetableEntry[] = entries.map((e) => ({
+        id: e.id,
+        weekday: e.weekday,
+        period: e.period,
+        start_time: e.start_time,
+        end_time: e.end_time,
+        room: e.room,
+        class_id: e.class_id,
+        subject_id: e.subject_id,
+        classes: e.class_id ? { name: classMap.get(e.class_id) || "Necunoscută" } : null,
+        subjects: e.subject_id ? { name: subjectMap.get(e.subject_id) || "Necunoscută" } : null,
+      }));
+
+      setTimetableEntries(mapped);
+      setSignedEntryIds(signedIds);
+    } catch (e: any) {
+      console.error("Error fetching register:", e);
+      setTimetableEntries([]);
+      setSignedEntryIds(new Set());
+    } finally {
+      setRegisterLoading(false);
+    }
+  };
+
+  const handleSignRegister = async (timetableEntryId: string) => {
+    if (!user) return;
+    try {
+      const entry = timetableEntries.find(e => e.id === timetableEntryId);
+      const dateStr = toDateKey(new Date());
+
+      const { error } = await supabase.from("teacher_register").insert({
+        timetable_entry_id: timetableEntryId,
+        teacher_id: user.id,
+        class_id: entry?.class_id || null,
+        subject_id: entry?.subject_id || null,
+        date: dateStr,
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Condică semnată!",
+        description: `Ora ${entry?.period ?? ''} — ${entry?.subjects?.name ?? 'Materie'}`,
+      });
+
+      setSignedEntryIds(prev => new Set([...prev, timetableEntryId]));
+    } catch (e: any) {
+      toast({
+        title: "Eroare",
+        description: e?.message || "Nu s-a putut semna condica.",
+        variant: "destructive",
+      });
+    }
   };
 
   const fetchData = async () => {

@@ -1,16 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ClipboardCheck, RefreshCw } from "lucide-react";
+import { ClipboardCheck, ClipboardSignature, RefreshCw, CheckCircle, Clock, BookOpen } from "lucide-react";
 
 import Sidebar from "@/components/dashboard/Sidebar";
 import RoleSwitcher from "@/components/RoleSwitcher";
 import ThemeToggle from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
@@ -24,10 +26,22 @@ interface StudentRow {
   full_name: string | null;
 }
 
-interface SubjectRow {
+interface TimetableSlot {
   id: string;
-  name: string;
+  weekday: number;
+  period: number;
+  start_time: string | null;
+  end_time: string | null;
+  room: string | null;
+  class_id: string | null;
+  subject_id: string | null;
+  class_name: string;
+  subject_name: string;
+  signed: boolean;
+  register_id: string | null;
 }
+
+const WEEKDAY_NAMES = ["", "Luni", "Marți", "Miercuri", "Joi", "Vineri", "Sâmbătă", "Duminică"];
 
 const toDateKey = (d: Date): string => {
   const y = d.getFullYear();
@@ -36,18 +50,30 @@ const toDateKey = (d: Date): string => {
   return `${y}-${m}-${day}`;
 };
 
+const getJsWeekday = (d: Date): number => {
+  // JS: 0=Sun, convert to 1=Mon...7=Sun (matching DB weekday)
+  const js = d.getDay();
+  return js === 0 ? 7 : js;
+};
+
 const TakeAttendance = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [classId, setClassId] = useState<string | null>(null);
-  const [className, setClassName] = useState<string | null>(null);
-  const [students, setStudents] = useState<StudentRow[]>([]);
-  const [subjects, setSubjects] = useState<SubjectRow[]>([]);
-  const [subjectId, setSubjectId] = useState<string>("");
   const [dateKey, setDateKey] = useState<string>(toDateKey(new Date()));
-  const [search, setSearch] = useState("");
+
+  // Timetable slots for today
+  const [slots, setSlots] = useState<TimetableSlot[]>([]);
+
+  // Selected slot for attendance
+  const [selectedSlot, setSelectedSlot] = useState<TimetableSlot | null>(null);
+
+  // Students for selected slot
+  const [students, setStudents] = useState<StudentRow[]>([]);
   const [statuses, setStatuses] = useState<Record<string, AttendanceStatus>>({});
+  const [search, setSearch] = useState("");
   const [saving, setSaving] = useState(false);
+  const [signing, setSigning] = useState(false);
+  const [registerNotes, setRegisterNotes] = useState("");
 
   const { user, activeRole, loading: authLoading } = useAuth();
   const { toast } = useToast();
@@ -59,61 +85,73 @@ const TakeAttendance = () => {
     }
   }, [authLoading, user, activeRole, navigate]);
 
-  const fetchData = async () => {
+  // Fetch timetable slots for selected date
+  const fetchSlots = async () => {
     if (!user) return;
     setLoading(true);
     try {
-      // Teacher's class (for homeroom_teacher, this is the homeroom class; for teacher, we assume a primary class)
-      const { data: cls, error: clsErr } = await supabase
-        .from("classes")
-        .select("id, name")
-        .eq("teacher_id", user.id)
-        .maybeSingle();
-      if (clsErr) throw clsErr;
+      const selectedDate = new Date(dateKey + "T00:00:00");
+      const weekday = getJsWeekday(selectedDate);
 
-      if (!cls?.id) {
-        setClassId(null);
-        setClassName(null);
-        setStudents([]);
-        setSubjects([]);
+      // Get timetable entries for this teacher on this weekday
+      const { data: entries, error: entriesErr } = await supabase
+        .from("timetable_entries")
+        .select("id, weekday, period, start_time, end_time, room, class_id, subject_id")
+        .eq("teacher_id", user.id)
+        .eq("weekday", weekday)
+        .order("period", { ascending: true });
+
+      if (entriesErr) throw entriesErr;
+
+      if (!entries || entries.length === 0) {
+        setSlots([]);
+        setSelectedSlot(null);
+        setLoading(false);
         return;
       }
-      setClassId(cls.id);
-      setClassName(cls.name ?? "Clasa mea");
 
-      const [{ data: st, error: stErr }, { data: subj, error: subjErr }] = await Promise.all([
+      // Fetch class names
+      const classIds = [...new Set(entries.map(e => e.class_id).filter(Boolean))] as string[];
+      const subjectIds = [...new Set(entries.map(e => e.subject_id).filter(Boolean))] as string[];
+
+      const [classesRes, subjectsRes, registerRes] = await Promise.all([
+        classIds.length > 0
+          ? supabase.from("classes").select("id, name").in("id", classIds)
+          : { data: [], error: null },
+        subjectIds.length > 0
+          ? supabase.from("subjects").select("id, name").in("id", subjectIds)
+          : { data: [], error: null },
         supabase
-          .from("students")
-          .select("id, student_number, full_name")
-          .eq("class_id", cls.id)
-          .order("student_number", { ascending: true }),
-        supabase
-          .from("subjects")
-          .select("id, name")
-          .eq("class_id", cls.id)
-          .order("name", { ascending: true }),
+          .from("teacher_register")
+          .select("id, timetable_entry_id")
+          .eq("teacher_id", user.id)
+          .eq("date", dateKey),
       ]);
-      if (stErr) throw stErr;
-      if (subjErr) throw subjErr;
 
-      setStudents((st as any) ?? []);
-      setSubjects((subj as any) ?? []);
+      const classMap = new Map((classesRes.data || []).map((c: any) => [c.id, c.name]));
+      const subjectMap = new Map((subjectsRes.data || []).map((s: any) => [s.id, s.name]));
+      const signedMap = new Map((registerRes.data || []).map((r: any) => [r.timetable_entry_id, r.id]));
 
-      // Keep subject selection if still valid
-      if (subjectId && !(subj ?? []).some((s: any) => s.id === subjectId)) {
-        setSubjectId("");
-      }
+      const mapped: TimetableSlot[] = entries.map((e) => ({
+        id: e.id,
+        weekday: e.weekday,
+        period: e.period,
+        start_time: e.start_time,
+        end_time: e.end_time,
+        room: e.room,
+        class_id: e.class_id,
+        subject_id: e.subject_id,
+        class_name: e.class_id ? classMap.get(e.class_id) || "Necunoscută" : "Necunoscută",
+        subject_name: e.subject_id ? subjectMap.get(e.subject_id) || "Necunoscută" : "Necunoscută",
+        signed: signedMap.has(e.id),
+        register_id: signedMap.get(e.id) || null,
+      }));
 
-      // Initialize statuses
-      const initial: Record<string, AttendanceStatus> = {};
-      (st ?? []).forEach((s: any) => {
-        initial[s.id] = statuses[s.id] ?? "prezent";
-      });
-      setStatuses(initial);
+      setSlots(mapped);
     } catch (e: any) {
       toast({
         title: "Eroare",
-        description: e?.message ?? "Nu am putut încărca datele pentru prezență.",
+        description: e?.message || "Nu am putut încărca orarul.",
         variant: "destructive",
       });
     } finally {
@@ -123,10 +161,101 @@ const TakeAttendance = () => {
 
   useEffect(() => {
     if (user && (activeRole === "teacher" || activeRole === "homeroom_teacher")) {
-      fetchData();
+      fetchSlots();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, activeRole]);
+  }, [user, activeRole, dateKey]);
+
+  // When a slot is selected, fetch students
+  const handleSelectSlot = async (slot: TimetableSlot) => {
+    setSelectedSlot(slot);
+    setSearch("");
+
+    if (!slot.class_id) {
+      setStudents([]);
+      return;
+    }
+
+    try {
+      const { data: studentsData, error } = await supabase
+        .from("students")
+        .select("id, student_number, full_name")
+        .eq("class_id", slot.class_id)
+        .order("student_number", { ascending: true });
+
+      if (error) throw error;
+
+      const studentList = (studentsData || []) as StudentRow[];
+      setStudents(studentList);
+
+      // Load existing attendance for this date + subject
+      if (slot.subject_id) {
+        const studentIds = studentList.map(s => s.id);
+        if (studentIds.length > 0) {
+          const { data: existingAttendance } = await supabase
+            .from("attendance")
+            .select("student_id, status")
+            .eq("subject_id", slot.subject_id)
+            .eq("date", dateKey)
+            .in("student_id", studentIds);
+
+          const existingMap: Record<string, AttendanceStatus> = {};
+          (existingAttendance || []).forEach((a: any) => {
+            existingMap[a.student_id] = a.status as AttendanceStatus;
+          });
+
+          const initial: Record<string, AttendanceStatus> = {};
+          studentList.forEach((s) => {
+            initial[s.id] = existingMap[s.id] || "prezent";
+          });
+          setStatuses(initial);
+        }
+      }
+    } catch (e: any) {
+      toast({
+        title: "Eroare",
+        description: e?.message || "Nu am putut încărca elevii.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Sign register (condica)
+  const handleSignRegister = async (slot: TimetableSlot) => {
+    if (!user || slot.signed) return;
+    setSigning(true);
+    try {
+      const { error } = await supabase.from("teacher_register").insert({
+        timetable_entry_id: slot.id,
+        teacher_id: user.id,
+        class_id: slot.class_id,
+        subject_id: slot.subject_id,
+        date: dateKey,
+        notes: registerNotes.trim() || null,
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Condică semnată!",
+        description: `${slot.subject_name} — ${slot.class_name}, ora ${slot.period}`,
+      });
+
+      setRegisterNotes("");
+      // Refresh and auto-select for attendance
+      await fetchSlots();
+      // Re-select the slot with signed=true
+      handleSelectSlot({ ...slot, signed: true });
+    } catch (e: any) {
+      toast({
+        title: "Eroare",
+        description: e?.message || "Nu s-a putut semna condica.",
+        variant: "destructive",
+      });
+    } finally {
+      setSigning(false);
+    }
+  };
 
   const filteredStudents = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -143,23 +272,11 @@ const TakeAttendance = () => {
   };
 
   const handleSave = async () => {
-    if (!user) return;
-    if (!classId) {
-      toast({ title: "Fără clasă", description: "Nu ai o clasă asociată.", variant: "destructive" });
-      return;
-    }
-    if (!subjectId) {
-      toast({ title: "Date incomplete", description: "Selectează materia.", variant: "destructive" });
-      return;
-    }
-    if (!dateKey) {
-      toast({ title: "Date incomplete", description: "Alege data.", variant: "destructive" });
-      return;
-    }
+    if (!user || !selectedSlot?.subject_id) return;
 
     const rows = students.map((s) => ({
       student_id: s.id,
-      subject_id: subjectId,
+      subject_id: selectedSlot.subject_id!,
       status: statuses[s.id] ?? "prezent",
       teacher_id: user.id,
       date: dateKey,
@@ -167,15 +284,14 @@ const TakeAttendance = () => {
 
     setSaving(true);
     try {
-      // Use upsert to avoid duplicate-key errors (unique constraint on student_id+subject_id+date).
       const { error } = await (supabase as any)
         .from("attendance")
         .upsert(rows, { onConflict: "student_id,subject_id,date" });
       if (error) throw error;
 
       toast({
-        title: "Salvat",
-        description: `Prezența a fost înregistrată pentru ${className ?? "clasă"} (${dateKey}).`,
+        title: "Prezența salvată!",
+        description: `${selectedSlot.subject_name} — ${selectedSlot.class_name} (${dateKey})`,
       });
     } catch (e: any) {
       toast({
@@ -188,7 +304,7 @@ const TakeAttendance = () => {
     }
   };
 
-  if (authLoading || loading) {
+  if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -196,23 +312,20 @@ const TakeAttendance = () => {
     );
   }
 
+  const todayWeekday = getJsWeekday(new Date(dateKey + "T00:00:00"));
+
   return (
     <div className="min-h-screen bg-background">
       <Sidebar isCollapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(!sidebarCollapsed)} />
 
-      <main
-        className={cn(
-          "transition-all duration-300",
-          sidebarCollapsed ? "ml-20" : "ml-64"
-        )}
-      >
+      <main className={cn("transition-all duration-300", sidebarCollapsed ? "ml-20" : "ml-64")}>
         <header className="h-16 border-b border-border bg-card/50 backdrop-blur-sm flex items-center justify-between px-8 sticky top-0 z-30">
           <div>
             <h1 className="text-xl font-semibold text-foreground flex items-center gap-2">
               <ClipboardCheck className="w-5 h-5" />
-              Fă prezența
+              Condică & Prezență
             </h1>
-            <p className="text-sm text-muted-foreground">Înregistrează prezența pentru întreaga clasă.</p>
+            <p className="text-sm text-muted-foreground">Semnează condica și fă prezența pentru orele tale.</p>
           </div>
           <div className="flex items-center gap-4">
             <ThemeToggle />
@@ -221,101 +334,204 @@ const TakeAttendance = () => {
         </header>
 
         <div className="p-8 space-y-6">
+          {/* Date selector */}
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Setări</CardTitle>
-              <Button variant="outline" onClick={fetchData} disabled={loading} className="gap-2">
-                <RefreshCw className="w-4 h-4" /> Reîncarcă
-              </Button>
-            </CardHeader>
-            <CardContent className="grid gap-4 md:grid-cols-3">
-              <div>
-                <Label>Clasă</Label>
-                <Input value={className ?? "(neatribuit)"} readOnly />
-              </div>
-              <div>
-                <Label>Materie</Label>
-                <Select value={subjectId} onValueChange={setSubjectId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Alege materia" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {subjects.map((s) => (
-                      <SelectItem key={s.id} value={s.id}>
-                        {s.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>Data</Label>
-                <Input type="date" value={dateKey} onChange={(e) => setDateKey(e.target.value)} />
+            <CardContent className="pt-6">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                <div className="space-y-1">
+                  <Label>Data</Label>
+                  <Input
+                    type="date"
+                    value={dateKey}
+                    onChange={(e) => { setDateKey(e.target.value); setSelectedSlot(null); }}
+                    className="w-48"
+                  />
+                </div>
+                <div className="flex items-center gap-2 mt-5 sm:mt-0">
+                  <Badge variant="outline" className="text-sm">
+                    {WEEKDAY_NAMES[todayWeekday] || "Necunoscut"}
+                  </Badge>
+                  <Button variant="outline" size="sm" onClick={fetchSlots} disabled={loading} className="gap-2">
+                    <RefreshCw className={cn("w-4 h-4", loading && "animate-spin")} />
+                    Reîncarcă
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
 
+          {/* Timetable slots */}
           <Card>
-            <CardHeader className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-              <CardTitle>Elevi</CardTitle>
-              <div className="flex flex-col md:flex-row gap-2 md:items-center">
-                <Input
-                  placeholder="Caută elev..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="md:w-64"
-                />
-                <div className="flex gap-2">
-                  <Button type="button" variant="secondary" onClick={() => setAll("prezent")}>Toți prezenți</Button>
-                  <Button type="button" variant="secondary" onClick={() => setAll("absent")}>Toți absenți</Button>
-                </div>
-              </div>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <BookOpen className="w-5 h-5" />
+                Orarul zilei — {WEEKDAY_NAMES[todayWeekday]}
+              </CardTitle>
+              <CardDescription>
+                Selectează o oră pentru a semna condica și a face prezența.
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="rounded-xl border border-border overflow-hidden">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[90px]">Nr.</TableHead>
-                      <TableHead>Elev</TableHead>
-                      <TableHead className="w-[220px]">Status</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredStudents.map((s) => (
-                      <TableRow key={s.id}>
-                        <TableCell className="text-muted-foreground">{s.student_number ?? "—"}</TableCell>
-                        <TableCell className="font-medium">{s.full_name ?? "(fără nume)"}</TableCell>
-                        <TableCell>
-                          <Select
-                            value={statuses[s.id] ?? "prezent"}
-                            onValueChange={(v) =>
-                              setStatuses((prev) => ({ ...prev, [s.id]: v as AttendanceStatus }))
-                            }
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="prezent">Prezent</SelectItem>
-                              <SelectItem value="absent">Absent</SelectItem>
-                              <SelectItem value="intarziat">Întârziat</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-              <div className="flex justify-end mt-4">
-                <Button onClick={handleSave} disabled={saving || !classId} className="gap-2">
-                  <ClipboardCheck className="w-4 h-4" />
-                  {saving ? "Se salvează..." : "Salvează prezența"}
-                </Button>
-              </div>
+              {loading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                </div>
+              ) : slots.length === 0 ? (
+                <p className="text-center text-muted-foreground py-8">
+                  Nu ai ore programate în această zi.
+                </p>
+              ) : (
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {slots.map((slot) => (
+                    <div
+                      key={slot.id}
+                      className={cn(
+                        "p-4 rounded-lg border-2 cursor-pointer transition-all",
+                        selectedSlot?.id === slot.id
+                          ? "border-primary bg-primary/5"
+                          : "border-border hover:border-primary/50",
+                        slot.signed && "bg-green-500/5"
+                      )}
+                      onClick={() => handleSelectSlot(slot)}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-semibold text-foreground">Ora {slot.period}</span>
+                        {slot.signed ? (
+                          <Badge variant="default" className="bg-green-600 text-white gap-1">
+                            <CheckCircle className="w-3 h-3" />
+                            Semnată
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="gap-1">
+                            <Clock className="w-3 h-3" />
+                            Nesemnată
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-sm font-medium text-foreground">{slot.subject_name}</p>
+                      <p className="text-sm text-muted-foreground">{slot.class_name}</p>
+                      {(slot.start_time || slot.end_time) && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {slot.start_time} — {slot.end_time}
+                          {slot.room && ` • Sala ${slot.room}`}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
+
+          {/* Sign register + attendance */}
+          {selectedSlot && (
+            <>
+              {/* Sign register if not signed */}
+              {!selectedSlot.signed && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <ClipboardSignature className="w-5 h-5" />
+                      Semnează Condica
+                    </CardTitle>
+                    <CardDescription>
+                      Ora {selectedSlot.period}: {selectedSlot.subject_name} — {selectedSlot.class_name}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div>
+                      <Label>Observații (opțional)</Label>
+                      <Textarea
+                        value={registerNotes}
+                        onChange={(e) => setRegisterNotes(e.target.value)}
+                        placeholder="ex: Tema nouă, test programat..."
+                        className="mt-1"
+                      />
+                    </div>
+                    <Button onClick={() => handleSignRegister(selectedSlot)} disabled={signing} className="gap-2">
+                      <ClipboardSignature className="w-4 h-4" />
+                      {signing ? "Se semnează..." : "Semnează Condica"}
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Attendance form */}
+              <Card>
+                <CardHeader className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <ClipboardCheck className="w-5 h-5" />
+                      Prezența — {selectedSlot.subject_name}
+                    </CardTitle>
+                    <CardDescription>{selectedSlot.class_name} • {dateKey}</CardDescription>
+                  </div>
+                  <div className="flex flex-col md:flex-row gap-2 md:items-center">
+                    <Input
+                      placeholder="Caută elev..."
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      className="md:w-64"
+                    />
+                    <div className="flex gap-2">
+                      <Button type="button" variant="secondary" size="sm" onClick={() => setAll("prezent")}>Toți prezenți</Button>
+                      <Button type="button" variant="secondary" size="sm" onClick={() => setAll("absent")}>Toți absenți</Button>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {students.length === 0 ? (
+                    <p className="text-center text-muted-foreground py-8">Nu sunt elevi în această clasă.</p>
+                  ) : (
+                    <>
+                      <div className="rounded-xl border border-border overflow-hidden">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="w-[90px]">Nr.</TableHead>
+                              <TableHead>Elev</TableHead>
+                              <TableHead className="w-[220px]">Status</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {filteredStudents.map((s) => (
+                              <TableRow key={s.id}>
+                                <TableCell className="text-muted-foreground">{s.student_number ?? "—"}</TableCell>
+                                <TableCell className="font-medium">{s.full_name ?? "(fără nume)"}</TableCell>
+                                <TableCell>
+                                  <Select
+                                    value={statuses[s.id] ?? "prezent"}
+                                    onValueChange={(v) =>
+                                      setStatuses((prev) => ({ ...prev, [s.id]: v as AttendanceStatus }))
+                                    }
+                                  >
+                                    <SelectTrigger>
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="prezent">Prezent</SelectItem>
+                                      <SelectItem value="absent">Absent</SelectItem>
+                                      <SelectItem value="intarziat">Întârziat</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                      <div className="flex justify-end mt-4">
+                        <Button onClick={handleSave} disabled={saving || !selectedSlot.subject_id} className="gap-2">
+                          <ClipboardCheck className="w-4 h-4" />
+                          {saving ? "Se salvează..." : "Salvează prezența"}
+                        </Button>
+                      </div>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            </>
+          )}
         </div>
       </main>
     </div>
