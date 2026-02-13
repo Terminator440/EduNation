@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Copy, Check, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,7 +31,7 @@ interface CreateInvitationDialogProps {
   classId?: string;
   studentId?: string;
   defaultRole?: InvitationRole;
-  role?: InvitationRole; // alias for defaultRole
+  role?: InvitationRole;
   title?: string;
   description?: string;
 }
@@ -50,35 +50,42 @@ export function CreateInvitationDialog({
   title = "Creează invitație",
   description = "Generează un cod de invitație pentru un utilizator nou.",
 }: CreateInvitationDialogProps) {
-  const effectiveDefaultRole = defaultRole || role;
-  const effectiveAllowedRoles = allowedRoles || (effectiveDefaultRole ? [effectiveDefaultRole] : ["teacher" as InvitationRole]);
-  const [selectedRole, setSelectedRole] = useState<InvitationRole>(effectiveDefaultRole || effectiveAllowedRoles[0]);
-  const [expiresHours, setExpiresHours] = useState("24");
+  const prevOpenRef = useRef(false);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [studentNumber, setStudentNumber] = useState("");
-  const [invitedEmail, setInvitedEmail] = useState("");
-  const [invitedPhone, setInvitedPhone] = useState("");
-  
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [selectedRole, setSelectedRole] = useState<InvitationRole>("teacher");
+  const [expiresHours, setExpiresHours] = useState("24");
   const [creating, setCreating] = useState(false);
   const [generatedCode, setGeneratedCode] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  // Reset state when dialog opens
+  const rolesList = allowedRoles && allowedRoles.length > 0
+    ? allowedRoles
+    : defaultRole || role
+      ? [defaultRole || role] as InvitationRole[]
+      : ["teacher" as InvitationRole];
+  const initialRole = defaultRole || role || rolesList[0];
+  const isStudent = selectedRole === "student";
+
   useEffect(() => {
-    if (open) {
-      setGeneratedCode(null);
-      setCopied(false);
-      setSelectedRole(effectiveDefaultRole || effectiveAllowedRoles[0]);
+    const wasOpen = prevOpenRef.current;
+    prevOpenRef.current = open;
+    if (open && !wasOpen) {
       setFirstName("");
       setLastName("");
       setStudentNumber("");
-      setInvitedEmail("");
-      setInvitedPhone("");
+      setEmail("");
+      setPhone("");
+      setSelectedRole(initialRole);
+      setExpiresHours("24");
+      setGeneratedCode(null);
+      setCopied(false);
     }
-  }, [open, effectiveDefaultRole, effectiveAllowedRoles]);
+  }, [open, initialRole]);
 
-  const isStudent = selectedRole === "student";
   const canSubmit =
     firstName.trim().length > 0 &&
     lastName.trim().length > 0 &&
@@ -87,24 +94,19 @@ export function CreateInvitationDialog({
   const handleCreate = async () => {
     if (!canSubmit) return;
     setCreating(true);
-
     const result = await createInvitation(selectedRole, schoolId, {
       classId,
       studentId,
-      firstName: firstName.trim() || undefined,
-      lastName: lastName.trim() || undefined,
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
       studentNumber: isStudent && studentNumber.trim() ? parseInt(studentNumber, 10) : undefined,
-      invitedEmail: invitedEmail.trim() || undefined,
-      invitedPhone: invitedPhone.trim() || undefined,
-      expiresHours: parseInt(expiresHours, 10),
+      invitedEmail: email.trim() || undefined,
+      invitedPhone: phone.trim() || undefined,
+      expiresHours: parseInt(expiresHours, 10) || 24,
     });
-
     setCreating(false);
-
-    const finalCode = result.plain_code;
-
-    if (result.success && finalCode) {
-      setGeneratedCode(finalCode);
+    if (result.success && result.plain_code) {
+      setGeneratedCode(result.plain_code);
       toast({ title: "Invitație creată!", description: "Copiază codul și trimite-l utilizatorului." });
     } else {
       toast({
@@ -117,7 +119,6 @@ export function CreateInvitationDialog({
 
   const handleCopy = async () => {
     if (!generatedCode) return;
-
     try {
       await navigator.clipboard.writeText(generatedCode);
       setCopied(true);
@@ -136,6 +137,8 @@ export function CreateInvitationDialog({
     onOpenChange(false);
   };
 
+  const showRoleSelect = rolesList.length > 1;
+
   return (
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-md">
@@ -147,7 +150,7 @@ export function CreateInvitationDialog({
         {!generatedCode ? (
           <>
             <div className="space-y-4 py-4">
-              {effectiveAllowedRoles.length > 1 && (
+              {showRoleSelect && (
                 <div className="space-y-2">
                   <Label>Rol</Label>
                   <Select value={selectedRole} onValueChange={(v) => setSelectedRole(v as InvitationRole)}>
@@ -155,7 +158,7 @@ export function CreateInvitationDialog({
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {effectiveAllowedRoles.map((r) => (
+                      {rolesList.map((r) => (
                         <SelectItem key={r} value={r}>
                           {getRoleLabelRo(r)}
                         </SelectItem>
@@ -171,7 +174,6 @@ export function CreateInvitationDialog({
                   value={firstName}
                   onChange={(e) => setFirstName(e.target.value)}
                   placeholder="ex: Ion"
-                  required
                 />
               </div>
 
@@ -181,7 +183,6 @@ export function CreateInvitationDialog({
                   value={lastName}
                   onChange={(e) => setLastName(e.target.value)}
                   placeholder="ex: Popescu"
-                  required
                 />
               </div>
 
@@ -194,7 +195,6 @@ export function CreateInvitationDialog({
                     placeholder="ex: 15"
                     type="number"
                     min={1}
-                    required
                   />
                 </div>
               )}
@@ -202,8 +202,8 @@ export function CreateInvitationDialog({
               <div className="space-y-2">
                 <Label>Email</Label>
                 <Input
-                  value={invitedEmail}
-                  onChange={(e) => setInvitedEmail(e.target.value)}
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   placeholder="ex: elev@email.com"
                   type="email"
                 />
@@ -212,8 +212,8 @@ export function CreateInvitationDialog({
               <div className="space-y-2">
                 <Label>Telefon</Label>
                 <Input
-                  value={invitedPhone}
-                  onChange={(e) => setInvitedPhone(e.target.value)}
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
                   placeholder="ex: 07xx xxx xxx"
                   type="tel"
                 />
@@ -260,14 +260,12 @@ export function CreateInvitationDialog({
                   />
                 </div>
               </div>
-
               <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-4 text-center">
                 <p className="text-sm text-amber-700 dark:text-amber-400">
                   ⚠️ Acest cod va fi afișat <strong>o singură dată</strong>. Copiază-l acum!
                 </p>
               </div>
             </div>
-
             <DialogFooter className="flex-col sm:flex-row gap-2">
               <Button variant="outline" className="w-full sm:w-auto" onClick={handleCopy}>
                 {copied ? (
