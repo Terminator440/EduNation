@@ -135,7 +135,7 @@ const Settings = () => {
     if (!user?.id) return;
     setProfileSaving(true);
     try {
-      const fullName = [firstName.trim(), lastName.trim()].filter(Boolean).join(" ") || profile?.full_name ?? "";
+      const fullName = ([firstName.trim(), lastName.trim()].filter(Boolean).join(" ") || profile?.full_name) ?? "";
       const { error } = await supabase
         .from("profiles")
         .update({ full_name: fullName, phone: phone.trim() || null })
