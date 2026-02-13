@@ -135,7 +135,9 @@ const Settings = () => {
     if (!user?.id) return;
     setProfileSaving(true);
     try {
+      // FIX: Am adăugat paranteze pentru a separa operatorul || de ??
       const fullName = ([firstName.trim(), lastName.trim()].filter(Boolean).join(" ") || profile?.full_name) ?? "";
+      
       const { error } = await supabase
         .from("profiles")
         .update({ full_name: fullName, phone: phone.trim() || null })
@@ -257,7 +259,7 @@ const Settings = () => {
                         <h2 className="text-lg font-semibold text-foreground mb-4">Informații personale</h2>
                         <div className="flex items-center gap-6 mb-6">
                           <div className="w-20 h-20 rounded-full bg-gradient-primary flex items-center justify-center text-primary-foreground text-2xl font-bold">
-                            AP
+                            {firstName.charAt(0)}{lastName.charAt(0)}
                           </div>
                           <Button variant="outline">Schimbă poza</Button>
                         </div>
@@ -328,7 +330,6 @@ const Settings = () => {
                         </div>
                       </div>
                       
-                      {/* Only show School and Class for non-developer roles */}
                       {!isDeveloper && (
                         <>
                           <div className="space-y-1">
