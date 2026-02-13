@@ -11,11 +11,16 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 
+/** Roles that can edit their own Name, Surname, Phone. Students/Parents are read-only. */
+const CAN_EDIT_PERSONAL_INFO: string[] = [
+  "teacher", "homeroom_teacher", "secretariat", "director", "uat_admin", "developer",
+];
+
 const Settings = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [activeTab, setActiveTab] = useState("profile");
   const { toast } = useToast();
-  const { activeRole, user, profile } = useAuth();
+  const { activeRole, user, profile, refetchProfile } = useAuth();
   
   // Email din sesiunea Auth (sursa de adevăr)
   const [authEmail, setAuthEmail] = useState<string | null>(null);
@@ -85,11 +90,72 @@ const Settings = () => {
     messages: false,
   });
 
-  const handleSave = () => {
-    toast({
-      title: "Setări salvate",
-      description: "Modificările au fost salvate cu succes.",
-    });
+  // Profile form (Name, Surname, Phone) - populated from profile
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [profileSaving, setProfileSaving] = useState(false);
+
+  const canEditPersonalInfo = activeRole ? CAN_EDIT_PERSONAL_INFO.includes(activeRole) : false;
+
+  // School and class labels (read-only, from invitation/signup data)
+  const [schoolLabel, setSchoolLabel] = useState("");
+  const [classLabel, setClassLabel] = useState("");
+
+  useEffect(() => {
+    if (!profile) return;
+    const parts = (profile.full_name ?? "").trim().split(/\s+/);
+    const first = parts[0] ?? "";
+    const last = parts.slice(1).join(" ") ?? "";
+    setFirstName(first);
+    setLastName(last);
+    setPhone(profile.phone ?? "");
+  }, [profile]);
+
+  useEffect(() => {
+    if (!user || !profile) return;
+    const loadSchoolAndClass = async () => {
+      const schoolId = profile.school_id;
+      if (schoolId) {
+        const { data: school } = await supabase.from("schools").select("name").eq("id", schoolId).maybeSingle();
+        setSchoolLabel(school?.name ?? "");
+      }
+      const { data: student } = await supabase
+        .from("students")
+        .select("class_id, classes(name, year, section)")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      const cls = (student as { classes?: { name: string; year: number; section: string } | null } | null)?.classes;
+      if (cls) setClassLabel(`${cls.name} (${cls.year}${cls.section})`);
+    };
+    loadSchoolAndClass();
+  }, [user?.id, profile?.school_id]);
+
+  const handleSave = async () => {
+    if (!user?.id) return;
+    setProfileSaving(true);
+    try {
+      const fullName = [firstName.trim(), lastName.trim()].filter(Boolean).join(" ") || profile?.full_name ?? "";
+      const { error } = await supabase
+        .from("profiles")
+        .update({ full_name: fullName, phone: phone.trim() || null })
+        .eq("id", user.id);
+      if (error) throw error;
+      await refetchProfile();
+      toast({
+        title: "Setări salvate",
+        description: "Modificările au fost salvate cu succes.",
+      });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Nu s-au putut salva modificările.";
+      toast({
+        title: "Eroare",
+        description: msg,
+        variant: "destructive",
+      });
+    } finally {
+      setProfileSaving(false);
+    }
   };
 
   // Password validation
@@ -199,11 +265,25 @@ const Settings = () => {
                       <div className="grid sm:grid-cols-2 gap-4">
                         <div>
                           <Label htmlFor="firstName">Prenume</Label>
-                          <Input id="firstName" defaultValue="Alexandru" className="mt-1" />
+                          <Input
+                            id="firstName"
+                            value={firstName}
+                            onChange={(e) => setFirstName(e.target.value)}
+                            disabled={!canEditPersonalInfo}
+                            readOnly={!canEditPersonalInfo}
+                            className={cn("mt-1", !canEditPersonalInfo && "bg-muted/50 cursor-not-allowed")}
+                          />
                         </div>
                         <div>
                           <Label htmlFor="lastName">Nume</Label>
-                          <Input id="lastName" defaultValue="Popescu" className="mt-1" />
+                          <Input
+                            id="lastName"
+                            value={lastName}
+                            onChange={(e) => setLastName(e.target.value)}
+                            disabled={!canEditPersonalInfo}
+                            readOnly={!canEditPersonalInfo}
+                            className={cn("mt-1", !canEditPersonalInfo && "bg-muted/50 cursor-not-allowed")}
+                          />
                         </div>
                         <div className="sm:col-span-2">
                           <div className="flex items-center gap-2">
@@ -231,7 +311,20 @@ const Settings = () => {
                         </div>
                         <div className={isDeveloper ? "sm:col-span-2" : ""}>
                           <Label htmlFor="phone">Telefon</Label>
-                          <Input id="phone" type="tel" defaultValue="+40 700 000 000" className="mt-1" />
+                          <div className="relative">
+                            <Input
+                              id="phone"
+                              type="tel"
+                              value={phone}
+                              onChange={(e) => setPhone(e.target.value)}
+                              disabled={!canEditPersonalInfo}
+                              readOnly={!canEditPersonalInfo}
+                              className={cn("mt-1", !canEditPersonalInfo && "bg-muted/50 cursor-not-allowed pr-10")}
+                            />
+                            {!canEditPersonalInfo && (
+                              <Lock className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                            )}
+                          </div>
                         </div>
                       </div>
                       
@@ -253,7 +346,7 @@ const Settings = () => {
                             <div className="relative">
                               <Input 
                                 id="school" 
-                                defaultValue='Liceul Teoretic "Nicolae Bălcescu"' 
+                                value={schoolLabel || "—"} 
                                 className="mt-1 pr-10 bg-muted/50 text-muted-foreground cursor-not-allowed" 
                                 disabled 
                                 readOnly
@@ -276,7 +369,7 @@ const Settings = () => {
                             <div className="relative">
                               <Input 
                                 id="class" 
-                                defaultValue="a X-a B" 
+                                value={classLabel || "—"} 
                                 className="mt-1 pr-10 bg-muted/50 text-muted-foreground cursor-not-allowed" 
                                 disabled 
                                 readOnly
@@ -288,9 +381,19 @@ const Settings = () => {
                       )}
                       
                       <div className="pt-4 border-t border-border">
-                        <Button variant="hero" onClick={handleSave} className="min-w-[180px]">
-                          Salvează modificările
+                        <Button
+                          variant="hero"
+                          onClick={handleSave}
+                          disabled={profileSaving || !canEditPersonalInfo}
+                          className="min-w-[180px]"
+                        >
+                          {profileSaving ? "Se salvează..." : "Salvează modificările"}
                         </Button>
+                        {!canEditPersonalInfo && (
+                          <p className="text-sm text-muted-foreground mt-2">
+                            Informațiile personale (nume, prenume, telefon) sunt read-only. Doar personalul școlar le poate modifica.
+                          </p>
+                        )}
                       </div>
                     </div>
                   )}

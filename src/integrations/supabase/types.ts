@@ -740,6 +740,30 @@ export type Database = {
           }
       generate_activation_code: { Args: never; Returns: string }
       generate_invitation_code: { Args: never; Returns: string }
+      get_class_stats_for_display: {
+        Args: {
+          p_class_id: string
+          p_date_from?: string | null
+          p_date_to?: string | null
+        }
+        Returns: {
+          student_id: string
+          general_average: number | null
+          absences_count: number
+        }[]
+      }
+      get_class_totals_for_display: {
+        Args: {
+          p_class_id: string
+          p_date_from?: string | null
+          p_date_to?: string | null
+        }
+        Returns: {
+          class_average: number | null
+          total_absences: number
+          total_motivated: number
+        }[]
+      }
       get_teacher_class_id: { Args: { _user_id: string }; Returns: string }
       has_role: {
         Args: {

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CalendarX2, Clock } from "lucide-react";
 import Sidebar from "@/components/dashboard/Sidebar";
 import ThemeToggle from "@/components/ThemeToggle";
@@ -53,12 +53,16 @@ export default function Schedule() {
 
   const [selectedClassId, setSelectedClassId] = useState<string>("");
 
-  // Set initial class when loaded
-  useMemo(() => {
-    if (classesQuery.data?.length && !selectedClassId) {
-      setSelectedClassId(classesQuery.data[0].id);
-    }
-  }, [classesQuery.data, selectedClassId]);
+  // Set initial class when loaded; reset if selected class no longer in list
+  useEffect(() => {
+    const classes = classesQuery.data ?? [];
+    if (classes.length === 0) return;
+    const ids = new Set(classes.map((c) => c.id));
+    setSelectedClassId((prev) => {
+      if (!prev || !ids.has(prev)) return classes[0].id;
+      return prev;
+    });
+  }, [classesQuery.data]);
 
   // Fetch timetable entries
   const timetableQuery = useQuery({
@@ -149,9 +153,13 @@ export default function Schedule() {
               {viewMode === "class" && (
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-muted-foreground">Clasă:</span>
-                  <Select value={selectedClassId} onValueChange={setSelectedClassId}>
+                  <Select
+                    value={selectedClassId || undefined}
+                    onValueChange={setSelectedClassId}
+                    disabled={classesQuery.isLoading || (classesQuery.data?.length ?? 0) === 0}
+                  >
                     <SelectTrigger className="w-48">
-                      <SelectValue placeholder="Selectează clasa" />
+                      <SelectValue placeholder={classesQuery.isLoading ? "Se încarcă..." : (classesQuery.data?.length ?? 0) === 0 ? "Nu există clase" : "Selectează clasa"} />
                     </SelectTrigger>
                     <SelectContent>
                       {classesQuery.data?.map((c) => (

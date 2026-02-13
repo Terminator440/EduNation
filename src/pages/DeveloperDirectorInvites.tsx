@@ -278,7 +278,7 @@ const DeveloperDirectorInvites = () => {
                       <div className="space-y-2">
                         <Label>Școala *</Label>
                         <Select 
-                          value={selectedSchoolId} 
+                          value={selectedSchoolId || undefined} 
                           onValueChange={(value) => {
                             if (value === "__add_school__") {
                               setShowAddSchoolDialog(true);
@@ -286,10 +286,10 @@ const DeveloperDirectorInvites = () => {
                               setSelectedSchoolId(value);
                             }
                           }}
-                          disabled={loadingSchools}
+                          disabled={loadingSchools || !!schoolsError}
                         >
                           <SelectTrigger>
-                            <SelectValue placeholder={loadingSchools ? "Se încarcă..." : schools.length === 0 ? "Nu există școli" : "Selectează școala"} />
+                            <SelectValue placeholder={loadingSchools ? "Se încarcă..." : schoolsError ? "Nu aveți acces la aceste date" : schools.length === 0 ? "Nu există școli" : "Selectează școala"} />
                           </SelectTrigger>
                           <SelectContent>
                             {schools.map((school) => (

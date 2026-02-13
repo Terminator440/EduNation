@@ -27,6 +27,11 @@ export interface Invitation {
   revoked_at: string | null;
   created_at: string;
   intended_for: string | null;
+  first_name?: string | null;
+  last_name?: string | null;
+  invited_student_number?: number | null;
+  invited_email?: string | null;
+  invited_phone?: string | null;
 }
 
 export interface InvitationWithDetails extends Invitation {
@@ -97,6 +102,11 @@ export interface ClaimInvitationResult {
   school_id?: string;
   class_id?: string | null;
   student_id?: string | null;
+  first_name?: string | null;
+  last_name?: string | null;
+  invited_student_number?: number | null;
+  invited_email?: string | null;
+  invited_phone?: string | null;
   error_message?: string;
 }
 
@@ -133,6 +143,11 @@ export const claimInvitation = async (
       school_id: result.school_id,
       class_id: result.class_id ?? null,
       student_id: result.student_id ?? null,
+      first_name: result.first_name ?? null,
+      last_name: result.last_name ?? null,
+      invited_student_number: result.invited_student_number ?? null,
+      invited_email: result.invited_email ?? null,
+      invited_phone: result.invited_phone ?? null,
     };
   } catch (err) {
     console.error("Error claiming invitation:", err);
@@ -153,6 +168,9 @@ export const createInvitation = async (
   options?: {
     classId?: string;
     studentId?: string;
+    firstName?: string;
+    lastName?: string;
+    studentNumber?: number;
     invitedEmail?: string;
     invitedPhone?: string;
     maxUses?: number;
@@ -166,9 +184,14 @@ export const createInvitation = async (
       p_school_id: schoolId,
       p_class_id: options?.classId ?? null,
       p_student_id: options?.studentId ?? null,
+      p_first_name: options?.firstName ?? null,
+      p_last_name: options?.lastName ?? null,
+      p_student_number: options?.studentNumber ?? null,
+      p_invited_email: options?.invitedEmail ?? null,
+      p_invited_phone: options?.invitedPhone ?? null,
+      p_intended_for: options?.intendedFor ?? null,
       p_max_uses: options?.maxUses ?? 1,
       p_expires_hours: options?.expiresHours ?? 24,
-      p_intended_for: options?.intendedFor ?? null,
     });
 
     if (error) {

@@ -18,7 +18,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 
-type AttendanceStatus = "prezent" | "absent" | "intarziat";
+// DB status values: present, unexcused, pending, motivated
+type AttendanceStatus = "present" | "unexcused" | "pending";
 
 interface StudentRow {
   id: string;
@@ -206,7 +207,7 @@ const TakeAttendance = () => {
 
           const initial: Record<string, AttendanceStatus> = {};
           studentList.forEach((s) => {
-            initial[s.id] = existingMap[s.id] || "prezent";
+            initial[s.id] = existingMap[s.id] || "present";
           });
           setStatuses(initial);
         }
@@ -277,7 +278,7 @@ const TakeAttendance = () => {
     const rows = students.map((s) => ({
       student_id: s.id,
       subject_id: selectedSlot.subject_id!,
-      status: statuses[s.id] ?? "prezent",
+      status: statuses[s.id] ?? "present",
       teacher_id: user.id,
       date: dateKey,
     }));
@@ -474,8 +475,8 @@ const TakeAttendance = () => {
                       className="md:w-64"
                     />
                     <div className="flex gap-2">
-                      <Button type="button" variant="secondary" size="sm" onClick={() => setAll("prezent")}>Toți prezenți</Button>
-                      <Button type="button" variant="secondary" size="sm" onClick={() => setAll("absent")}>Toți absenți</Button>
+                      <Button type="button" variant="secondary" size="sm" onClick={() => setAll("present")}>Toți prezenți</Button>
+                      <Button type="button" variant="secondary" size="sm" onClick={() => setAll("unexcused")}>Toți absenți</Button>
                     </div>
                   </div>
                 </CardHeader>
@@ -500,18 +501,18 @@ const TakeAttendance = () => {
                                 <TableCell className="font-medium">{s.full_name ?? "(fără nume)"}</TableCell>
                                 <TableCell>
                                   <Select
-                                    value={statuses[s.id] ?? "prezent"}
+                                    value={statuses[s.id] ?? "present"}
                                     onValueChange={(v) =>
                                       setStatuses((prev) => ({ ...prev, [s.id]: v as AttendanceStatus }))
                                     }
                                   >
                                     <SelectTrigger>
-                                      <SelectValue />
+                                      <SelectValue placeholder="Status" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                      <SelectItem value="prezent">Prezent</SelectItem>
-                                      <SelectItem value="absent">Absent</SelectItem>
-                                      <SelectItem value="intarziat">Întârziat</SelectItem>
+                                      <SelectItem value="present">Prezent</SelectItem>
+                                      <SelectItem value="unexcused">Absent (nemotivat)</SelectItem>
+                                      <SelectItem value="pending">Întârziat / În așteptare</SelectItem>
                                     </SelectContent>
                                   </Select>
                                 </TableCell>

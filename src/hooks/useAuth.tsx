@@ -50,11 +50,13 @@ const BOOTSTRAP_ADMIN_EMAILS =
     .map((s) => s.trim().toLowerCase())
     .filter(Boolean) ?? [];
 
-interface Profile {
+export interface Profile {
   id: string;
   full_name: string;
   email: string;
+  phone?: string | null;
   active_role: AppRole | null;
+  school_id?: string | null;
 }
 
 interface AuthContextType {
@@ -64,6 +66,7 @@ interface AuthContextType {
   userRoles: AppRole[];
   activeRole: AppRole | null;
   loading: boolean;
+  refetchProfile: () => Promise<void>;
   signUp: (
     email: string,
     password: string,
@@ -276,6 +279,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const refetchProfile = async () => {
+    if (!user) return;
+    await fetchUserData(user.id);
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -285,6 +293,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         userRoles,
         activeRole,
         loading,
+        refetchProfile,
         signUp,
         signIn,
         signOut,

@@ -12,7 +12,7 @@ Acest document descrie regulile implementate la nivel de DB și cum să le verif
 - **get_class_stats_for_display(class_id, date_from, date_to)**: medii și absențe per elev
 - **get_class_totals_for_display(class_id, date_from, date_to)**: media clasei, total absențe, total motivate
 
-**Verificare**: Frontend (Grades.tsx, Reports.tsx) nu mai folosește `.reduce()` sau `map` pentru medii. Toate mediile vin din RPC-uri.
+**Verificare**: Frontend (Grades.tsx, Reports.tsx) citește din RPC-uri, nu calculează medii cu reduce/map.
 
 ## 2. Snapshot la închiderea anului
 
@@ -44,8 +44,8 @@ UPDATE grades SET grade = 9 WHERE student_id = '...';
 ## 4. Audit DB (imposibil de ocolit)
 
 Trigger-e AFTER INSERT/UPDATE/DELETE pe:
-- grades, attendance, teacher_register (existau)
-- disciplinary_actions, academic_year (noi)
+- grades, attendance, teacher_register
+- disciplinary_actions, academic_year
 
 Salvează: auth.uid(), OLD, NEW, server_ts în audit_logs.
 
@@ -59,7 +59,6 @@ SELECT * FROM audit_logs ORDER BY created_at DESC LIMIT 5;
 
 - **grades**: SELECT doar dacă student_id IN (parent_student_relations WHERE parent_user_id = auth.uid())
 - **attendance**: idem
-- **academic_year_snapshots**: idem
 
 **Verificare**: Autentifică ca părinte, încearcă SELECT pe grades pentru un elev care nu e copilul lui → 0 rânduri (RLS).
 
@@ -75,7 +74,7 @@ INSERT INTO grades (..., grade) VALUES (..., 0);   -- Eroare
 INSERT INTO grades (..., grade) VALUES (..., 11);  -- Eroare
 ```
 
-## 7. Model absențe: pending / motivated / unexcused / present
+## 7. Model absențe: present / pending / motivated / unexcused
 
 - status: CHECK IN ('present', 'pending', 'motivated', 'unexcused')
 - validated_by, validated_at: setate de diriginte când status = motivated

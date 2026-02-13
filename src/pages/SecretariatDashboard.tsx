@@ -166,9 +166,9 @@ const handleCreateStudent = async () => {
               </div>
               <div className="md:col-span-1">
                 <Label>Clasă</Label>
-                <Select value={newStudentClassId} onValueChange={setNewStudentClassId}>
+                <Select value={newStudentClassId || undefined} onValueChange={setNewStudentClassId} disabled={classesQuery.isLoading || (classesQuery.data ?? []).length === 0}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Alege clasa" />
+                    <SelectValue placeholder={classesQuery.isLoading ? "Se încarcă..." : (classesQuery.data ?? []).length === 0 ? "Nu există clase" : "Alege clasa"} />
                   </SelectTrigger>
                   <SelectContent>
                     {(classesQuery.data ?? []).map(cls => (

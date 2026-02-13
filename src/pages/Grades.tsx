@@ -3,7 +3,7 @@ import { TrendingUp, TrendingDown, Award, BookOpen } from "lucide-react";
 import Sidebar from "@/components/dashboard/Sidebar";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
-import { useSubjectAveragesForScope, useGeneralAveragesForScope, useGradesForScope, useStudentScope } from "@/features/academics/queries";
+import { useSubjectAveragesForScope, useGeneralAveragesForScope, useGradesForScope, useStudentScope, useStudentsForScope } from "@/features/academics/queries";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const getAverageColor = (avg: number) => {
@@ -22,38 +22,46 @@ const getGradeColor = (grade: number) => {
 
 const Grades = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [selectedSubject, setSelectedSubject] = useState<string | null>(null);
+  const [selectedRowKey, setSelectedRowKey] = useState<string | null>(null);
 
   const { user, activeRole } = useAuth();
   const scopeQuery = useStudentScope(activeRole, user?.id ?? null);
   const studentIds = scopeQuery.data?.studentIds ?? [];
+  const studentsQuery = useStudentsForScope(studentIds);
   const subjectAveragesQuery = useSubjectAveragesForScope(studentIds);
   const generalAveragesQuery = useGeneralAveragesForScope(studentIds);
   const gradesQuery = useGradesForScope(studentIds);
 
-  // Medii din views/RPC - nu map/reduce pentru medii
+  const studentNames = useMemo(() => {
+    const rows = studentsQuery.data ?? [];
+    return new Map(rows.map(s => [s.id, s.full_name ?? 'Elev']));
+  }, [studentsQuery.data]);
+
+  const hasMultipleStudents = studentIds.length > 1;
+
+  // One row per (student_id, subject) - corect pentru părinți cu mai mulți copii
   const gradesBySubject = useMemo(() => {
     const rows = subjectAveragesQuery.data ?? [];
-    const bySubject = new Map<string, { subject: string; average: number; grade_count: number }>();
-    for (const r of rows) {
-      const name = r.subject_name ?? 'Materie necunoscută';
-      const existing = bySubject.get(name);
-      if (!existing || r.average > existing.average) {
-        bySubject.set(name, { subject: name, average: Number(r.average), grade_count: r.grade_count ?? 0 });
-      } else {
-        existing.grade_count += r.grade_count ?? 0;
-      }
-    }
-    return Array.from(bySubject.values()).sort((a, b) => a.subject.localeCompare(b.subject, 'ro'));
-  }, [subjectAveragesQuery.data]);
+    return rows.map(r => ({
+      student_id: r.student_id,
+      subject: r.subject_name ?? 'Materie necunoscută',
+      average: Number(r.average),
+      grade_count: r.grade_count ?? 0,
+      rowKey: `${r.student_id}|${r.subject_name ?? ''}`,
+    })).sort((a, b) => {
+      const cmp = a.subject.localeCompare(b.subject, 'ro');
+      return cmp !== 0 ? cmp : (studentNames.get(a.student_id) ?? '').localeCompare(studentNames.get(b.student_id) ?? '', 'ro');
+    });
+  }, [subjectAveragesQuery.data, studentNames]);
 
   const gradesBySubjectName = useMemo(() => {
     const map = new Map<string, number[]>();
     for (const r of gradesQuery.data ?? []) {
       const name = r.subject?.name ?? 'Materie necunoscută';
-      const arr = map.get(name) ?? [];
+      const key = `${r.student_id}|${name}`;
+      const arr = map.get(key) ?? [];
       arr.push(r.grade);
-      map.set(name, arr);
+      map.set(key, arr);
     }
     return map;
   }, [gradesQuery.data]);
@@ -68,7 +76,7 @@ const Grades = () => {
   const bestSubject = useMemo(() => {
     return gradesBySubject.reduce(
       (best, g) => (g.average > best.average ? g : best),
-      gradesBySubject[0] ?? { subject: '-', average: 0, grade_count: 0 }
+      gradesBySubject[0] ?? { subject: '-', average: 0, grade_count: 0, student_id: '', rowKey: '' }
     );
   }, [gradesBySubject]);
 
@@ -90,14 +98,14 @@ const Grades = () => {
         </header>
 
         <div className="p-8">
-          {(scopeQuery.isLoading || subjectAveragesQuery.isLoading || generalAveragesQuery.isLoading || gradesQuery.isLoading) && (
+          {(scopeQuery.isLoading || studentsQuery.isLoading || subjectAveragesQuery.isLoading || generalAveragesQuery.isLoading || gradesQuery.isLoading) && (
             <div className="space-y-4 mb-8">
               <Skeleton className="h-24 w-full rounded-2xl" />
               <Skeleton className="h-64 w-full rounded-2xl" />
             </div>
           )}
 
-          {(scopeQuery.isError || subjectAveragesQuery.isError || generalAveragesQuery.isError || gradesQuery.isError) && (
+          {(scopeQuery.isError || studentsQuery.isError || subjectAveragesQuery.isError || generalAveragesQuery.isError || gradesQuery.isError) && (
             <div className="mb-8 rounded-xl border border-destructive/50 bg-destructive/10 p-4 text-destructive">
               Nu am putut încărca notele. Verifică dacă ești autentificat.
             </div>
@@ -147,7 +155,7 @@ const Grades = () => {
             <div className="bg-card rounded-2xl p-6 border border-border">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Materii</p>
+                  <p className="text-sm text-muted-foreground">Materii (per elev)</p>
                   <p className="text-3xl font-bold text-foreground mt-1">{gradesBySubject.length}</p>
                 </div>
                 <div className="w-12 h-12 rounded-xl bg-warning/10 flex items-center justify-center">
@@ -167,27 +175,35 @@ const Grades = () => {
                 <thead className="bg-secondary/50">
                   <tr>
                     <th className="text-left px-6 py-4 text-sm font-semibold text-muted-foreground">Materie</th>
+                    {hasMultipleStudents && (
+                      <th className="text-left px-6 py-4 text-sm font-semibold text-muted-foreground">Elev</th>
+                    )}
                     <th className="text-left px-6 py-4 text-sm font-semibold text-muted-foreground">Note</th>
                     <th className="text-left px-6 py-4 text-sm font-semibold text-muted-foreground">Media</th>
                     <th className="text-left px-6 py-4 text-sm font-semibold text-muted-foreground">Profesor</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {gradesBySubject.map((grade, index) => (
+                  {gradesBySubject.map((grade) => (
                     <tr 
-                      key={index} 
+                      key={grade.rowKey} 
                       className={cn(
                         "hover:bg-secondary/30 transition-colors cursor-pointer",
-                        selectedSubject === grade.subject && "bg-primary/5"
+                        selectedRowKey === grade.rowKey && "bg-primary/5"
                       )}
-                      onClick={() => setSelectedSubject(selectedSubject === grade.subject ? null : grade.subject)}
+                      onClick={() => setSelectedRowKey(selectedRowKey === grade.rowKey ? null : grade.rowKey)}
                     >
                       <td className="px-6 py-4">
                         <span className="font-medium text-foreground">{grade.subject}</span>
                       </td>
+                      {hasMultipleStudents && (
+                        <td className="px-6 py-4 text-muted-foreground">
+                          {studentNames.get(grade.student_id) ?? 'Elev'}
+                        </td>
+                      )}
                       <td className="px-6 py-4">
                         <div className="flex gap-2 flex-wrap">
-                          {(gradesBySubjectName.get(grade.subject) ?? []).map((g, i) => (
+                          {(gradesBySubjectName.get(grade.rowKey) ?? []).map((g, i) => (
                             <span
                               key={i}
                               className={cn(

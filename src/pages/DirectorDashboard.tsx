@@ -163,11 +163,11 @@ const DirectorDashboard = () => {
         ? gradesData.reduce((sum, g) => sum + Number(g.grade), 0) / gradesData.length
         : 0;
 
-      // Fetch absences count
+      // Fetch absences count (unexcused + pending)
       const { count: absencesCount } = await supabase
         .from('attendance')
         .select('*', { count: 'exact', head: true })
-        .eq('status', 'absent');
+        .in('status', ['unexcused', 'pending']);
 
       // Fetch profiles count (active users)
       const { count: activeUsersCount } = await supabase

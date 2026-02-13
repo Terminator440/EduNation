@@ -97,7 +97,7 @@ const TeacherDashboard = () => {
   const [isMotivateOpen, setIsMotivateOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [newGrade, setNewGrade] = useState({ grade: "", subjectId: "", description: "" });
-  const [newAttendance, setNewAttendance] = useState({ status: "prezent", subjectId: "" });
+  const [newAttendance, setNewAttendance] = useState({ status: "present", subjectId: "" });
   const [message, setMessage] = useState({ subject: "", content: "", sendToParent: true, sendToStudent: false });
   const [selectedAbsences, setSelectedAbsences] = useState<string[]>([]);
   const [motivateReason, setMotivateReason] = useState("");
@@ -480,7 +480,7 @@ setStudents(enrichedStudents);
       });
 
       setIsAddAttendanceOpen(false);
-      setNewAttendance({ status: "prezent", subjectId: "" });
+      setNewAttendance({ status: "present", subjectId: "" });
       fetchData();
     } catch (error: any) {
       if (error.code === '23505') {
@@ -521,7 +521,7 @@ setStudents(enrichedStudents);
       const { error } = await supabase
         .from('attendance')
         .update({
-          status: 'motivat',
+          status: 'motivated',
           excuse_reason: motivateReason.trim() ? motivateReason.trim() : null,
           excused_at: new Date().toISOString(),
         })
@@ -575,11 +575,11 @@ setStudents(enrichedStudents);
   };
 
   const countAbsences = (attendance: { status: string }[]) => {
-    return attendance.filter(a => a.status === 'absent').length;
+    return attendance.filter(a => ['unexcused', 'pending'].includes(a.status)).length;
   };
 
   const getUnmotivatedAbsences = (attendance: { id: string; status: string; date: string; subject: { name: string } }[]) => {
-    return attendance.filter(a => a.status === 'absent');
+    return attendance.filter(a => ['unexcused', 'pending'].includes(a.status));
   };
 
   const filteredStudents = students.filter(s =>
@@ -796,9 +796,9 @@ setStudents(enrichedStudents);
                               <div className="space-y-4 mt-4">
                                 <div>
                                   <Label>Materie</Label>
-                                  <Select value={newGrade.subjectId} onValueChange={(v) => setNewGrade(p => ({ ...p, subjectId: v }))}>
+                                  <Select value={newGrade.subjectId || undefined} onValueChange={(v) => setNewGrade(p => ({ ...p, subjectId: v }))} disabled={subjects.length === 0}>
                                     <SelectTrigger className="mt-1">
-                                      <SelectValue placeholder="Selectează materia" />
+                                      <SelectValue placeholder={subjects.length === 0 ? "Nu există materii" : "Selectează materia"} />
                                     </SelectTrigger>
                                     <SelectContent>
                                       {subjects.map(s => (
@@ -853,9 +853,9 @@ setStudents(enrichedStudents);
                               <div className="space-y-4 mt-4">
                                 <div>
                                   <Label>Materie</Label>
-                                  <Select value={newAttendance.subjectId} onValueChange={(v) => setNewAttendance(p => ({ ...p, subjectId: v }))}>
+                                  <Select value={newAttendance.subjectId || undefined} onValueChange={(v) => setNewAttendance(p => ({ ...p, subjectId: v }))} disabled={subjects.length === 0}>
                                     <SelectTrigger className="mt-1">
-                                      <SelectValue placeholder="Selectează materia" />
+                                      <SelectValue placeholder={subjects.length === 0 ? "Nu există materii" : "Selectează materia"} />
                                     </SelectTrigger>
                                     <SelectContent>
                                       {subjects.map(s => (
@@ -868,13 +868,13 @@ setStudents(enrichedStudents);
                                   <Label>Status</Label>
                                   <Select value={newAttendance.status} onValueChange={(v) => setNewAttendance(p => ({ ...p, status: v }))}>
                                     <SelectTrigger className="mt-1">
-                                      <SelectValue />
+                                      <SelectValue placeholder="Status" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                      <SelectItem value="prezent">Prezent</SelectItem>
-                                      <SelectItem value="absent">Absent</SelectItem>
-                                      <SelectItem value="intarziat">Întârziat</SelectItem>
-                                      <SelectItem value="motivat">Motivat</SelectItem>
+                                      <SelectItem value="present">Prezent</SelectItem>
+                                      <SelectItem value="unexcused">Absent (nemotivat)</SelectItem>
+                                      <SelectItem value="pending">Întârziat / În așteptare</SelectItem>
+                                      <SelectItem value="motivated">Motivat</SelectItem>
                                     </SelectContent>
                                   </Select>
                                 </div>

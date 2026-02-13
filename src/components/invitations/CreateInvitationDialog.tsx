@@ -54,6 +54,9 @@ export function CreateInvitationDialog({
   const effectiveAllowedRoles = allowedRoles || (effectiveDefaultRole ? [effectiveDefaultRole] : ["teacher" as InvitationRole]);
   const [selectedRole, setSelectedRole] = useState<InvitationRole>(effectiveDefaultRole || effectiveAllowedRoles[0]);
   const [expiresHours, setExpiresHours] = useState("24");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [studentNumber, setStudentNumber] = useState("");
   const [invitedEmail, setInvitedEmail] = useState("");
   const [invitedPhone, setInvitedPhone] = useState("");
   
@@ -67,20 +70,33 @@ export function CreateInvitationDialog({
       setGeneratedCode(null);
       setCopied(false);
       setSelectedRole(effectiveDefaultRole || effectiveAllowedRoles[0]);
+      setFirstName("");
+      setLastName("");
+      setStudentNumber("");
       setInvitedEmail("");
       setInvitedPhone("");
     }
   }, [open, effectiveDefaultRole, effectiveAllowedRoles]);
 
+  const isStudent = selectedRole === "student";
+  const canSubmit =
+    firstName.trim().length > 0 &&
+    lastName.trim().length > 0 &&
+    (!isStudent || (studentNumber.trim().length > 0 && !Number.isNaN(Number(studentNumber))));
+
   const handleCreate = async () => {
+    if (!canSubmit) return;
     setCreating(true);
 
     const result = await createInvitation(selectedRole, schoolId, {
       classId,
       studentId,
-      expiresHours: parseInt(expiresHours, 10),
+      firstName: firstName.trim() || undefined,
+      lastName: lastName.trim() || undefined,
+      studentNumber: isStudent && studentNumber.trim() ? parseInt(studentNumber, 10) : undefined,
       invitedEmail: invitedEmail.trim() || undefined,
       invitedPhone: invitedPhone.trim() || undefined,
+      expiresHours: parseInt(expiresHours, 10),
     });
 
     setCreating(false);
@@ -150,6 +166,60 @@ export function CreateInvitationDialog({
               )}
 
               <div className="space-y-2">
+                <Label>Prenume *</Label>
+                <Input
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  placeholder="ex: Ion"
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Nume *</Label>
+                <Input
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  placeholder="ex: Popescu"
+                  required
+                />
+              </div>
+
+              {isStudent && (
+                <div className="space-y-2">
+                  <Label>Număr Matricol *</Label>
+                  <Input
+                    value={studentNumber}
+                    onChange={(e) => setStudentNumber(e.target.value.replace(/\D/g, ""))}
+                    placeholder="ex: 15"
+                    type="number"
+                    min={1}
+                    required
+                  />
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <Label>Email</Label>
+                <Input
+                  value={invitedEmail}
+                  onChange={(e) => setInvitedEmail(e.target.value)}
+                  placeholder="ex: elev@email.com"
+                  type="email"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Telefon</Label>
+                <Input
+                  value={invitedPhone}
+                  onChange={(e) => setInvitedPhone(e.target.value)}
+                  placeholder="ex: 07xx xxx xxx"
+                  type="tel"
+                />
+              </div>
+
+              <div className="space-y-2">
                 <Label>Valabilitate</Label>
                 <Select value={expiresHours} onValueChange={setExpiresHours}>
                   <SelectTrigger>
@@ -163,33 +233,13 @@ export function CreateInvitationDialog({
                   </SelectContent>
                 </Select>
               </div>
-
-              <div className="space-y-2">
-                <Label>Email (opțional)</Label>
-                <Input
-                  value={invitedEmail}
-                  onChange={(e) => setInvitedEmail(e.target.value)}
-                  placeholder="ex: parinte@email.com"
-                  type="email"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Telefon (opțional)</Label>
-                <Input
-                  value={invitedPhone}
-                  onChange={(e) => setInvitedPhone(e.target.value)}
-                  placeholder="ex: 07xx xxx xxx"
-                  type="tel"
-                />
-              </div>
             </div>
 
             <DialogFooter>
               <Button variant="outline" onClick={() => onOpenChange(false)}>
                 Anulează
               </Button>
-              <Button onClick={handleCreate} disabled={creating}>
+              <Button onClick={handleCreate} disabled={creating || !canSubmit}>
                 {creating && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                 Generează cod
               </Button>

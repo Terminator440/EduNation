@@ -235,10 +235,10 @@ const HomeroomDashboard = () => {
           : 0;
 
       const absencesCount =
-        attendance?.filter((a) => a.status === "absent").length || 0;
+        attendance?.filter((a) => ["unexcused", "pending"].includes(a.status)).length || 0;
 
       const motivated =
-        attendance?.filter((a) => a.status === "motivat").length || 0;
+        attendance?.filter((a) => a.status === "motivated").length || 0;
 
       setClassStats({
         totalGrades,
@@ -249,7 +249,7 @@ const HomeroomDashboard = () => {
 
       const absByStudent = new Map<string, number>();
       (attendance || []).forEach((a: any) => {
-        if (a.status !== "absent") return;
+        if (!["unexcused", "pending"].includes(a.status)) return;
         absByStudent.set(
           a.student_id,
           (absByStudent.get(a.student_id) || 0) + 1
@@ -404,7 +404,7 @@ const HomeroomDashboard = () => {
         .from("attendance")
         .select("id, date, status, student_id, subject_id")
         .in("student_id", ids)
-        .eq("status", "absent")
+        .in("status", ["unexcused", "pending"])
         .order("date", { ascending: false });
 
       if (!absenceData) return;
@@ -444,22 +444,20 @@ const HomeroomDashboard = () => {
 
     try {
       const updatePayload: any = {
-        status: "motivat",
+        status: "motivated",
         excuse_reason: motivateReason.trim() ? motivateReason.trim() : null,
         excused_at: new Date().toISOString(),
       };
 
-      // ✅ aici era problema: "let { error }"
       const { error: updateError } = await (supabase as any)
         .from("attendance")
         .update(updatePayload)
         .in("id", selectedAbsences as any);
 
       if (updateError) {
-        // Fallback: dacă DB nu are coloanele extra, facem update doar pe status.
         const { error: fallbackError } = await supabase
           .from("attendance")
-          .update({ status: "motivat" })
+          .update({ status: "motivated" })
           .in("id", selectedAbsences as any);
 
         if (fallbackError) throw fallbackError;

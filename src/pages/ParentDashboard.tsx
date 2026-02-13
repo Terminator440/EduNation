@@ -70,9 +70,9 @@ const ParentDashboard = () => {
 
   const absenceStats = useMemo(() => {
     const rows = attendanceQuery.data ?? [];
-    const abs = rows.filter(r => r.status === 'absent').length;
+    const abs = rows.filter(r => ['unexcused', 'pending'].includes(r.status)).length;
     const total = rows.length;
-    const present = rows.filter(r => r.status === 'prezent').length;
+    const present = rows.filter(r => r.status === 'present').length;
     const pct = total > 0 ? Math.round((present / total) * 100) : 0;
     return { absences: abs, pct };
   }, [attendanceQuery.data]);

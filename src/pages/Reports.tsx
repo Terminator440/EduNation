@@ -17,6 +17,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { exportToCsv } from "@/utils/exportCsv";
+import { fetchClassStatsForDisplay, fetchClassTotalsForDisplay } from "@/lib/reports-rpc";
 
 type RoleScope = "teacher" | "homeroom_teacher" | "secretariat" | "director" | "uat_admin";
 
@@ -57,8 +58,7 @@ interface AttendanceRow {
 
 interface RegisterRow {
   id: string;
-  register_date: string;
-  status: string | null;
+  date: string;
   timetable_entries: {
     period: number | null;
     start_time: string | null;
@@ -199,20 +199,13 @@ const Reports = () => {
       setGrades((gr as any) ?? []);
       setAttendance((at as any) ?? []);
 
+      const params = { p_class_id: classId, p_date_from: dateFrom || null, p_date_to: dateTo || null };
       const [{ data: statsData, error: statsErr }, { data: totalsData, error: totalsErr }] = await Promise.all([
-        supabase.rpc('get_class_stats_for_display', {
-          p_class_id: classId,
-          p_date_from: dateFrom || null,
-          p_date_to: dateTo || null,
-        }),
-        supabase.rpc('get_class_totals_for_display', {
-          p_class_id: classId,
-          p_date_from: dateFrom || null,
-          p_date_to: dateTo || null,
-        }),
+        fetchClassStatsForDisplay(params),
+        fetchClassTotalsForDisplay(params),
       ]);
-      if (!statsErr) setClassStatsFromDb((statsData as any) ?? []);
-      if (!totalsErr && totalsData && (totalsData as any[]).length) setClassTotalsFromDb((totalsData as any[])[0]);
+      if (!statsErr) setClassStatsFromDb(statsData);
+      if (!totalsErr && totalsData) setClassTotalsFromDb(totalsData);
 
       // Teacher register (condică profesor) — best-effort: works only if table + RLS allow access.
       try {
@@ -220,8 +213,7 @@ const Reports = () => {
           .from('teacher_register')
           .select(`
             id,
-            register_date,
-            status,
+            date,
             timetable_entries (
               period,
               start_time,
@@ -232,11 +224,11 @@ const Reports = () => {
               subjects ( name )
             )
           `)
-          .eq('signed_by', user?.id)
-          .order('register_date', { ascending: false });
+          .eq('teacher_id', user?.id)
+          .order('date', { ascending: false });
 
-        if (dateFrom) regQ = regQ.gte('register_date', dateFrom);
-        if (dateTo) regQ = regQ.lte('register_date', dateTo);
+        if (dateFrom) regQ = regQ.gte('date', dateFrom);
+        if (dateTo) regQ = regQ.lte('date', dateTo);
 
         const { data: regData } = await regQ;
         setRegisterRows((regData as any) ?? []);
@@ -364,13 +356,13 @@ const Reports = () => {
       return;
     }
     const rows = registerRows.map((r) => ({
-      data: r.register_date,
+      data: r.date,
       clasa: r.timetable_entries?.classes?.name ?? "",
       materie: r.timetable_entries?.subjects?.name ?? "",
       ora: r.timetable_entries?.period ?? "",
       interval: `${r.timetable_entries?.start_time ?? ""}-${r.timetable_entries?.end_time ?? ""}`,
       sala: r.timetable_entries?.room ?? "",
-      status: r.status ?? "",
+      status: "semnat",
     }));
     exportToCsv(
       `condica_${classLabel || "clasa"}_${dateFrom || ""}_${dateTo || ""}.csv`,
@@ -422,9 +414,9 @@ const Reports = () => {
             <CardContent className="grid gap-4 md:grid-cols-4">
               <div className="md:col-span-2">
                 <Label>Clasă</Label>
-                <Select value={classId} onValueChange={setClassId}>
+                <Select value={classId || undefined} onValueChange={setClassId} disabled={loading || classes.length === 0}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Alege clasa" />
+                    <SelectValue placeholder={loading ? "Se încarcă..." : classes.length === 0 ? "Nu există clase" : "Alege clasa"} />
                   </SelectTrigger>
                   <SelectContent>
                     {classes.map((c) => (
@@ -531,9 +523,9 @@ const Reports = () => {
                 <CardContent className="grid gap-4 md:grid-cols-2">
                   <div>
                     <Label>Elev (situație elev)</Label>
-                    <Select value={selectedStudentId} onValueChange={setSelectedStudentId}>
+                    <Select value={selectedStudentId || undefined} onValueChange={setSelectedStudentId} disabled={students.length === 0}>
                       <SelectTrigger>
-                        <SelectValue placeholder="Alege elev" />
+                        <SelectValue placeholder={students.length === 0 ? "Alege o clasă mai întâi" : "Alege elev"} />
                       </SelectTrigger>
                       <SelectContent>
                         {students.map((s) => (
@@ -608,7 +600,7 @@ const Reports = () => {
                       <div className="mt-4">
                         <h4 className="font-medium">Absențe/Prezență (interval)</h4>
                         <p className="text-sm text-muted-foreground mt-1">
-                          Absențe: {selectedAttendance.filter((a) => a.status === "absent").length} • Motivate: {selectedAttendance.filter((a) => a.status === "motivat").length}
+                          Absențe: {selectedAttendance.filter((a) => ["unexcused", "pending"].includes(a.status)).length} • Motivate: {selectedAttendance.filter((a) => a.status === "motivated").length}
                         </p>
                       </div>
                     </div>
@@ -663,7 +655,7 @@ const Reports = () => {
                           <TableBody>
                             {registerRows.slice(0, 40).map((r) => (
                               <TableRow key={r.id}>
-                                <TableCell>{r.register_date}</TableCell>
+                                <TableCell>{r.date}</TableCell>
                                 <TableCell>{r.timetable_entries?.classes?.name ?? "—"}</TableCell>
                                 <TableCell>{r.timetable_entries?.subjects?.name ?? "—"}</TableCell>
                                 <TableCell>{r.timetable_entries?.period ?? "—"}</TableCell>
@@ -671,7 +663,7 @@ const Reports = () => {
                                   {(r.timetable_entries?.start_time ?? "") + "-" + (r.timetable_entries?.end_time ?? "")}
                                 </TableCell>
                                 <TableCell>{r.timetable_entries?.room ?? "—"}</TableCell>
-                                <TableCell>{r.status ?? "—"}</TableCell>
+                                <TableCell>semnat</TableCell>
                               </TableRow>
                             ))}
                           </TableBody>

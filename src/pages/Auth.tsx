@@ -76,15 +76,29 @@ export default function Auth() {
     try {
       const role = validatedInvitation.role as AppRole;
 
+      // Prefer invitation data (saved at generate) over form input for name/phone/email
+      const invFirstName = validatedInvitation.first_name;
+      const invLastName = validatedInvitation.last_name;
+      const invEmail = validatedInvitation.invited_email;
+      const invPhone = validatedInvitation.invited_phone;
+      const invStudentNumber = validatedInvitation.invited_student_number;
+
+      const resolvedFullName =
+        invFirstName != null && invLastName != null
+          ? `${invFirstName.trim()} ${invLastName.trim()}`.trim()
+          : fullName.trim() || "Utilizator";
+      const resolvedEmail = (invEmail && invEmail.trim()) || email;
+      const resolvedPhone = (invPhone && invPhone.trim()) || (phone && phone.trim()) || null;
+
       // 1. Sign Up în Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
-        email,
+        email: resolvedEmail,
         password,
         options: {
           data: {
-            full_name: fullName,
+            full_name: resolvedFullName,
             role,
-            phone: phone || null,
+            phone: resolvedPhone,
           },
         },
       });
@@ -92,26 +106,36 @@ export default function Auth() {
       if (authError) throw authError;
       if (!authData.user) throw new Error("Eroare la crearea userului.");
 
-      // 2. Claim Invitație via RPC (Functia din baza de date)
+      // 2. Claim Invitație via RPC (returns invitation data for profile/student)
       const claimResult = await claimInvitation(invitationCode, authData.user.id);
       if (!claimResult.success) throw new Error(claimResult.error_message || "Eroare la activarea invitației");
 
-      // 3. Update Profil cu ID-ul școlii
-      if (claimResult.school_id) {
-        const { error: profileError } = await supabase
-          .from("profiles")
-          .update({ school_id: claimResult.school_id })
-          .eq("id", authData.user.id);
-        
-        if (profileError) console.error("Profile update error:", profileError);
-      }
+      const claimFullName =
+        claimResult.first_name != null && claimResult.last_name != null
+          ? `${claimResult.first_name} ${claimResult.last_name}`.trim()
+          : resolvedFullName;
+      const claimPhone = (claimResult.invited_phone && claimResult.invited_phone.trim()) || resolvedPhone;
+      const claimStudentNumber = claimResult.invited_student_number ?? invStudentNumber ?? null;
+
+      // 3. Update Profil: school_id, full_name, phone from invitation
+      const profileUpdates: { school_id?: string; full_name?: string; phone?: string | null } = {};
+      if (claimResult.school_id) profileUpdates.school_id = claimResult.school_id;
+      profileUpdates.full_name = claimFullName;
+      profileUpdates.phone = claimPhone;
+
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .update(profileUpdates)
+        .eq("id", authData.user.id);
+      if (profileError) console.error("Profile update error:", profileError);
 
       // 4. Logica specifică rolului (Student/Parent)
       if (role === "student" && claimResult.class_id) {
         await supabase.from("students").insert({
           user_id: authData.user.id,
           class_id: claimResult.class_id,
-          full_name: fullName,
+          full_name: claimFullName,
+          student_number: claimStudentNumber,
         });
       }
 
@@ -262,21 +286,58 @@ export default function Auth() {
                   <Label htmlFor="full-name">Nume Complet</Label>
                   <Input
                     id="full-name"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
+                    value={
+                      validatedInvitation?.first_name != null && validatedInvitation?.last_name != null
+                        ? `${validatedInvitation.first_name} ${validatedInvitation.last_name}`.trim()
+                        : fullName
+                    }
+                    onChange={(e) => {
+                      const isLocked =
+                        (validatedInvitation?.role === "student" || validatedInvitation?.role === "parent") &&
+                        validatedInvitation?.first_name != null &&
+                        validatedInvitation?.last_name != null;
+                      if (!isLocked) setFullName(e.target.value);
+                    }}
                     placeholder="Popescu Ion"
                     required
+                    readOnly={
+                      (validatedInvitation?.role === "student" || validatedInvitation?.role === "parent") &&
+                      validatedInvitation?.first_name != null &&
+                      validatedInvitation?.last_name != null
+                    }
+                    className={
+                      (validatedInvitation?.role === "student" || validatedInvitation?.role === "parent") &&
+                      validatedInvitation?.first_name != null &&
+                      validatedInvitation?.last_name != null
+                        ? "bg-muted cursor-not-allowed"
+                        : ""
+                    }
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="phone">Telefon (opțional)</Label>
+                  <Label htmlFor="phone">Telefon</Label>
                   <Input
                     id="phone"
                     type="tel"
-                    value={phone}
+                    value={
+                      (validatedInvitation?.role === "student" || validatedInvitation?.role === "parent") &&
+                      validatedInvitation?.invited_phone
+                        ? validatedInvitation.invited_phone
+                        : phone
+                    }
                     onChange={(e) => setPhone(e.target.value)}
                     placeholder="07xxxxxxxx"
+                    readOnly={
+                      (validatedInvitation?.role === "student" || validatedInvitation?.role === "parent") &&
+                      !!validatedInvitation?.invited_phone
+                    }
+                    className={
+                      (validatedInvitation?.role === "student" || validatedInvitation?.role === "parent") &&
+                      !!validatedInvitation?.invited_phone
+                        ? "bg-muted cursor-not-allowed"
+                        : ""
+                    }
                   />
                 </div>
               </>

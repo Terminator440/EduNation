@@ -48,7 +48,25 @@ export type GradeRow = {
   date: string;
   grade: number;
   description: string | null;
+  student_id: string;
   subject: { id: string; name: string; teacher_id: string | null } | null;
+};
+
+export type StudentNameRow = { id: string; full_name: string | null };
+
+export const useStudentsForScope = (studentIds: string[]) => {
+  return useQuery({
+    queryKey: ['students-names', studentIds],
+    enabled: studentIds.length > 0,
+    queryFn: async (): Promise<StudentNameRow[]> => {
+      if (studentIds.length === 0) return [];
+      const res = await supabase
+        .from('students')
+        .select('id, full_name')
+        .in('id', studentIds);
+      return assertSupabaseOk(res, 'students.select(names)') ?? [];
+    },
+  });
 };
 
 /** Raw grades from DB (for display only - averages come from views/RPC) */
@@ -59,7 +77,7 @@ export const useGradesForScope = (studentIds: string[]) => {
     queryFn: async (): Promise<GradeRow[]> => {
       const res = await supabase
         .from('grades')
-        .select('id,date,grade,description, subject:subjects(id,name,teacher_id)')
+        .select('id,date,grade,description,student_id, subject:subjects(id,name,teacher_id)')
         .in('student_id', studentIds)
         .order('date', { ascending: false });
       return assertSupabaseOk(res, 'grades.select');
