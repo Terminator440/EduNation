@@ -67,7 +67,6 @@ export function CreateInvitationDialog({
     : defaultRole || role
       ? [defaultRole || role] as InvitationRole[]
       : ["teacher" as InvitationRole];
-  const initialRole = defaultRole || role || rolesList[0];
   const isStudent = selectedRole === "student";
 
   useEffect(() => {
@@ -79,12 +78,13 @@ export function CreateInvitationDialog({
       setStudentNumber("");
       setEmail("");
       setPhone("");
-      setSelectedRole(initialRole);
+      setSelectedRole(defaultRole ?? role ?? rolesList[0]);
       setExpiresHours("24");
       setGeneratedCode(null);
       setCopied(false);
     }
-  }, [open, initialRole]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only reset when dialog opens, not on prop changes
+  }, [open]);
 
   const canSubmit =
     firstName.trim().length > 0 &&

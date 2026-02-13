@@ -490,6 +490,8 @@ export type Database = {
       students: {
         Row: {
           class_id: string
+          contact_email: string | null
+          contact_phone: string | null
           created_at: string | null
           full_name: string | null
           id: string
@@ -499,6 +501,8 @@ export type Database = {
         }
         Insert: {
           class_id: string
+          contact_email?: string | null
+          contact_phone?: string | null
           created_at?: string | null
           full_name?: string | null
           id?: string
@@ -508,6 +512,8 @@ export type Database = {
         }
         Update: {
           class_id?: string
+          contact_email?: string | null
+          contact_phone?: string | null
           created_at?: string | null
           full_name?: string | null
           id?: string
