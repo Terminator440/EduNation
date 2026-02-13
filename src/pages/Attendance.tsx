@@ -7,25 +7,31 @@ import { useAttendanceForScope, useStudentScope } from "@/features/academics/que
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
-type UiStatus = "present" | "absent" | "late" | "excused";
+type UiStatus = "present" | "absent" | "late" | "excused" | "pending";
 
 const statusConfig: Record<UiStatus, { label: string; icon: typeof UserCheck; color: string; dot: string }> = {
   present: { label: "Prezent", icon: UserCheck, color: "bg-success/10 text-success", dot: "bg-success" },
-  absent: { label: "Absent", icon: UserX, color: "bg-destructive/10 text-destructive", dot: "bg-destructive" },
+  absent: { label: "Nemotivat", icon: UserX, color: "bg-destructive/10 text-destructive", dot: "bg-destructive" },
   late: { label: "Întârziat", icon: Clock, color: "bg-warning/10 text-warning", dot: "bg-warning" },
   excused: { label: "Motivat", icon: Calendar, color: "bg-primary/10 text-primary", dot: "bg-primary" },
+  pending: { label: "În așteptare", icon: Clock, color: "bg-muted-foreground/20 text-muted-foreground", dot: "bg-muted-foreground" },
 };
 
 const mapDbStatus = (status: string): UiStatus => {
   switch (status) {
+    case 'present':
     case 'prezent':
       return 'present';
+    case 'unexcused':
     case 'absent':
       return 'absent';
     case 'intarziat':
       return 'late';
+    case 'motivated':
     case 'motivat':
       return 'excused';
+    case 'pending':
+      return 'pending';
     default:
       return 'present';
   }
@@ -33,7 +39,7 @@ const mapDbStatus = (status: string): UiStatus => {
 
 const Attendance = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [filter, setFilter] = useState<"all" | "absent" | "late" | "excused">("all");
+  const [filter, setFilter] = useState<"all" | "absent" | "late" | "excused" | "pending">("all");
 
   const { user, activeRole } = useAuth();
   const scopeQuery = useStudentScope(activeRole, user?.id ?? null);
@@ -78,15 +84,6 @@ const Attendance = () => {
         </header>
 
         <div className="p-8">
-          {(activeRole !== 'student' && activeRole !== 'parent') && (
-            <Alert className="mb-8">
-              <AlertTitle>Acces limitat</AlertTitle>
-              <AlertDescription>
-                Pagina „Prezență” este disponibilă doar pentru rolurile Elev și Părinte.
-              </AlertDescription>
-            </Alert>
-          )}
-
           {(scopeQuery.isLoading || attendanceQuery.isLoading) && (
             <div className="space-y-4 mb-8">
               <Skeleton className="h-24 w-full rounded-2xl" />
@@ -127,10 +124,11 @@ const Attendance = () => {
           </div>
 
           {/* Filter */}
-          <div className="flex gap-2 mb-6">
+          <div className="flex gap-2 mb-6 flex-wrap">
             {[
               { key: "all", label: "Toate" },
-              { key: "absent", label: "Absențe" },
+              { key: "absent", label: "Nemotivate" },
+              { key: "pending", label: "În așteptare" },
               { key: "late", label: "Întârzieri" },
               { key: "excused", label: "Motivate" },
             ].map((item) => (

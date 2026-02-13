@@ -1,6 +1,5 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { 
-  BookOpen, 
   LayoutDashboard, 
   GraduationCap, 
   Calendar, 
@@ -173,9 +172,7 @@ const Sidebar = ({ isCollapsed, onToggle }: SidebarProps) => {
       {/* Logo */}
       <div className="h-16 flex items-center justify-between px-4 border-b border-sidebar-border">
         <Link to={homeHref} className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-primary flex items-center justify-center shadow-md flex-shrink-0">
-            <BookOpen className="w-5 h-5 text-primary-foreground" />
-          </div>
+          <img src="/logo.png" alt="EduNation" className={cn("h-10 w-auto flex-shrink-0 object-contain", isCollapsed ? "mx-auto" : "")} />
           {!isCollapsed && (
             <span className="text-lg font-bold text-sidebar-foreground">EduNation</span>
           )}

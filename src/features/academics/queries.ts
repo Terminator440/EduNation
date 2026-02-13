@@ -51,6 +51,7 @@ export type GradeRow = {
   subject: { id: string; name: string; teacher_id: string | null } | null;
 };
 
+/** Raw grades from DB (for display only - averages come from views/RPC) */
 export const useGradesForScope = (studentIds: string[]) => {
   return useQuery({
     queryKey: ['grades', studentIds],
@@ -62,6 +63,48 @@ export const useGradesForScope = (studentIds: string[]) => {
         .in('student_id', studentIds)
         .order('date', { ascending: false });
       return assertSupabaseOk(res, 'grades.select');
+    },
+  });
+};
+
+export type SubjectAverageRow = {
+  student_id: string;
+  subject_id: string;
+  subject_name: string;
+  average: number;
+  grade_count: number;
+};
+
+/** Medii pe materii - citesc din views/RPC (nu se calculează în frontend) */
+export const useSubjectAveragesForScope = (studentIds: string[]) => {
+  return useQuery({
+    queryKey: ['subject-averages', studentIds],
+    enabled: studentIds.length > 0,
+    queryFn: async (): Promise<SubjectAverageRow[]> => {
+      const { data, error } = await supabase.rpc('get_subject_averages_for_students', {
+        p_student_ids: studentIds,
+      });
+      if (error) throw error;
+      return (data ?? []) as SubjectAverageRow[];
+    },
+  });
+};
+
+/** Media generală per student - din view/RPC */
+export const useGeneralAveragesForScope = (studentIds: string[]) => {
+  return useQuery({
+    queryKey: ['general-averages', studentIds],
+    enabled: studentIds.length > 0,
+    queryFn: async (): Promise<Record<string, number>> => {
+      const results: Record<string, number> = {};
+      for (const sid of studentIds) {
+        const { data, error } = await supabase.rpc('get_student_general_average_for_display', {
+          p_student_id: sid,
+        });
+        if (error) throw error;
+        results[sid] = data ?? 0;
+      }
+      return results;
     },
   });
 };

@@ -15,7 +15,7 @@ să fie scalabilă și ușor de extins
 
 să respecte principiul „database-ul este sursa adevărului”
 
-Proiectul este generat și iterat în Lovable, dar structura și logica aplicației sunt controlate manual.
+Structura și logica aplicației sunt controlate manual.
 
 Stack Tehnologic
 
@@ -109,9 +109,6 @@ validați politicile pentru fiecare rol
 confirmați că permisiunile din DB corespund exact logicii aplicației
 
 Deploy
-Lovable
-
-Share → Publish
 
 Alte platforme (Vercel, Netlify etc.)
 

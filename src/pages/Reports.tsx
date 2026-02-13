@@ -78,11 +78,7 @@ const todayKey = () => {
   return `${y}-${m}-${day}`;
 };
 
-const safeAvg = (nums: number[]) => {
-  if (nums.length === 0) return null;
-  const sum = nums.reduce((a, b) => a + b, 0);
-  return sum / nums.length;
-};
+// Medii din DB (RPC) - nu map/reduce în frontend
 
 const Reports = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -94,6 +90,8 @@ const Reports = () => {
   const [grades, setGrades] = useState<GradeRow[]>([]);
   const [attendance, setAttendance] = useState<AttendanceRow[]>([]);
   const [registerRows, setRegisterRows] = useState<RegisterRow[]>([]);
+  const [classStatsFromDb, setClassStatsFromDb] = useState<{ student_id: string; general_average: number | null; absences_count: number }[]>([]);
+  const [classTotalsFromDb, setClassTotalsFromDb] = useState<{ class_average: number | null; total_absences: number; total_motivated: number } | null>(null);
 
   const [dateFrom, setDateFrom] = useState<string>("");
   const [dateTo, setDateTo] = useState<string>(todayKey());
@@ -147,6 +145,8 @@ const Reports = () => {
       setGrades([]);
       setAttendance([]);
       setRegisterRows([]);
+      setClassStatsFromDb([]);
+      setClassTotalsFromDb(null);
       setSelectedStudentId("");
       setLoading(false);
       return;
@@ -198,6 +198,21 @@ const Reports = () => {
       if (atErr) throw atErr;
       setGrades((gr as any) ?? []);
       setAttendance((at as any) ?? []);
+
+      const [{ data: statsData, error: statsErr }, { data: totalsData, error: totalsErr }] = await Promise.all([
+        supabase.rpc('get_class_stats_for_display', {
+          p_class_id: classId,
+          p_date_from: dateFrom || null,
+          p_date_to: dateTo || null,
+        }),
+        supabase.rpc('get_class_totals_for_display', {
+          p_class_id: classId,
+          p_date_from: dateFrom || null,
+          p_date_to: dateTo || null,
+        }),
+      ]);
+      if (!statsErr) setClassStatsFromDb((statsData as any) ?? []);
+      if (!totalsErr && totalsData && (totalsData as any[]).length) setClassTotalsFromDb((totalsData as any[])[0]);
 
       // Teacher register (condică profesor) — best-effort: works only if table + RLS allow access.
       try {
@@ -285,27 +300,27 @@ const Reports = () => {
   }, [attendance]);
 
   const classStats = useMemo(() => {
-    const absences = attendance.filter((a) => a.status === "absent").length;
-    const motivated = attendance.filter((a) => a.status === "motivat").length;
-    const avg = safeAvg(grades.map((g) => Number(g.grade)));
-    return { absences, motivated, avg };
-  }, [attendance, grades]);
+    const t = classTotalsFromDb;
+    return {
+      absences: t?.total_absences ?? 0,
+      motivated: t?.total_motivated ?? 0,
+      avg: t?.class_average ?? null,
+    };
+  }, [classTotalsFromDb]);
 
   const classRowsForPrint = useMemo(() => {
+    const statsMap = new Map(classStatsFromDb.map((r) => [r.student_id, r]));
     return students.map((s) => {
+      const st = statsMap.get(s.id);
       const gs = gradesByStudent.get(s.id) ?? [];
-      const as = attendanceByStudent.get(s.id) ?? [];
-      const avg = safeAvg(gs.map((g) => Number(g.grade)));
-      const abs = as.filter((a) => a.status === "absent").length;
-      const hasGrades = gs.length > 0;
       return {
         ...s,
-        avg,
-        abs,
-        hasGrades,
+        avg: st?.general_average ?? null,
+        abs: st?.absences_count ?? 0,
+        hasGrades: gs.length > 0,
       };
     });
-  }, [students, gradesByStudent, attendanceByStudent]);
+  }, [students, classStatsFromDb, gradesByStudent]);
 
   const selectedStudent = selectedStudentId ? studentById.get(selectedStudentId) ?? null : null;
   const selectedGrades = selectedStudentId ? gradesByStudent.get(selectedStudentId) ?? [] : [];

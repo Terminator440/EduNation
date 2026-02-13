@@ -1,4 +1,4 @@
-import { BookOpen, Mail, Phone, MapPin } from "lucide-react";
+import { Mail, Phone, MapPin } from "lucide-react";
 import { Link } from "react-router-dom";
 
 const Footer = () => {
@@ -9,10 +9,7 @@ const Footer = () => {
           {/* Brand */}
           <div className="md:col-span-1">
             <Link to="/" className="flex items-center gap-2 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-gradient-primary flex items-center justify-center">
-                <BookOpen className="w-5 h-5 text-primary-foreground" />
-              </div>
-              <span className="text-xl font-bold text-foreground">EduNation</span>
+              <img src="/logo.png" alt="EduNation" className="h-12 w-auto" />
             </Link>
             <p className="text-muted-foreground text-sm leading-relaxed">
               Catalog digital școlar pentru digitalizarea completă a proceselor educaționale din România.

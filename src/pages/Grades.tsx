@@ -3,9 +3,8 @@ import { TrendingUp, TrendingDown, Award, BookOpen } from "lucide-react";
 import Sidebar from "@/components/dashboard/Sidebar";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
-import { useGradesForScope, useStudentScope } from "@/features/academics/queries";
+import { useSubjectAveragesForScope, useGeneralAveragesForScope, useGradesForScope, useStudentScope } from "@/features/academics/queries";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 const getAverageColor = (avg: number) => {
   if (avg >= 9) return "text-success";
@@ -27,39 +26,53 @@ const Grades = () => {
 
   const { user, activeRole } = useAuth();
   const scopeQuery = useStudentScope(activeRole, user?.id ?? null);
-  const gradesQuery = useGradesForScope(scopeQuery.data?.studentIds ?? []);
+  const studentIds = scopeQuery.data?.studentIds ?? [];
+  const subjectAveragesQuery = useSubjectAveragesForScope(studentIds);
+  const generalAveragesQuery = useGeneralAveragesForScope(studentIds);
+  const gradesQuery = useGradesForScope(studentIds);
 
+  // Medii din views/RPC - nu map/reduce pentru medii
   const gradesBySubject = useMemo(() => {
-    const rows = gradesQuery.data ?? [];
-    const map = new Map<string, { subject: string; grades: number[]; average: number }>();
+    const rows = subjectAveragesQuery.data ?? [];
+    const bySubject = new Map<string, { subject: string; average: number; grade_count: number }>();
     for (const r of rows) {
-      const subjectName = r.subject?.name ?? 'Materie necunoscută';
-      const existing = map.get(subjectName) ?? { subject: subjectName, grades: [], average: 0 };
-      existing.grades.push(r.grade);
-      map.set(subjectName, existing);
+      const name = r.subject_name ?? 'Materie necunoscută';
+      const existing = bySubject.get(name);
+      if (!existing || r.average > existing.average) {
+        bySubject.set(name, { subject: name, average: Number(r.average), grade_count: r.grade_count ?? 0 });
+      } else {
+        existing.grade_count += r.grade_count ?? 0;
+      }
     }
-    const out = Array.from(map.values()).map(s => ({
-      ...s,
-      average: s.grades.length ? s.grades.reduce((a, b) => a + b, 0) / s.grades.length : 0,
-    }));
-    // keep a stable order
-    return out.sort((a, b) => a.subject.localeCompare(b.subject, 'ro'));
+    return Array.from(bySubject.values()).sort((a, b) => a.subject.localeCompare(b.subject, 'ro'));
+  }, [subjectAveragesQuery.data]);
+
+  const gradesBySubjectName = useMemo(() => {
+    const map = new Map<string, number[]>();
+    for (const r of gradesQuery.data ?? []) {
+      const name = r.subject?.name ?? 'Materie necunoscută';
+      const arr = map.get(name) ?? [];
+      arr.push(r.grade);
+      map.set(name, arr);
+    }
+    return map;
   }, [gradesQuery.data]);
 
   const generalAverage = useMemo(() => {
-    if (gradesBySubject.length === 0) return 0;
-    const sum = gradesBySubject.reduce((sum, g) => sum + g.average, 0);
-    return sum / gradesBySubject.length;
-  }, [gradesBySubject]);
+    const map = generalAveragesQuery.data ?? {};
+    const vals = Object.values(map).filter((v): v is number => typeof v === 'number' && v > 0);
+    if (vals.length === 0) return 0;
+    return vals.reduce((a, b) => a + b, 0) / vals.length;
+  }, [generalAveragesQuery.data]);
 
   const bestSubject = useMemo(() => {
     return gradesBySubject.reduce(
       (best, g) => (g.average > best.average ? g : best),
-      gradesBySubject[0] ?? { subject: '-', grades: [], average: 0 }
+      gradesBySubject[0] ?? { subject: '-', average: 0, grade_count: 0 }
     );
   }, [gradesBySubject]);
 
-  const totalGrades = useMemo(() => gradesBySubject.reduce((sum, g) => sum + g.grades.length, 0), [gradesBySubject]);
+  const totalGrades = useMemo(() => gradesBySubject.reduce((sum, g) => sum + g.grade_count, 0), [gradesBySubject]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -77,29 +90,17 @@ const Grades = () => {
         </header>
 
         <div className="p-8">
-          {(activeRole !== 'student' && activeRole !== 'parent') && (
-            <Alert className="mb-8">
-              <AlertTitle>Acces limitat</AlertTitle>
-              <AlertDescription>
-                Pagina „Note” este disponibilă doar pentru rolurile Elev și Părinte.
-              </AlertDescription>
-            </Alert>
-          )}
-
-          {(scopeQuery.isLoading || gradesQuery.isLoading) && (
+          {(scopeQuery.isLoading || subjectAveragesQuery.isLoading || generalAveragesQuery.isLoading || gradesQuery.isLoading) && (
             <div className="space-y-4 mb-8">
               <Skeleton className="h-24 w-full rounded-2xl" />
               <Skeleton className="h-64 w-full rounded-2xl" />
             </div>
           )}
 
-          {(scopeQuery.isError || gradesQuery.isError) && (
-            <Alert variant="destructive" className="mb-8">
-              <AlertTitle>Eroare</AlertTitle>
-              <AlertDescription>
-                Nu am putut încărca notele. Verifică dacă ești autentificat și dacă ai acces (RLS) în Supabase.
-              </AlertDescription>
-            </Alert>
+          {(scopeQuery.isError || subjectAveragesQuery.isError || generalAveragesQuery.isError || gradesQuery.isError) && (
+            <div className="mb-8 rounded-xl border border-destructive/50 bg-destructive/10 p-4 text-destructive">
+              Nu am putut încărca notele. Verifică dacă ești autentificat.
+            </div>
           )}
 
           {/* Stats */}
@@ -186,7 +187,7 @@ const Grades = () => {
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex gap-2 flex-wrap">
-                          {grade.grades.map((g, i) => (
+                          {(gradesBySubjectName.get(grade.subject) ?? []).map((g, i) => (
                             <span
                               key={i}
                               className={cn(
@@ -215,7 +216,7 @@ const Grades = () => {
             </div>
           </div>
 
-          {gradesBySubject.length === 0 && !gradesQuery.isLoading && !gradesQuery.isError && (
+          {gradesBySubject.length === 0 && !subjectAveragesQuery.isLoading && !subjectAveragesQuery.isError && (
             <div className="mt-6 text-sm text-muted-foreground">
               Nu există note încă (sau nu ai încă un elev asociat în baza de date).
             </div>
