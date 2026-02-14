@@ -78,19 +78,30 @@ DO $user_roles_setup$
 DECLARE
   col_type text;
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'user_roles') THEN
-    CREATE TABLE public.user_roles (
+  -- 1. Verificăm existența tabelului folosind doar tipuri standard (text)
+  IF NOT EXISTS (
+    SELECT 1
+    FROM information_schema.tables
+    WHERE table_schema = 'public'
+    AND table_name = 'user_roles'
+  ) THEN
+    -- Creăm tabelul folosind EXECUTE pentru a izola tipul public.app_role
+    EXECUTE 'CREATE TABLE public.user_roles (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
       role public.app_role NOT NULL,
       UNIQUE (user_id, role)
-    );
+    )';
   ELSE
+    -- 2. Dacă tabelul există, verificăm tipul coloanei
     SELECT udt_name::text INTO col_type
     FROM information_schema.columns
-    WHERE table_schema = 'public' AND table_name = 'user_roles' AND column_name = 'role';
+    WHERE table_schema = 'public'
+    AND table_name = 'user_roles'
+    AND column_name = 'role';
 
-    -- Conversie doar dacă nu este deja app_role
+    -- 3. Conversie forțată doar dacă e necesar
+    -- Comparăm text cu text (col_type e deja text)
     IF col_type IS NOT NULL AND col_type <> 'app_role' THEN
       EXECUTE 'ALTER TABLE public.user_roles
                ALTER COLUMN role TYPE public.app_role
