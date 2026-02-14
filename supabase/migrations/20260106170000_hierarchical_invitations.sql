@@ -119,7 +119,7 @@ begin
     return;
   end if;
 
-  if p_role = 'parent' and p_student_id is null then
+  if p_role = 'parent'::public.invitation_role and p_student_id is null then
     return query select null::uuid, null::text, null::timestamptz, null::integer, null::text, 'Student is required for parent invitations';
     return;
   end if;

@@ -58,10 +58,10 @@ CREATE TABLE public.invitations (
   
   -- Constraints
   CONSTRAINT valid_class_for_student_parent CHECK (
-    (role NOT IN ('student', 'parent')) OR (class_id IS NOT NULL)
+    (role NOT IN ('student'::public.invitation_role, 'parent'::public.invitation_role)) OR (class_id IS NOT NULL)
   ),
   CONSTRAINT valid_student_for_parent CHECK (
-    (role != 'parent') OR (student_id IS NOT NULL)
+    (role != 'parent'::public.invitation_role) OR (student_id IS NOT NULL)
   )
 );
 
@@ -97,7 +97,7 @@ CREATE POLICY "Directors can manage teacher invitations"
   ON public.invitations FOR ALL
   USING (
     has_role(auth.uid(), 'director'::app_role) AND
-    role IN ('teacher', 'homeroom_teacher') AND
+    role IN ('teacher'::public.invitation_role, 'homeroom_teacher'::public.invitation_role) AND
     school_id IN (
       SELECT p.school_id FROM public.profiles p WHERE p.id = auth.uid()
     )
@@ -108,7 +108,7 @@ CREATE POLICY "Homeroom teachers can manage student parent invitations"
   ON public.invitations FOR ALL
   USING (
     has_role(auth.uid(), 'homeroom_teacher'::app_role) AND
-    role IN ('student', 'parent') AND
+    role IN ('student'::public.invitation_role, 'parent'::public.invitation_role) AND
     class_id IN (
       SELECT c.id FROM public.classes c WHERE c.teacher_id = auth.uid()
     )
@@ -248,12 +248,12 @@ BEGIN
   v_created_by := COALESCE(p_created_by, auth.uid());
   
   -- Validate based on role
-  IF p_role IN ('student', 'parent') AND p_class_id IS NULL THEN
+  IF p_role IN ('student'::public.invitation_role, 'parent'::public.invitation_role) AND p_class_id IS NULL THEN
     RETURN QUERY SELECT NULL::uuid, NULL::text, 'class_id este obligatoriu pentru elevi și părinți'::text;
     RETURN;
   END IF;
   
-  IF p_role = 'parent' AND p_student_id IS NULL THEN
+  IF p_role = 'parent'::public.invitation_role AND p_student_id IS NULL THEN
     RETURN QUERY SELECT NULL::uuid, NULL::text, 'student_id este obligatoriu pentru părinți'::text;
     RETURN;
   END IF;

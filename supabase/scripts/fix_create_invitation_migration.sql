@@ -83,7 +83,7 @@ BEGIN
   IF has_role(v_user_id, 'developer'::app_role) THEN
     NULL;
   ELSIF has_role(v_user_id, 'director'::app_role) THEN
-    IF p_role NOT IN ('teacher', 'homeroom_teacher', 'secretariat') THEN
+    IF p_role NOT IN ('teacher'::public.invitation_role, 'homeroom_teacher'::public.invitation_role, 'secretariat'::public.invitation_role) THEN
       RETURN QUERY SELECT NULL::uuid, NULL::text, 'Directors can only invite teacher / homeroom_teacher / secretariat'::text;
       RETURN;
     END IF;
@@ -92,7 +92,7 @@ BEGIN
       RETURN;
     END IF;
   ELSIF has_role(v_user_id, 'homeroom_teacher'::app_role) THEN
-    IF p_role NOT IN ('student', 'parent') THEN
+    IF p_role NOT IN ('student'::public.invitation_role, 'parent'::public.invitation_role) THEN
       RETURN QUERY SELECT NULL::uuid, NULL::text, 'Homeroom teachers can only invite student / parent'::text;
       RETURN;
     END IF;
@@ -114,12 +114,12 @@ BEGIN
     RETURN;
   END IF;
 
-  IF p_role IN ('student', 'parent') AND p_class_id IS NULL THEN
+  IF p_role IN ('student'::public.invitation_role, 'parent'::public.invitation_role) AND p_class_id IS NULL THEN
     RETURN QUERY SELECT NULL::uuid, NULL::text, 'Class is required for student/parent invitations'::text;
     RETURN;
   END IF;
 
-  IF p_role = 'parent' AND p_student_id IS NULL THEN
+  IF p_role = 'parent'::public.invitation_role AND p_student_id IS NULL THEN
     RETURN QUERY SELECT NULL::uuid, NULL::text, 'Student is required for parent invitations'::text;
     RETURN;
   END IF;
