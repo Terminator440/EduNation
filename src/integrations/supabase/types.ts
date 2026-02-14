@@ -43,33 +43,61 @@ export type Database = {
       }
       attendance: {
         Row: {
+          absence_type: string | null
           created_at: string | null
           date: string
           id: string
+          is_final: boolean
+          justification_doc: string | null
+          motivated_at: string | null
+          motivated_by: string | null
+          motivation_deadline: string | null
+          school_year_id: string | null
           status: string
           student_id: string
           subject_id: string
           teacher_id: string | null
         }
         Insert: {
+          absence_type?: string | null
           created_at?: string | null
           date?: string
           id?: string
+          is_final?: boolean
+          justification_doc?: string | null
+          motivated_at?: string | null
+          motivated_by?: string | null
+          motivation_deadline?: string | null
+          school_year_id?: string | null
           status: string
           student_id: string
           subject_id: string
           teacher_id?: string | null
         }
         Update: {
+          absence_type?: string | null
           created_at?: string | null
           date?: string
           id?: string
+          is_final?: boolean
+          justification_doc?: string | null
+          motivated_at?: string | null
+          motivated_by?: string | null
+          motivation_deadline?: string | null
+          school_year_id?: string | null
           status?: string
           student_id?: string
           subject_id?: string
           teacher_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "attendance_school_year_id_fkey"
+            columns: ["school_year_id"]
+            isOneToOne: false
+            referencedRelation: "school_years"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "attendance_student_id_fkey"
             columns: ["student_id"]
@@ -169,6 +197,152 @@ export type Database = {
           },
         ]
       }
+      conduct_grade_history: {
+        Row: {
+          change_reason: string | null
+          changed_at: string
+          changed_by: string
+          conduct_grade_id: string
+          id: string
+          new_grade: number
+          old_grade: number | null
+        }
+        Insert: {
+          change_reason?: string | null
+          changed_at?: string
+          changed_by: string
+          conduct_grade_id: string
+          id?: string
+          new_grade: number
+          old_grade?: number | null
+        }
+        Update: {
+          change_reason?: string | null
+          changed_at?: string
+          changed_by?: string
+          conduct_grade_id?: string
+          id?: string
+          new_grade?: number
+          old_grade?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conduct_grade_history_conduct_grade_id_fkey"
+            columns: ["conduct_grade_id"]
+            isOneToOne: false
+            referencedRelation: "conduct_grades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      conduct_grades: {
+        Row: {
+          created_at: string
+          grade: number
+          id: string
+          modified_by: string
+          modified_reason: string | null
+          school_year_id: string
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          grade?: number
+          id?: string
+          modified_by: string
+          modified_reason?: string | null
+          school_year_id: string
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          grade?: number
+          id?: string
+          modified_by?: string
+          modified_reason?: string | null
+          school_year_id?: string
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conduct_grades_school_year_id_fkey"
+            columns: ["school_year_id"]
+            isOneToOne: false
+            referencedRelation: "school_years"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conduct_grades_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      disciplinary_actions: {
+        Row: {
+          action_type: string
+          affects_conduct: boolean | null
+          conduct_points_deducted: number | null
+          council_date: string | null
+          council_decision: boolean | null
+          created_at: string
+          description: string | null
+          id: string
+          issued_by: string
+          issued_date: string
+          school_year_id: string
+          student_id: string
+        }
+        Insert: {
+          action_type: string
+          affects_conduct?: boolean | null
+          conduct_points_deducted?: number | null
+          council_date?: string | null
+          council_decision?: boolean | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          issued_by: string
+          issued_date?: string
+          school_year_id: string
+          student_id: string
+        }
+        Update: {
+          action_type?: string
+          affects_conduct?: boolean | null
+          conduct_points_deducted?: number | null
+          council_date?: string | null
+          council_decision?: boolean | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          issued_by?: string
+          issued_date?: string
+          school_year_id?: string
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "disciplinary_actions_school_year_id_fkey"
+            columns: ["school_year_id"]
+            isOneToOne: false
+            referencedRelation: "school_years"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "disciplinary_actions_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       grades: {
         Row: {
           created_at: string | null
@@ -176,6 +350,7 @@ export type Database = {
           description: string | null
           grade: number
           id: string
+          school_year_id: string | null
           student_id: string
           subject_id: string
           teacher_id: string | null
@@ -186,6 +361,7 @@ export type Database = {
           description?: string | null
           grade: number
           id?: string
+          school_year_id?: string | null
           student_id: string
           subject_id: string
           teacher_id?: string | null
@@ -196,11 +372,19 @@ export type Database = {
           description?: string | null
           grade?: number
           id?: string
+          school_year_id?: string | null
           student_id?: string
           subject_id?: string
           teacher_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "grades_school_year_id_fkey"
+            columns: ["school_year_id"]
+            isOneToOne: false
+            referencedRelation: "school_years"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "grades_student_id_fkey"
             columns: ["student_id"]
@@ -410,6 +594,39 @@ export type Database = {
           },
         ]
       }
+      school_years: {
+        Row: {
+          closed_at: string | null
+          closed_by: string | null
+          created_at: string
+          end_date: string
+          id: string
+          is_closed: boolean
+          label: string
+          start_date: string
+        }
+        Insert: {
+          closed_at?: string | null
+          closed_by?: string | null
+          created_at?: string
+          end_date: string
+          id?: string
+          is_closed?: boolean
+          label: string
+          start_date: string
+        }
+        Update: {
+          closed_at?: string | null
+          closed_by?: string | null
+          created_at?: string
+          end_date?: string
+          id?: string
+          is_closed?: boolean
+          label?: string
+          start_date?: string
+        }
+        Relationships: []
+      }
       schools: {
         Row: {
           address: string | null
@@ -490,8 +707,6 @@ export type Database = {
       students: {
         Row: {
           class_id: string
-          contact_email: string | null
-          contact_phone: string | null
           created_at: string | null
           full_name: string | null
           id: string
@@ -501,8 +716,6 @@ export type Database = {
         }
         Insert: {
           class_id: string
-          contact_email?: string | null
-          contact_phone?: string | null
           created_at?: string | null
           full_name?: string | null
           id?: string
@@ -512,8 +725,6 @@ export type Database = {
         }
         Update: {
           class_id?: string
-          contact_email?: string | null
-          contact_phone?: string | null
           created_at?: string | null
           full_name?: string | null
           id?: string
@@ -693,11 +904,172 @@ export type Database = {
         }
         Relationships: []
       }
+      year_end_snapshots: {
+        Row: {
+          conduct_grade: number | null
+          created_by: string | null
+          general_average: number | null
+          id: string
+          motivated_absences: number | null
+          school_year_id: string
+          snapshot_at: string
+          student_id: string
+          subject_average: number | null
+          subject_id: string
+          total_absences: number | null
+          unmotivated_absences: number | null
+        }
+        Insert: {
+          conduct_grade?: number | null
+          created_by?: string | null
+          general_average?: number | null
+          id?: string
+          motivated_absences?: number | null
+          school_year_id: string
+          snapshot_at?: string
+          student_id: string
+          subject_average?: number | null
+          subject_id: string
+          total_absences?: number | null
+          unmotivated_absences?: number | null
+        }
+        Update: {
+          conduct_grade?: number | null
+          created_by?: string | null
+          general_average?: number | null
+          id?: string
+          motivated_absences?: number | null
+          school_year_id?: string
+          snapshot_at?: string
+          student_id?: string
+          subject_average?: number | null
+          subject_id?: string
+          total_absences?: number | null
+          unmotivated_absences?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "year_end_snapshots_school_year_id_fkey"
+            columns: ["school_year_id"]
+            isOneToOne: false
+            referencedRelation: "school_years"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "year_end_snapshots_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "year_end_snapshots_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
-      [_ in never]: never
+      v_student_absence_summary: {
+        Row: {
+          motivated: number | null
+          pending: number | null
+          school_year_id: string | null
+          student_id: string | null
+          total_absences: number | null
+          unmotivated: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendance_school_year_id_fkey"
+            columns: ["school_year_id"]
+            isOneToOne: false
+            referencedRelation: "school_years"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_student_general_averages: {
+        Row: {
+          general_average: number | null
+          school_year_id: string | null
+          student_id: string | null
+          subject_count: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "grades_school_year_id_fkey"
+            columns: ["school_year_id"]
+            isOneToOne: false
+            referencedRelation: "school_years"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "grades_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_student_subject_averages: {
+        Row: {
+          average: number | null
+          grade_count: number | null
+          school_year_id: string | null
+          student_id: string | null
+          subject_id: string | null
+          subject_name: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "grades_school_year_id_fkey"
+            columns: ["school_year_id"]
+            isOneToOne: false
+            referencedRelation: "school_years"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "grades_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "grades_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
+      calc_general_average: {
+        Args: { p_school_year_id?: string; p_student_id: string }
+        Returns: number
+      }
+      calc_subject_average: {
+        Args: {
+          p_school_year_id?: string
+          p_student_id: string
+          p_subject_id: string
+        }
+        Returns: number
+      }
       claim_invitation: {
         Args: { p_code_hash: string; p_user_id: string }
         Returns: {
@@ -710,50 +1082,57 @@ export type Database = {
           success: boolean
         }[]
       }
-      create_invitation: {
-        Args: {
-          p_class_id?: string | null
-          p_created_by?: string | null
-          p_expires_hours?: number
-          p_first_name?: string | null
-          p_intended_for?: string | null
-          p_invited_email?: string | null
-          p_invited_phone?: string | null
-          p_last_name?: string | null
-          p_max_uses?: number
-          p_role: Database["public"]["Enums"]["invitation_role"]
-          p_school_id: string
-          p_student_id?: string | null
-          p_student_number?: number | null
-        }
-        Returns: {
-          error_message: string
-          invitation_id: string
-          plain_code: string
-        }[]
-      }
+      close_year: { Args: { p_school_year_id: string }; Returns: boolean }
+      create_invitation:
+        | {
+            Args: {
+              p_class_id?: string
+              p_created_by?: string
+              p_expires_hours?: number
+              p_intended_for?: string
+              p_max_uses?: number
+              p_role: Database["public"]["Enums"]["invitation_role"]
+              p_school_id: string
+              p_student_id?: string
+            }
+            Returns: {
+              error_message: string
+              invitation_id: string
+              plain_code: string
+            }[]
+          }
+        | {
+            Args: {
+              p_class_id?: string
+              p_created_by?: string
+              p_expires_hours?: number
+              p_max_uses?: number
+              p_role: Database["public"]["Enums"]["invitation_role"]
+              p_school_id: string
+              p_student_id?: string
+            }
+            Returns: {
+              error_message: string
+              invitation_id: string
+              plain_code: string
+            }[]
+          }
+      finalize_expired_absences: { Args: never; Returns: number }
       generate_activation_code: { Args: never; Returns: string }
       generate_invitation_code: { Args: never; Returns: string }
       get_class_stats_for_display: {
-        Args: {
-          p_class_id: string
-          p_date_from?: string | null
-          p_date_to?: string | null
-        }
+        Args: { p_class_id: string; p_date_from?: string; p_date_to?: string }
         Returns: {
-          student_id: string
-          general_average: number | null
           absences_count: number
+          general_average: number
+          student_id: string
+          student_name: string
         }[]
       }
       get_class_totals_for_display: {
-        Args: {
-          p_class_id: string
-          p_date_from?: string | null
-          p_date_to?: string | null
-        }
+        Args: { p_class_id: string; p_date_from?: string; p_date_to?: string }
         Returns: {
-          class_average: number | null
+          class_average: number
           total_absences: number
           total_motivated: number
         }[]

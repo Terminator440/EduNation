@@ -127,7 +127,7 @@ export const claimInvitation = async (
       return { success: false, error_message: error.message };
     }
 
-    const result = Array.isArray(data) ? data[0] : data;
+    const result: any = Array.isArray(data) ? data[0] : data;
 
     if (!result || !result.success) {
       return {
