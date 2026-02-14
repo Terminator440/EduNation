@@ -1,15 +1,10 @@
--- Fix: operator does not exist: text = app_role (SQLSTATE 42883)
--- user_roles.role can be text or app_role depending on migration order; compare as text so it always works.
-CREATE OR REPLACE FUNCTION public.has_role(_user_id uuid, _role public.app_role)
-RETURNS boolean
-LANGUAGE sql
-STABLE SECURITY DEFINER
-SET search_path = public
-AS $$
-  SELECT EXISTS (
-    SELECT 1
-    FROM public.user_roles
-    WHERE user_id = _user_id
-      AND role::text = _role::text
-  )
-$$;
+-- Fix la nivel de schemă: coloana public.user_roles.role trebuie să fie public.app_role (nu text).
+-- Presupune că tipul public.app_role există deja (bootstrap). Double cast evită "operator does not exist: app_role = text".
+-- Rulează înainte de orice (re)creare a funcției has_role. Idempotent.
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'user_roles') THEN
+    ALTER TABLE public.user_roles
+      ALTER COLUMN role TYPE public.app_role USING role::text::public.app_role;
+  END IF;
+END $$;

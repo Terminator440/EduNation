@@ -81,13 +81,22 @@ CREATE TRIGGER update_profiles_updated_at
   BEFORE UPDATE ON public.profiles
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
--- 5) User roles
-CREATE TABLE IF NOT EXISTS public.user_roles (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  role public.app_role NOT NULL,
-  UNIQUE (user_id, role)
-);
+-- 5) User roles (nu CREATE TABLE IF NOT EXISTS: fie creăm cu role app_role, fie convertim coloana)
+DO $user_roles$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'user_roles') THEN
+    CREATE TABLE public.user_roles (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+      role public.app_role NOT NULL,
+      UNIQUE (user_id, role)
+    );
+  ELSE
+    -- Double cast evită "operator does not exist: app_role = text". Tipul public.app_role e definit la 1) Enums.
+    ALTER TABLE public.user_roles
+      ALTER COLUMN role TYPE public.app_role USING role::text::public.app_role;
+  END IF;
+END $user_roles$;
 ALTER TABLE public.user_roles ENABLE ROW LEVEL SECURITY;
 
 -- 6) Classes (references schools, auth.users for teacher)

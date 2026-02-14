@@ -109,12 +109,22 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   updated_at TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE TABLE IF NOT EXISTS public.user_roles (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
-  role public.app_role NOT NULL,
-  UNIQUE (user_id, role)
-);
+-- user_roles: nu CREATE TABLE IF NOT EXISTS; dacă nu există creăm cu role app_role, dacă există convertim role la app_role înainte de has_role
+DO $user_roles$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'user_roles') THEN
+    CREATE TABLE public.user_roles (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+      role public.app_role NOT NULL,
+      UNIQUE (user_id, role)
+    );
+  ELSE
+    -- Double cast: role poate fi text sau enum; role::text::public.app_role forțează conversie corectă (evită app_role = text).
+    ALTER TABLE public.user_roles
+      ALTER COLUMN role TYPE public.app_role USING role::text::public.app_role;
+  END IF;
+END $user_roles$;
 
 CREATE TABLE IF NOT EXISTS public.classes (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
