@@ -1,44 +1,26 @@
--- Bootstrap schema for EduNation.
---
--- Purpose
--- =======
--- Make the database resilient to partial/failed setup by ensuring the *core* tables
--- and functions exist before later migrations reference them (especially public.students).
---
--- Safe to run multiple times.
-
--- 0) Extensions
+-- 0) Extensii
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
--- 1) Roles enum (handle both legacy Romanian enum + current English enum)
+-- 1) Configurare ENUM app_role
 DO $bootstrap$
 DECLARE
   has_type boolean;
   has_romanian boolean;
-  has_new_type boolean;
 BEGIN
   SELECT EXISTS (
-    SELECT 1
-    FROM pg_type
-    WHERE typnamespace = 'public'::regnamespace
-      AND typname = 'app_role'
+    SELECT 1 FROM pg_type
+    WHERE typnamespace = 'public'::regnamespace AND typname = 'app_role'
   ) INTO has_type;
 
   IF NOT has_type THEN
     CREATE TYPE public.app_role AS ENUM (
-      'student',
-      'parent',
-      'teacher',
-      'homeroom_teacher',
-      'secretariat',
-      'director',
-      'uat_admin'
+      'student', 'parent', 'teacher', 'homeroom_teacher',
+      'secretariat', 'director', 'uat_admin'
     );
   ELSE
-    -- If the enum contains the old Romanian values, migrate it to the current enum.
+    -- Verificăm dacă există valori vechi în limba română
     SELECT EXISTS (
-      SELECT 1
-      FROM pg_enum e
+      SELECT 1 FROM pg_enum e
       JOIN pg_type t ON t.oid = e.enumtypid
       WHERE t.typnamespace = 'public'::regnamespace
         AND t.typname = 'app_role'
@@ -46,59 +28,42 @@ BEGIN
     ) INTO has_romanian;
 
     IF has_romanian THEN
-      -- Create new enum if needed.
-      SELECT EXISTS (
-        SELECT 1
-        FROM pg_type
-        WHERE typnamespace = 'public'::regnamespace
-          AND typname = 'app_role_new'
-      ) INTO has_new_type;
-
-      IF NOT has_new_type THEN
+      -- Creăm un tip temporar pentru migrare
+      IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typnamespace = 'public'::regnamespace AND typname = 'app_role_new') THEN
         CREATE TYPE public.app_role_new AS ENUM (
-          'student',
-          'parent',
-          'teacher',
-          'homeroom_teacher',
-          'secretariat',
-          'director',
-          'uat_admin'
+          'student', 'parent', 'teacher', 'homeroom_teacher',
+          'secretariat', 'director', 'uat_admin'
         );
       END IF;
 
-      -- Convert columns that might already exist.
-      IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='user_roles') THEN
-        EXECUTE
-          'ALTER TABLE public.user_roles ' ||
-          'ALTER COLUMN role TYPE public.app_role_new ' ||
-          'USING (CASE role::text ' ||
-          'WHEN ''elev'' THEN ''student''::public.app_role_new ' ||
-          'WHEN ''profesor'' THEN ''teacher''::public.app_role_new ' ||
-          'WHEN ''parinte'' THEN ''parent''::public.app_role_new ' ||
-          'ELSE (role::text)::public.app_role_new END)';
+      -- Migrare coloane existente folosind EXECUTE pentru a izola execuția
+      IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'user_roles') THEN
+        EXECUTE 'ALTER TABLE public.user_roles ALTER COLUMN role TYPE public.app_role_new
+                 USING (CASE role::text
+                   WHEN ''elev'' THEN ''student''::public.app_role_new
+                   WHEN ''profesor'' THEN ''teacher''::public.app_role_new
+                   WHEN ''parinte'' THEN ''parent''::public.app_role_new
+                   ELSE role::text::public.app_role_new END)';
       END IF;
 
-      IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='profiles') THEN
-        EXECUTE
-          'ALTER TABLE public.profiles ' ||
-          'ALTER COLUMN active_role TYPE public.app_role_new ' ||
-          'USING (CASE active_role::text ' ||
-          'WHEN ''elev'' THEN ''student''::public.app_role_new ' ||
-          'WHEN ''profesor'' THEN ''teacher''::public.app_role_new ' ||
-          'WHEN ''parinte'' THEN ''parent''::public.app_role_new ' ||
-          'ELSE (active_role::text)::public.app_role_new END)';
+      IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'profiles') THEN
+        EXECUTE 'ALTER TABLE public.profiles ALTER COLUMN active_role TYPE public.app_role_new
+                 USING (CASE active_role::text
+                   WHEN ''elev'' THEN ''student''::public.app_role_new
+                   WHEN ''profesor'' THEN ''teacher''::public.app_role_new
+                   WHEN ''parinte'' THEN ''parent''::public.app_role_new
+                   ELSE active_role::text::public.app_role_new END)';
       END IF;
 
-      -- Swap types (renaming avoids dropping a type still referenced).
+      -- Schimbăm tipurile între ele
       ALTER TYPE public.app_role RENAME TO app_role_old;
       ALTER TYPE public.app_role_new RENAME TO app_role;
       DROP TYPE public.app_role_old;
     END IF;
   END IF;
-END
-$bootstrap$;
+END $bootstrap$;
 
--- 2) Core tables
+-- 2) Tabele Core
 CREATE TABLE IF NOT EXISTS public.profiles (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   full_name TEXT NOT NULL,
@@ -109,8 +74,9 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   updated_at TIMESTAMPTZ DEFAULT now()
 );
 
--- user_roles: nu CREATE TABLE IF NOT EXISTS; dacă nu există creăm cu role app_role, dacă există convertim role la app_role înainte de has_role
-DO $user_roles$
+DO $user_roles_setup$
+DECLARE
+  col_type text;
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'user_roles') THEN
     CREATE TABLE public.user_roles (
@@ -120,11 +86,18 @@ BEGIN
       UNIQUE (user_id, role)
     );
   ELSE
-    -- Double cast: role poate fi text sau enum; role::text::public.app_role forțează conversie corectă (evită app_role = text).
-    ALTER TABLE public.user_roles
-      ALTER COLUMN role TYPE public.app_role USING role::text::public.app_role;
+    SELECT udt_name::text INTO col_type
+    FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'user_roles' AND column_name = 'role';
+
+    -- Conversie doar dacă nu este deja app_role
+    IF col_type IS NOT NULL AND col_type <> 'app_role' THEN
+      EXECUTE 'ALTER TABLE public.user_roles
+               ALTER COLUMN role TYPE public.app_role
+               USING role::text::public.app_role';
+    END IF;
   END IF;
-END $user_roles$;
+END $user_roles_setup$;
 
 CREATE TABLE IF NOT EXISTS public.classes (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -178,9 +151,6 @@ CREATE TABLE IF NOT EXISTS public.attendance (
   UNIQUE (student_id, subject_id, date)
 );
 
--- Optional but commonly used app tables. Keeping them in the bootstrap migration
--- prevents PostgREST "schema cache" errors if later migrations were skipped.
-
 CREATE TABLE IF NOT EXISTS public.announcements (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   title text NOT NULL,
@@ -200,7 +170,6 @@ CREATE TABLE IF NOT EXISTS public.notifications (
   read_at timestamptz
 );
 
--- Backwards-compat table used by some UI builds ("messages" == inbox/notifications).
 CREATE TABLE IF NOT EXISTS public.messages (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -211,7 +180,7 @@ CREATE TABLE IF NOT EXISTS public.messages (
   read_at timestamptz
 );
 
--- 3) Required helper functions
+-- 3) Funcții Helper
 CREATE OR REPLACE FUNCTION public.has_role(_user_id uuid, _role public.app_role)
 RETURNS boolean
 LANGUAGE sql
@@ -222,7 +191,7 @@ AS $$
     SELECT 1
     FROM public.user_roles
     WHERE user_id = _user_id
-      AND role = _role
+      AND role::text = _role::text
   )
 $$;
 
@@ -238,18 +207,15 @@ $$;
 
 DO $$
 BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_trigger WHERE tgname = 'update_profiles_updated_at'
-  ) THEN
-    DROP TRIGGER IF EXISTS update_profiles_updated_at ON public.profiles;
-CREATE TRIGGER update_profiles_updated_at
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_profiles_updated_at') THEN
+    CREATE TRIGGER update_profiles_updated_at
       BEFORE UPDATE ON public.profiles
       FOR EACH ROW
       EXECUTE FUNCTION public.update_updated_at_column();
   END IF;
 END $$;
 
--- 4) New-user trigger (idempotent)
+-- 4) Trigger handle_new_user
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -258,6 +224,7 @@ SET search_path = public
 AS $$
 DECLARE
   role_value public.app_role;
+  raw_role text;
 BEGIN
   INSERT INTO public.profiles (id, full_name, email, phone)
   VALUES (
@@ -271,21 +238,27 @@ BEGIN
     email = EXCLUDED.email,
     phone = COALESCE(EXCLUDED.phone, public.profiles.phone);
 
-  IF NEW.raw_user_meta_data ->> 'role' IS NOT NULL THEN
-    role_value := CASE NEW.raw_user_meta_data ->> 'role'
-      WHEN 'elev' THEN 'student'::public.app_role
-      WHEN 'profesor' THEN 'teacher'::public.app_role
-      WHEN 'parinte' THEN 'parent'::public.app_role
-      ELSE (NEW.raw_user_meta_data ->> 'role')::public.app_role
-    END;
+  raw_role := NEW.raw_user_meta_data ->> 'role';
 
-    INSERT INTO public.user_roles (user_id, role)
-    VALUES (NEW.id, role_value)
-    ON CONFLICT DO NOTHING;
+  IF raw_role IS NOT NULL THEN
+    BEGIN
+      role_value := CASE raw_role
+        WHEN 'elev' THEN 'student'::public.app_role
+        WHEN 'profesor' THEN 'teacher'::public.app_role
+        WHEN 'parinte' THEN 'parent'::public.app_role
+        ELSE raw_role::public.app_role
+      END;
 
-    UPDATE public.profiles
+      INSERT INTO public.user_roles (user_id, role)
+      VALUES (NEW.id, role_value)
+      ON CONFLICT DO NOTHING;
+
+      UPDATE public.profiles
       SET active_role = role_value
       WHERE id = NEW.id;
+    EXCEPTION WHEN OTHERS THEN
+      -- Ignorăm erorile de cast dacă rolul din metadata este invalid
+    END;
   END IF;
 
   RETURN NEW;
@@ -295,23 +268,19 @@ $$;
 DO $$
 BEGIN
   IF NOT EXISTS (
-    SELECT 1
-    FROM pg_trigger t
+    SELECT 1 FROM pg_trigger t
     JOIN pg_class c ON c.oid = t.tgrelid
     JOIN pg_namespace n ON n.oid = c.relnamespace
-    WHERE t.tgname = 'on_auth_user_created'
-      AND n.nspname = 'auth'
-      AND c.relname = 'users'
+    WHERE t.tgname = 'on_auth_user_created' AND n.nspname = 'auth' AND c.relname = 'users'
   ) THEN
-    DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
-CREATE TRIGGER on_auth_user_created
+    CREATE TRIGGER on_auth_user_created
       AFTER INSERT ON auth.users
       FOR EACH ROW
       EXECUTE FUNCTION public.handle_new_user();
   END IF;
 END $$;
 
--- 5) RLS: enable (policies themselves are defined/overridden in later migrations)
+-- 5) RLS
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_roles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.classes ENABLE ROW LEVEL SECURITY;
