@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth, type AppRole } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { validateInvitationCode, claimInvitation, getRoleLabelRo, type Invitation } from "@/lib/invitations";
+import { validateInvitationCode, claimInvitation, getRoleLabelRo, type Invitation, type InvitationRole } from "@/lib/invitations";
 
 const routeMap: Record<AppRole, string> = {
   student: "/dashboard",
@@ -148,7 +148,7 @@ export default function Auth() {
 
       toast({
         title: "Cont creat!",
-        description: `Înregistrat cu succes ca ${getRoleLabelRo(role)}`,
+        description: `Înregistrat cu succes ca ${getRoleLabelRo(role as InvitationRole)}`,
       });
 
       navigate(routeMap[role] || "/dashboard");
@@ -240,7 +240,7 @@ export default function Auth() {
                 {codeError && <p className="text-xs text-red-500">{codeError}</p>}
                 {validatedInvitation && (
                   <p className="text-xs text-green-600 font-medium">
-                    ✓ Valid: {getRoleLabelRo(validatedInvitation.role as AppRole)}
+                    ✓ Valid: {getRoleLabelRo(validatedInvitation.role)}
                   </p>
                 )}
               </div>

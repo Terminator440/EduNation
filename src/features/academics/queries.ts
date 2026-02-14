@@ -99,11 +99,19 @@ export const useSubjectAveragesForScope = (studentIds: string[]) => {
     queryKey: ['subject-averages', studentIds],
     enabled: studentIds.length > 0,
     queryFn: async (): Promise<SubjectAverageRow[]> => {
-      const { data, error } = await supabase.rpc('get_subject_averages_for_students', {
-        p_student_ids: studentIds,
-      });
+      if (studentIds.length === 0) return [];
+      const { data, error } = await supabase
+        .from('v_student_subject_averages')
+        .select('student_id, subject_id, subject_name, average, grade_count')
+        .in('student_id', studentIds);
       if (error) throw error;
-      return (data ?? []) as SubjectAverageRow[];
+      return (data ?? []).map(r => ({
+        student_id: r.student_id!,
+        subject_id: r.subject_id!,
+        subject_name: r.subject_name ?? '',
+        average: r.average ?? 0,
+        grade_count: r.grade_count ?? 0,
+      }));
     },
   });
 };
@@ -114,14 +122,16 @@ export const useGeneralAveragesForScope = (studentIds: string[]) => {
     queryKey: ['general-averages', studentIds],
     enabled: studentIds.length > 0,
     queryFn: async (): Promise<Record<string, number>> => {
+      if (studentIds.length === 0) return {};
+      const { data, error } = await supabase
+        .from('v_student_general_averages')
+        .select('student_id, general_average')
+        .in('student_id', studentIds);
+      if (error) throw error;
       const results: Record<string, number> = {};
-      for (const sid of studentIds) {
-        const { data, error } = await supabase.rpc('get_student_general_average_for_display', {
-          p_student_id: sid,
-        });
-        if (error) throw error;
-        results[sid] = data ?? 0;
-      }
+      (data ?? []).forEach(r => {
+        if (r.student_id) results[r.student_id] = r.general_average ?? 0;
+      });
       return results;
     },
   });
