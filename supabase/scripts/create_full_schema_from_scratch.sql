@@ -81,7 +81,7 @@ CREATE TRIGGER update_profiles_updated_at
   BEFORE UPDATE ON public.profiles
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
--- 5) User roles (nu CREATE TABLE IF NOT EXISTS: fie creăm cu role app_role, fie convertim coloana)
+-- 5) User roles
 DO $user_roles$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'user_roles') THEN
@@ -92,9 +92,15 @@ BEGIN
       UNIQUE (user_id, role)
     );
   ELSE
-    -- Double cast evită "operator does not exist: app_role = text". Tipul public.app_role e definit la 1) Enums.
-    ALTER TABLE public.user_roles
-      ALTER COLUMN role TYPE public.app_role USING role::text::public.app_role;
+    -- Doar dacă coloana NU este deja app_role
+    IF EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = 'user_roles' AND column_name = 'role'
+        AND udt_name != 'app_role'
+    ) THEN
+      ALTER TABLE public.user_roles
+        ALTER COLUMN role TYPE public.app_role USING role::text::public.app_role;
+    END IF;
   END IF;
 END $user_roles$;
 ALTER TABLE public.user_roles ENABLE ROW LEVEL SECURITY;
