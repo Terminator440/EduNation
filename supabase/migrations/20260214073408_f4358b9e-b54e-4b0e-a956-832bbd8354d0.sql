@@ -1,11 +1,10 @@
--- Ensure user_roles.role is app_role enum (idempotent - only converts if currently text)
+-- Coloana user_roles.role devine public.app_role. Conversie doar când udt_name <> 'app_role' (idempotent).
 DO $$
 BEGIN
-  -- Only alter if column exists and is NOT already app_role
   IF EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_schema = 'public' AND table_name = 'user_roles' AND column_name = 'role'
-      AND udt_name != 'app_role'
+    SELECT 1 FROM information_schema.columns c
+    WHERE c.table_schema = 'public' AND c.table_name = 'user_roles' AND c.column_name = 'role'
+      AND (c.udt_name IS NULL OR c.udt_name <> 'app_role')
   ) THEN
     ALTER TABLE public.user_roles
       ALTER COLUMN role TYPE public.app_role USING role::text::public.app_role;

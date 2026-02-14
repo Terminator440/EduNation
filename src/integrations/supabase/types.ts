@@ -1083,40 +1083,28 @@ export type Database = {
         }[]
       }
       close_year: { Args: { p_school_year_id: string }; Returns: boolean }
-      create_invitation:
-        | {
-            Args: {
-              p_class_id?: string
-              p_created_by?: string
-              p_expires_hours?: number
-              p_intended_for?: string
-              p_max_uses?: number
-              p_role: Database["public"]["Enums"]["invitation_role"]
-              p_school_id: string
-              p_student_id?: string
-            }
-            Returns: {
-              error_message: string
-              invitation_id: string
-              plain_code: string
-            }[]
-          }
-        | {
-            Args: {
-              p_class_id?: string
-              p_created_by?: string
-              p_expires_hours?: number
-              p_max_uses?: number
-              p_role: Database["public"]["Enums"]["invitation_role"]
-              p_school_id: string
-              p_student_id?: string
-            }
-            Returns: {
-              error_message: string
-              invitation_id: string
-              plain_code: string
-            }[]
-          }
+      create_invitation: {
+        Args: {
+          p_class_id?: string | null
+          p_created_by?: string | null
+          p_expires_hours?: number
+          p_first_name?: string | null
+          p_intended_for?: string | null
+          p_invited_email?: string | null
+          p_invited_phone?: string | null
+          p_last_name?: string | null
+          p_max_uses?: number
+          p_role: Database["public"]["Enums"]["invitation_role"]
+          p_school_id: string
+          p_student_id?: string | null
+          p_student_number?: number | null
+        }
+        Returns: {
+          error_message: string
+          invitation_id: string
+          plain_code: string
+        }[]
+      }
       finalize_expired_absences: { Args: never; Returns: number }
       generate_activation_code: { Args: never; Returns: string }
       generate_invitation_code: { Args: never; Returns: string }

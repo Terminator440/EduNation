@@ -180,7 +180,7 @@ CREATE TABLE IF NOT EXISTS public.messages (
   read_at timestamptz
 );
 
--- 3) Funcții Helper
+-- 3) Funcții Helper (coloana user_roles.role este deja public.app_role după $user_roles_setup$)
 CREATE OR REPLACE FUNCTION public.has_role(_user_id uuid, _role public.app_role)
 RETURNS boolean
 LANGUAGE sql
@@ -191,7 +191,7 @@ AS $$
     SELECT 1
     FROM public.user_roles
     WHERE user_id = _user_id
-      AND role::text = _role::text
+      AND role = _role
   )
 $$;
 
