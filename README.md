@@ -99,6 +99,7 @@ Migrațiile se află în:
 
 supabase/migrations/
 
+Aplicare migrații: `supabase db push` (sau din Dashboard → SQL Editor). Dacă apare eroarea „Could not find the function public.create_invitation(...)”, rulează conținutul fișierului `supabase/migrations/20260214100000_ensure_create_invitation_rpc.sql` în SQL Editor, apoi reîncarcă aplicația.
 
 Pentru producție:
 
