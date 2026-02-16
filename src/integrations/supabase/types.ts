@@ -409,8 +409,13 @@ export type Database = {
           created_by_user_id: string
           current_uses: number
           expires_at: string
+          first_name: string | null
           id: string
           intended_for: string | null
+          invited_email: string | null
+          invited_phone: string | null
+          invited_student_number: number | null
+          last_name: string | null
           max_uses: number
           revoked_at: string | null
           role: Database["public"]["Enums"]["invitation_role"]
@@ -426,8 +431,13 @@ export type Database = {
           created_by_user_id: string
           current_uses?: number
           expires_at?: string
+          first_name?: string | null
           id?: string
           intended_for?: string | null
+          invited_email?: string | null
+          invited_phone?: string | null
+          invited_student_number?: number | null
+          last_name?: string | null
           max_uses?: number
           revoked_at?: string | null
           role: Database["public"]["Enums"]["invitation_role"]
@@ -443,8 +453,13 @@ export type Database = {
           created_by_user_id?: string
           current_uses?: number
           expires_at?: string
+          first_name?: string | null
           id?: string
           intended_for?: string | null
+          invited_email?: string | null
+          invited_phone?: string | null
+          invited_student_number?: number | null
+          last_name?: string | null
           max_uses?: number
           revoked_at?: string | null
           role?: Database["public"]["Enums"]["invitation_role"]
