@@ -179,7 +179,7 @@ export const createInvitation = async (
   }
 ): Promise<CreateInvitationResult> => {
   try {
-    const { data, error } = await supabase.rpc("create_invitation", {
+    const { data, error } = await (supabase.rpc as any)("create_invitation", {
       p_role: role,
       p_school_id: schoolId,
       p_class_id: options?.classId ?? null,
