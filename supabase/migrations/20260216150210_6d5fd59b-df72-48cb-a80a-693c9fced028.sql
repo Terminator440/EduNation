@@ -1,0 +1,1 @@
+ALTER TYPE public.invitation_role ADD VALUE IF NOT EXISTS 'secretariat';
