@@ -738,10 +738,10 @@ const HomeroomDashboard = () => {
                 <Button
                   variant="outline"
                   className="gap-2"
-                  onClick={() => { setInvRole("student"); setInvDialogOpen(true); }}
+                  onClick={() => { setInvRole("teacher"); setInvDialogOpen(true); }}
                 >
                   <Mail className="h-4 w-4" />
-                  Invită Elev
+                  Invită Profesor
                 </Button>
                 <Button
                   variant="outline"

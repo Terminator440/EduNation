@@ -92,22 +92,32 @@ BEGIN
       RETURN;
     END IF;
   ELSIF has_role(v_user_id, 'homeroom_teacher'::app_role) THEN
-    IF p_role NOT IN ('student'::public.invitation_role, 'parent'::public.invitation_role) THEN
-      RETURN QUERY SELECT NULL::uuid, NULL::text, 'Homeroom teachers can only invite student / parent'::text;
+    IF p_role NOT IN ('student'::public.invitation_role, 'parent'::public.invitation_role, 'teacher'::public.invitation_role) THEN
+      RETURN QUERY SELECT NULL::uuid, NULL::text, 'Homeroom teachers can only invite student / parent / teacher'::text;
       RETURN;
     END IF;
-    IF p_class_id IS NULL THEN
-      RETURN QUERY SELECT NULL::uuid, NULL::text, 'Class is required for student/parent invitations'::text;
-      RETURN;
+    -- Class is required only for student/parent invitations, not for teacher
+    IF p_role IN ('student'::public.invitation_role, 'parent'::public.invitation_role) THEN
+      IF p_class_id IS NULL THEN
+        RETURN QUERY SELECT NULL::uuid, NULL::text, 'Class is required for student/parent invitations'::text;
+        RETURN;
+      END IF;
+      SELECT c.school_id INTO v_class_school_id FROM classes c WHERE c.id = p_class_id;
+      IF v_class_school_id IS NULL OR v_class_school_id <> p_school_id THEN
+        RETURN QUERY SELECT NULL::uuid, NULL::text, 'Class does not belong to the specified school'::text;
+        RETURN;
+      END IF;
+      IF NOT EXISTS (SELECT 1 FROM classes c WHERE c.id = p_class_id AND c.teacher_id = v_user_id) THEN
+        RETURN QUERY SELECT NULL::uuid, NULL::text, 'You are not the homeroom teacher for this class'::text;
+        RETURN;
+      END IF;
     END IF;
-    SELECT c.school_id INTO v_class_school_id FROM classes c WHERE c.id = p_class_id;
-    IF v_class_school_id IS NULL OR v_class_school_id <> p_school_id THEN
-      RETURN QUERY SELECT NULL::uuid, NULL::text, 'Class does not belong to the specified school'::text;
-      RETURN;
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM classes c WHERE c.id = p_class_id AND c.teacher_id = v_user_id) THEN
-      RETURN QUERY SELECT NULL::uuid, NULL::text, 'You are not the homeroom teacher for this class'::text;
-      RETURN;
+    -- For teacher invitations, verify homeroom teacher belongs to the school
+    IF p_role = 'teacher'::public.invitation_role THEN
+      IF NOT EXISTS (SELECT 1 FROM profiles p WHERE p.id = v_user_id AND p.school_id = p_school_id) THEN
+        RETURN QUERY SELECT NULL::uuid, NULL::text, 'You can only create invitations for your school'::text;
+        RETURN;
+      END IF;
     END IF;
   ELSE
     RETURN QUERY SELECT NULL::uuid, NULL::text, 'Not authorized to create invitations'::text;
