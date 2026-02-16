@@ -386,7 +386,9 @@ const HomeroomDashboard = () => {
         return;
       }
 
-      const { error: insertError } = await supabase.from("students").insert({
+      // Schema students: NOT NULL doar class_id; restul au default sau sunt nullable.
+      // Trimitem doar format EN-XXXXX la student_number (coloana trebuie TEXT în DB).
+      const payload = {
         class_id: classInfo.id,
         full_name: newStudent.fullName.trim(),
         student_number: finalNumber,
@@ -395,7 +397,9 @@ const HomeroomDashboard = () => {
           : null,
         contact_phone: newStudent.phone.trim() ? newStudent.phone.trim() : null,
         is_active: false,
-      });
+      };
+
+      const { error: insertError } = await supabase.from("students").insert(payload);
 
       if (insertError) throw insertError;
 
@@ -407,11 +411,13 @@ const HomeroomDashboard = () => {
       setIsAddStudentOpen(false);
       setNewStudent({ fullName: "", studentNumber: "", email: "", phone: "" });
       await fetchData();
-    } catch (err) {
-      console.error("Error adding student:", err);
+    } catch (err: unknown) {
+      const errObj = err as { message?: string };
+      const message = errObj?.message ?? "Eroare la baza de date";
+      console.error("DEBUG ERROR ADD STUDENT:", err);
       toast({
         title: "Eroare",
-        description: "Nu s-a putut adăuga elevul",
+        description: message,
         variant: "destructive",
       });
     }
