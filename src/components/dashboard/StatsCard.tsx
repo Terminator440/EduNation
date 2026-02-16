@@ -11,9 +11,11 @@ interface StatsCardProps {
     isPositive: boolean;
   };
   variant?: "default" | "primary" | "success" | "warning" | "accent";
+  /** When false, the icon is hidden (e.g. when there is no data to display). Default true. */
+  showIcon?: boolean;
 }
 
-const StatsCard = ({ title, value, subtitle, icon: Icon, trend, variant = "default" }: StatsCardProps) => {
+const StatsCard = ({ title, value, subtitle, icon: Icon, trend, variant = "default", showIcon = true }: StatsCardProps) => {
   const iconColors = {
     default: "bg-secondary text-muted-foreground",
     primary: "bg-primary/10 text-primary",
@@ -25,9 +27,9 @@ const StatsCard = ({ title, value, subtitle, icon: Icon, trend, variant = "defau
   return (
     <div className="bg-card rounded-2xl p-6 border border-border shadow-sm hover:shadow-md transition-shadow">
       <div className="flex items-start justify-between">
-        <div>
+        <div className="min-w-0 flex-1">
           <p className="text-sm text-muted-foreground font-medium">{title}</p>
-          <p className="text-3xl font-bold text-foreground mt-1">{value}</p>
+          <p className="text-3xl font-bold text-foreground mt-1 min-h-[2.25rem] flex items-end">{value}</p>
           {subtitle && (
             <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>
           )}
@@ -42,12 +44,14 @@ const StatsCard = ({ title, value, subtitle, icon: Icon, trend, variant = "defau
             </div>
           )}
         </div>
-        <div className={cn(
-          "w-12 h-12 rounded-xl flex items-center justify-center",
-          iconColors[variant]
-        )}>
-          <Icon className="w-6 h-6" />
-        </div>
+        {showIcon && (
+          <div className={cn(
+            "w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0",
+            iconColors[variant]
+          )}>
+            <Icon className="w-6 h-6" />
+          </div>
+        )}
       </div>
     </div>
   );

@@ -74,7 +74,6 @@ const menuItemsByRole: Record<AppRole, { icon: any; label: string; href: string 
     { icon: FileText, label: "Documente", href: "/resources/documents" },
   ],
   homeroom_teacher: [
-    { icon: LayoutDashboard, label: "Panou Diriginte", href: "/homeroom" },
     { icon: Key, label: "Clasa mea", href: "/homeroom" },
     { icon: GraduationCap, label: "Catalog Profesor", href: "/teacher" },
     { icon: ClipboardCheck, label: "Fă prezența", href: "/teacher/attendance" },
@@ -196,7 +195,7 @@ const Sidebar = ({ isCollapsed, onToggle }: SidebarProps) => {
         Make the navigation area scrollable so the bottom actions
         (Settings / Logout) never disappear.
       */}
-      <nav className="flex-1 min-h-0 overflow-y-auto py-6 px-3">
+      <nav className="flex-1 min-h-0 overflow-y-auto py-4 px-3 sidebar-nav-scroll">
         <ul className="space-y-1">
           {menuItems.map((item) => {
             const isActive = location.pathname === item.href;

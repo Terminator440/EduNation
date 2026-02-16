@@ -726,7 +726,7 @@ export type Database = {
           full_name: string | null
           id: string
           is_active: boolean | null
-          student_number: number | null
+          student_number: string | null
           user_id: string | null
         }
         Insert: {
@@ -735,7 +735,7 @@ export type Database = {
           full_name?: string | null
           id?: string
           is_active?: boolean | null
-          student_number?: number | null
+          student_number?: string | null
           user_id?: string | null
         }
         Update: {
@@ -744,7 +744,7 @@ export type Database = {
           full_name?: string | null
           id?: string
           is_active?: boolean | null
-          student_number?: number | null
+          student_number?: string | null
           user_id?: string | null
         }
         Relationships: [

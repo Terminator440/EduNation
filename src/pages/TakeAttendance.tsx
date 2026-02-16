@@ -23,7 +23,7 @@ type AttendanceStatus = "present" | "unexcused" | "pending";
 
 interface StudentRow {
   id: string;
-  student_number: number | null;
+  student_number: string | number | null;
   full_name: string | null;
 }
 

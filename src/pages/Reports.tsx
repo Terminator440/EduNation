@@ -32,7 +32,7 @@ interface ClassRow {
 
 interface StudentRow {
   id: string;
-  student_number: number | null;
+  student_number: string | number | null;
   full_name: string | null;
   is_active: boolean | null;
   contact_email: string | null;

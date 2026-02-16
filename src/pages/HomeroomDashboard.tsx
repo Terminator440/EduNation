@@ -47,10 +47,16 @@ import {
 import { toast } from "@/hooks/use-toast";
 import { CreateInvitationDialog } from "@/components/invitations/CreateInvitationDialog";
 import { listInvitations, getInvitationStatus, getStatusLabelRo, getRoleLabelRo, type InvitationRole, type Invitation } from "@/lib/invitations";
+import {
+  formatStudentNumber,
+  hasStudentNumberInput,
+  getNextStudentNumber,
+  parseStudentNumberNumeric,
+} from "@/lib/studentNumber";
 
 interface Student {
   id: string;
-  student_number: number | null;
+  student_number: string | number | null;
   full_name: string | null;
   is_active: boolean;
   user_id: string | null;
@@ -275,7 +281,8 @@ const HomeroomDashboard = () => {
         .filter((s: any) => (gradesByStudent.get(s.id) || 0) === 0)
         .sort(
           (a: any, b: any) =>
-            (a.student_number ?? 9999) - (b.student_number ?? 9999)
+            (parseStudentNumberNumeric(a.student_number) ?? 9999) -
+            (parseStudentNumberNumeric(b.student_number) ?? 9999)
         )
         .map((s: any) => ({ ...s, activation_code: null }));
 
@@ -351,12 +358,38 @@ const HomeroomDashboard = () => {
     }
 
     try {
+      let finalNumber: string;
+      if (hasStudentNumberInput(newStudent.studentNumber)) {
+        finalNumber = formatStudentNumber(newStudent.studentNumber);
+      } else {
+        const { data: existingStudents } = await supabase
+          .from("students")
+          .select("student_number")
+          .eq("class_id", classInfo.id);
+        const existing = (existingStudents ?? []).map((s) => s.student_number);
+        finalNumber = getNextStudentNumber(existing);
+      }
+
+      const { data: existingWithNumber } = await supabase
+        .from("students")
+        .select("id")
+        .eq("class_id", classInfo.id)
+        .eq("student_number", finalNumber)
+        .maybeSingle();
+
+      if (existingWithNumber) {
+        toast({
+          title: "Eroare",
+          description: `Acest număr matricol (${finalNumber}) este deja atribuit.`,
+          variant: "destructive",
+        });
+        return;
+      }
+
       const { error: insertError } = await supabase.from("students").insert({
         class_id: classInfo.id,
         full_name: newStudent.fullName.trim(),
-        student_number: newStudent.studentNumber
-          ? parseInt(newStudent.studentNumber, 10)
-          : null,
+        student_number: finalNumber,
         contact_email: newStudent.email.trim()
           ? newStudent.email.trim().toLowerCase()
           : null,
@@ -368,7 +401,7 @@ const HomeroomDashboard = () => {
 
       toast({
         title: "Elev adăugat!",
-        description: `${newStudent.fullName} a fost adăugat în clasă`,
+        description: `${newStudent.fullName} a fost adăugat în clasă${finalNumber ? ` (${finalNumber})` : ""}`,
       });
 
       setIsAddStudentOpen(false);
@@ -666,10 +699,11 @@ const HomeroomDashboard = () => {
                 />
                 <StatsCard
                   title="Media Clasei"
-                  value={classStats.averageGrade > 0 ? classStats.averageGrade.toFixed(2) : "-"}
-                  subtitle={`Din ${classStats.totalGrades} note`}
+                  value={classStats.averageGrade > 0 ? classStats.averageGrade.toFixed(2) : "—"}
+                  subtitle={classStats.averageGrade > 0 ? `Din ${classStats.totalGrades} note` : "Fără note"}
                   icon={TrendingUp}
                   variant="accent"
+                  showIcon={classStats.averageGrade > 0}
                 />
                 <StatsCard
                   title="Absențe"
@@ -734,26 +768,17 @@ const HomeroomDashboard = () => {
                 </Card>
               </div>
 
-              <div className="flex flex-wrap gap-3 mb-6">
+              <div className="flex flex-wrap gap-3 mb-6 items-center">
                 <Button
-                  variant="outline"
-                  className="gap-2"
+                  className="gap-2 h-10 px-4"
                   onClick={() => { setInvRole("teacher"); setInvDialogOpen(true); }}
                 >
-                  <Mail className="h-4 w-4" />
-                  Invită Profesor
-                </Button>
-                <Button
-                  variant="outline"
-                  className="gap-2"
-                  onClick={() => { setInvRole("parent"); setInvDialogOpen(true); }}
-                >
-                  <Mail className="h-4 w-4" />
-                  Invită Părinte
+                  <GraduationCap className="h-4 w-4" />
+                  Adaugă Profesor
                 </Button>
                 <Dialog open={isAddStudentOpen} onOpenChange={setIsAddStudentOpen}>
                   <DialogTrigger asChild>
-                    <Button className="gap-2">
+                    <Button variant="outline" className="gap-2 h-10 px-4">
                       <UserPlus className="h-4 w-4" />
                       Adaugă Elev
                     </Button>
@@ -775,14 +800,14 @@ const HomeroomDashboard = () => {
                         />
                       </div>
                       <div>
-                        <Label>Număr matricol (opțional)</Label>
+                        <Label>Număr Matricol (lasă gol pentru generare automată)</Label>
                         <Input
-                          type="number"
+                          type="text"
                           value={newStudent.studentNumber}
                           onChange={(e) =>
                             setNewStudent((p) => ({ ...p, studentNumber: e.target.value }))
                           }
-                          placeholder="ex: 1"
+                          placeholder="Ex: 450 (va deveni EN-00450)"
                           className="mt-1"
                         />
                       </div>
@@ -815,7 +840,14 @@ const HomeroomDashboard = () => {
                     </div>
                   </DialogContent>
                 </Dialog>
-
+                <Button
+                  variant="outline"
+                  className="gap-2 h-10 px-4"
+                  onClick={() => { setInvRole("parent"); setInvDialogOpen(true); }}
+                >
+                  <Mail className="h-4 w-4" />
+                  Invită Părinte
+                </Button>
                 <Dialog
                   open={isMotivateOpen}
                   onOpenChange={(open) => {
@@ -827,7 +859,7 @@ const HomeroomDashboard = () => {
                   }}
                 >
                   <DialogTrigger asChild>
-                    <Button variant="outline" className="gap-2">
+                    <Button variant="outline" className="gap-2 h-10 px-4">
                       <FileCheck className="h-4 w-4" />
                       Motivează Absențe
                     </Button>
@@ -907,9 +939,9 @@ const HomeroomDashboard = () => {
                   {students.length === 0 ? (
                     <div className="text-center py-12 text-muted-foreground">
                       <Users className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                      <p>Nu ai elevi în clasă încă.</p>
+                      <p>Nu există elevi înregistrați încă în această clasă.</p>
                       <p className="text-sm mt-2">
-                        Folosește butonul "Adaugă Elev" pentru a adăuga elevi.
+                        Folosește butonul Adaugă Elev pentru a începe.
                       </p>
                     </div>
                   ) : (

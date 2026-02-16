@@ -43,7 +43,7 @@ import {
 interface Student {
   id: string;
   user_id: string;
-  student_number: number | null;
+  student_number: string | number | null;
   full_name: string | null;
   profile: {
     full_name: string;
