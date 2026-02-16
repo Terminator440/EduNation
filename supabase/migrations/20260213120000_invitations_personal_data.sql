@@ -1,13 +1,14 @@
 -- Invitations: add first_name, last_name, student_number; update create/claim for signup linking.
 -- These values are saved with the invitation and applied to profile/student on signup.
 
--- 1. Add columns to invitations
+-- 1. Add columns to invitations (including intended_for from 20260203191917)
 ALTER TABLE public.invitations
   ADD COLUMN IF NOT EXISTS first_name TEXT,
   ADD COLUMN IF NOT EXISTS last_name TEXT,
   ADD COLUMN IF NOT EXISTS invited_student_number INTEGER,
   ADD COLUMN IF NOT EXISTS invited_email TEXT,
-  ADD COLUMN IF NOT EXISTS invited_phone TEXT;
+  ADD COLUMN IF NOT EXISTS invited_phone TEXT,
+  ADD COLUMN IF NOT EXISTS intended_for TEXT;
 
 -- 2. Update create_invitation: accept and persist first_name, last_name, student_number, email, phone
 -- Keeps hierarchical auth from 20260106170000 + intended_for from 20260203191917

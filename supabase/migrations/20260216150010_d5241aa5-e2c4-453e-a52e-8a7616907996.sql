@@ -1,3 +1,11 @@
+-- Ensure personal data columns exist before recreating create_invitation
+ALTER TABLE public.invitations
+  ADD COLUMN IF NOT EXISTS first_name TEXT,
+  ADD COLUMN IF NOT EXISTS last_name TEXT,
+  ADD COLUMN IF NOT EXISTS invited_student_number INTEGER,
+  ADD COLUMN IF NOT EXISTS invited_email TEXT,
+  ADD COLUMN IF NOT EXISTS invited_phone TEXT,
+  ADD COLUMN IF NOT EXISTS intended_for TEXT;
 
 -- Drop the two old overloads explicitly by their exact signatures
 DROP FUNCTION IF EXISTS public.create_invitation(invitation_role, uuid, uuid, uuid, uuid, integer, integer);

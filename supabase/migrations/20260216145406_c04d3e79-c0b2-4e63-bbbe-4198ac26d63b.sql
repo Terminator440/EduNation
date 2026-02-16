@@ -1,3 +1,11 @@
+-- Ensure personal data columns exist before recreating claim_invitation
+ALTER TABLE public.invitations
+  ADD COLUMN IF NOT EXISTS first_name TEXT,
+  ADD COLUMN IF NOT EXISTS last_name TEXT,
+  ADD COLUMN IF NOT EXISTS invited_student_number INTEGER,
+  ADD COLUMN IF NOT EXISTS invited_email TEXT,
+  ADD COLUMN IF NOT EXISTS invited_phone TEXT,
+  ADD COLUMN IF NOT EXISTS intended_for TEXT;
 
 -- Drop old claim_invitation
 DROP FUNCTION IF EXISTS public.claim_invitation(text, uuid);

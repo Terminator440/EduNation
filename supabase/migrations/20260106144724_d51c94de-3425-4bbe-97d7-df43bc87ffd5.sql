@@ -71,6 +71,15 @@ CREATE TABLE public.invitations (
   )
 );
 
+-- Ensure personal data columns exist (for backward compatibility and future functions)
+ALTER TABLE public.invitations
+  ADD COLUMN IF NOT EXISTS first_name TEXT,
+  ADD COLUMN IF NOT EXISTS last_name TEXT,
+  ADD COLUMN IF NOT EXISTS invited_student_number INTEGER,
+  ADD COLUMN IF NOT EXISTS invited_email TEXT,
+  ADD COLUMN IF NOT EXISTS invited_phone TEXT,
+  ADD COLUMN IF NOT EXISTS intended_for TEXT;
+
 -- Enable RLS on invitations
 ALTER TABLE public.invitations ENABLE ROW LEVEL SECURITY;
 

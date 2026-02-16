@@ -1,6 +1,6 @@
 -- Add intended_for column to invitations table for storing invitee name
 ALTER TABLE public.invitations 
-ADD COLUMN intended_for text;
+ADD COLUMN IF NOT EXISTS intended_for text;
 
 -- Update the create_invitation function to accept intended_for parameter
 CREATE OR REPLACE FUNCTION public.create_invitation(
