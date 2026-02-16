@@ -5,6 +5,7 @@ export type InvitationRole =
   | "director"
   | "teacher"
   | "homeroom_teacher"
+  | "secretariat"
   | "student"
   | "parent";
 
@@ -247,6 +248,7 @@ export const getRoleLabelRo = (role: InvitationRole): string => {
     director: "Director",
     teacher: "Profesor",
     homeroom_teacher: "Diriginte",
+    secretariat: "Secretariat",
     student: "Elev",
     parent: "Părinte",
   };
