@@ -13,6 +13,7 @@ import { fetchGradesForStudents } from "@/features/grades/services/grades.servic
 import { fetchAttendanceForStudents } from "@/features/attendance/services/attendance.service";
 import type { GradeRow } from "@/features/grades/services/grades.service";
 import type { AttendanceRow } from "@/features/attendance/services/attendance.service";
+import { useAddGrade } from "@/features/grades/queries";
 import { CreateInvitationDialog } from "@/components/invitations/CreateInvitationDialog";
 import {
   listInvitations,
@@ -126,6 +127,12 @@ const TeacherDashboard = () => {
   const { user, activeRole, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+  
+  // Grade mutations with automatic query invalidation
+  const addGradeMutation = useAddGrade();
+  // Note: updateGradeMutation and deleteGradeMutation are available for future use
+  // const updateGradeMutation = useUpdateGrade();
+  // const deleteGradeMutation = useDeleteGrade();
 
   useEffect(() => {
     if (!authLoading && (!user || (activeRole !== 'teacher' && activeRole !== 'homeroom_teacher'))) {
@@ -427,32 +434,23 @@ const TeacherDashboard = () => {
     }
 
     try {
-      const { error } = await supabase.from('grades').insert({
-        student_id: selectedStudent.id,
-        subject_id: newGrade.subjectId,
+      await addGradeMutation.mutateAsync({
+        studentId: selectedStudent.id,
+        subjectId: newGrade.subjectId,
         grade: gradeValue,
-        description: newGrade.description || null,
-        teacher_id: user?.id,
-        date: new Date().toISOString().split('T')[0],
-      });
-
-      if (error) throw error;
-
-      toast({
-        title: "Notă adăugată",
-        description: `Nota ${gradeValue} a fost adăugată pentru ${selectedStudent.full_name || selectedStudent.profile?.full_name}`,
+        options: {
+          description: newGrade.description || null,
+          date: new Date().toISOString().split('T')[0],
+        },
       });
 
       setIsAddGradeOpen(false);
       setNewGrade({ grade: "", subjectId: "", description: "" });
-      fetchData();
+      // Data will be automatically refreshed via query invalidation in the mutation hook
+      await fetchData();
     } catch (error) {
+      // Error is already handled by the service with toast notifications
       console.error('Error adding grade:', error);
-      toast({
-        title: "Eroare",
-        description: "Nu s-a putut adăuga nota",
-        variant: "destructive",
-      });
     }
   };
 
