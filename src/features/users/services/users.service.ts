@@ -19,7 +19,7 @@ export async function fetchStudentScope(
       .limit(1)
       .maybeSingle();
     const row = assertSupabaseOk(res, "students.select(student)");
-    return { studentIds: row?.id ? [row.id] : [] };
+    return { studentIds: row && row.id ? [row.id] : [] };
   }
 
   if (activeRole === "parent") {
@@ -28,7 +28,11 @@ export async function fetchStudentScope(
       .select("student_id")
       .eq("parent_user_id", userId);
     const rows = assertSupabaseOk(res, "parent_student_relations.select(parent)");
-    return { studentIds: (rows || []).map((r) => r.student_id) };
+    return { 
+      studentIds: (rows || [])
+        .map((r) => r.student_id)
+        .filter((id): id is string => id !== null && id !== undefined)
+    };
   }
 
   return { studentIds: [] };

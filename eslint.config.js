@@ -27,12 +27,15 @@ export default tseslint.config(
       "react-hooks/exhaustive-deps": "off",
       "react-refresh/only-export-components": "off",
 
-      // Allow pragmatic typing in early stages; tighten later when types stabilize.
-      "@typescript-eslint/no-explicit-any": "off",
+      // Strict typing rules
+      "@typescript-eslint/no-explicit-any": "error",
       "@typescript-eslint/no-empty-object-type": "off",
       "@typescript-eslint/no-require-imports": "off",
 
-      "@typescript-eslint/no-unused-vars": "off",
+      "@typescript-eslint/no-unused-vars": ["error", { 
+        "argsIgnorePattern": "^_",
+        "varsIgnorePattern": "^_"
+      }],
     },
   },
 );

@@ -48,7 +48,17 @@ export const useSchoolEventsForMonth = (year: number, monthIndex0: number) => {
         return [];
       }
       
-      return (data as SchoolEventRow[]) ?? [];
+      if (!data) return [];
+      
+      // Type guard to ensure data matches SchoolEventRow structure
+      return data.filter((row): row is SchoolEventRow => 
+        typeof row === 'object' &&
+        row !== null &&
+        'id' in row &&
+        'event_date' in row &&
+        'type' in row &&
+        'title' in row
+      );
     },
   });
 };

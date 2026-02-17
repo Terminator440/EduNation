@@ -41,13 +41,17 @@ export async function fetchSubjectAverages(
     .select("student_id, subject_id, subject_name, average, grade_count")
     .in("student_id", studentIds);
   if (error) throw error;
-  return (data ?? []).map((r) => ({
-    student_id: r.student_id!,
-    subject_id: r.subject_id!,
-    subject_name: r.subject_name ?? "",
-    average: r.average ?? 0,
-    grade_count: r.grade_count ?? 0,
-  }));
+  return (data ?? [])
+    .filter((r): r is { student_id: string; subject_id: string; subject_name: string | null; average: number | null; grade_count: number | null } => 
+      r.student_id !== null && r.subject_id !== null
+    )
+    .map((r) => ({
+      student_id: r.student_id,
+      subject_id: r.subject_id,
+      subject_name: r.subject_name ?? "",
+      average: r.average ?? 0,
+      grade_count: r.grade_count ?? 0,
+    }));
 }
 
 export async function fetchGeneralAverages(

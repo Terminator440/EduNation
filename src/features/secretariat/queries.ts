@@ -68,7 +68,8 @@ export const useCreateStudentWithActivation = () => {
 
       // Generate an 8-char activation code on the DB side (consistent with your SQL function)
       const gen = await supabase.rpc('generate_activation_code');
-      const code = assertSupabaseOk(gen as { data: string; error: unknown | null }, 'generate_activation_code');
+      if (gen.error) throw gen.error;
+      const code = typeof gen.data === 'string' ? gen.data : String(gen.data ?? '');
 
       const expiresAt = addDays(new Date(), input.expires_in_days ?? 14).toISOString();
       const { data: activation, error: actErr } = await supabase
