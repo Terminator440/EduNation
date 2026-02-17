@@ -27,7 +27,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { useAuth, AppRole } from "@/hooks/useAuth";
-import { NotificationsPopover } from "@/components/notifications/NotificationsPopover";
+import { NotificationsPopover } from "@/components/notifications";
 
 interface SidebarProps {
   isCollapsed: boolean;
