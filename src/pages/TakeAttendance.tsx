@@ -17,6 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
 
 // DB status values: present, unexcused, pending, motivated
 type AttendanceStatus = "present" | "unexcused" | "pending";
@@ -129,9 +130,12 @@ const TakeAttendance = () => {
           .eq("date", dateKey),
       ]);
 
-      const classMap = new Map((classesRes.data || []).map((c: any) => [c.id, c.name]));
-      const subjectMap = new Map((subjectsRes.data || []).map((s: any) => [s.id, s.name]));
-      const signedMap = new Map((registerRes.data || []).map((r: any) => [r.timetable_entry_id, r.id]));
+      type ClassRow = { id: string; name: string };
+      type SubjectRow = { id: string; name: string };
+      type RegisterRow = { id: string; timetable_entry_id: string };
+      const classMap = new Map((classesRes.data || []).map((c: ClassRow) => [c.id, c.name]));
+      const subjectMap = new Map((subjectsRes.data || []).map((s: SubjectRow) => [s.id, s.name]));
+      const signedMap = new Map((registerRes.data || []).map((r: RegisterRow) => [r.timetable_entry_id, r.id]));
 
       const mapped: TimetableSlot[] = entries.map((e) => ({
         id: e.id,
@@ -149,10 +153,11 @@ const TakeAttendance = () => {
       }));
 
       setSlots(mapped);
-    } catch (e: any) {
+    } catch (e: unknown) {
+      const errorMessage = e instanceof Error ? e.message : "Nu am putut încărca orarul.";
       toast({
         title: "Eroare",
-        description: e?.message || "Nu am putut încărca orarul.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -201,8 +206,9 @@ const TakeAttendance = () => {
             .in("student_id", studentIds);
 
           const existingMap: Record<string, AttendanceStatus> = {};
-          (existingAttendance || []).forEach((a: any) => {
-            existingMap[a.student_id] = a.status as AttendanceStatus;
+          type ExistingAttendanceRow = { student_id: string; status: AttendanceStatus };
+          ((existingAttendance ?? []) as ExistingAttendanceRow[]).forEach((a) => {
+            existingMap[a.student_id] = a.status;
           });
 
           const initial: Record<string, AttendanceStatus> = {};
@@ -212,10 +218,11 @@ const TakeAttendance = () => {
           setStatuses(initial);
         }
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
+      const errorMessage = e instanceof Error ? e.message : "Nu am putut încărca elevii.";
       toast({
         title: "Eroare",
-        description: e?.message || "Nu am putut încărca elevii.",
+        description: errorMessage,
         variant: "destructive",
       });
     }
@@ -247,10 +254,11 @@ const TakeAttendance = () => {
       await fetchSlots();
       // Re-select the slot with signed=true
       handleSelectSlot({ ...slot, signed: true });
-    } catch (e: any) {
+    } catch (e: unknown) {
+      const errorMessage = e instanceof Error ? e.message : "Nu s-a putut semna condica.";
       toast({
         title: "Eroare",
-        description: e?.message || "Nu s-a putut semna condica.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -285,19 +293,21 @@ const TakeAttendance = () => {
 
     setSaving(true);
     try {
-      const { error } = await (supabase as any)
+      type AttendanceInsert = Database["public"]["Tables"]["attendance"]["Insert"];
+      const { error } = await supabase
         .from("attendance")
-        .upsert(rows, { onConflict: "student_id,subject_id,date" });
+        .upsert(rows as AttendanceInsert[], { onConflict: "student_id,subject_id,date" });
       if (error) throw error;
 
       toast({
         title: "Prezența salvată!",
         description: `${selectedSlot.subject_name} — ${selectedSlot.class_name} (${dateKey})`,
       });
-    } catch (e: any) {
+    } catch (e: unknown) {
+      const errorMessage = e instanceof Error ? e.message : "Nu am putut salva prezența.";
       toast({
         title: "Eroare",
-        description: e?.message ?? "Nu am putut salva prezența.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {

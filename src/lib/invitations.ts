@@ -128,7 +128,19 @@ export const claimInvitation = async (
       return { success: false, error_message: error.message };
     }
 
-    const result: any = Array.isArray(data) ? data[0] : data;
+    type ClaimResult = {
+      success: boolean;
+      error_message?: string;
+      invitation_id?: string;
+      role?: string;
+      school_id?: string;
+      class_id?: string | null;
+      student_id?: string | null;
+      first_name?: string | null;
+      last_name?: string | null;
+      invited_student_number?: number | null;
+    };
+    const result: ClaimResult = Array.isArray(data) ? (data[0] as ClaimResult) : (data as ClaimResult);
 
     if (!result || !result.success) {
       return {
@@ -180,7 +192,21 @@ export const createInvitation = async (
   }
 ): Promise<CreateInvitationResult> => {
   try {
-    const { data, error } = await (supabase.rpc as any)("create_invitation", {
+    type CreateInvitationParams = {
+      p_role: InvitationRole;
+      p_school_id: string;
+      p_class_id: string | null;
+      p_student_id: string | null;
+      p_first_name: string | null;
+      p_last_name: string | null;
+      p_student_number: number | null;
+      p_invited_email: string | null;
+      p_invited_phone: string | null;
+      p_intended_for: string | null;
+      p_max_uses: number;
+      p_expires_hours: number;
+    };
+    const { data, error } = await supabase.rpc<CreateInvitationParams, unknown>("create_invitation", {
       p_role: role,
       p_school_id: schoolId,
       p_class_id: options?.classId ?? null,
@@ -214,11 +240,12 @@ export const createInvitation = async (
       invitation_id: result.invitation_id,
       plain_code: result.plain_code,
     };
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("Error creating invitation:", err);
+    const errorMessage = err instanceof Error ? err.message : "Eroare la crearea invitației.";
     return {
       success: false,
-      error_message: err?.message || "Eroare la crearea invitației.",
+      error_message: errorMessage,
     };
   }
 };

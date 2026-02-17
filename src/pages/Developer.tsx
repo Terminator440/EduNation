@@ -125,8 +125,9 @@ export default function Developer() {
         } else {
           updateCheck("auth", { level: "warn", detail: "Nu există sesiune activă (neautentificat)." });
         }
-      } catch (e: any) {
-        updateCheck("auth", { level: "error", detail: `Auth exception: ${e?.message ?? String(e)}` });
+      } catch (e: unknown) {
+        const errorMessage = e instanceof Error ? e.message : String(e);
+        updateCheck("auth", { level: "error", detail: `Auth exception: ${errorMessage}` });
       }
 
       // DB check
@@ -140,8 +141,9 @@ export default function Developer() {
             detail: `Query blocat sau eșuat (posibil RLS). Mesaj: ${error.message}`,
           });
         }
-      } catch (e: any) {
-        updateCheck("db", { level: "error", detail: `DB exception: ${e?.message ?? String(e)}` });
+      } catch (e: unknown) {
+        const errorMessage = e instanceof Error ? e.message : String(e);
+        updateCheck("db", { level: "error", detail: `DB exception: ${errorMessage}` });
       }
 
       // Canary checks for each module
@@ -222,10 +224,11 @@ export default function Developer() {
             });
           }
         }
-      } catch (e: any) {
+      } catch (e: unknown) {
+        const errorMessage = e instanceof Error ? e.message : String(e);
         updateCanary(id, {
           level: "error",
-          detail: `Excepție: ${e?.message ?? String(e)}`,
+          detail: `Excepție: ${errorMessage}`,
         });
       }
     }
@@ -234,7 +237,7 @@ export default function Developer() {
   const requestNotifications = async () => {
     try {
       if (typeof window !== "undefined" && "Notification" in window) {
-        const perm = await Notification.requestPermission();
+        await Notification.requestPermission();
         checkBrowserNotifications();
       }
     } catch {

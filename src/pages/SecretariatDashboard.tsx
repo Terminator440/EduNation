@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Users, GraduationCap, FileText, Calendar, Plus, Upload, Search } from "lucide-react";
+import { Users, GraduationCap, FileText, Plus, Search } from "lucide-react";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
 import StatsCard from "@/components/dashboard/StatsCard";
 import { cn } from "@/lib/utils";
@@ -26,7 +26,7 @@ const SecretariatDashboard = () => {
   const [newStudentName, setNewStudentName] = useState("");
   const [newStudentClassId, setNewStudentClassId] = useState<string>("");
   const [newStudentContact, setNewStudentContact] = useState<string>("");
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
   const { toast } = useToast();
 
   const classesQuery = useClasses();
@@ -78,10 +78,11 @@ const handleCreateStudent = async () => {
         title: "Elev creat + cod generat",
         description: `Cod activare: ${res.activation_code} (expiră: ${new Date(res.expires_at).toLocaleString('ro-RO')})`,
       });
-    } catch (e: any) {
+    } catch (e: unknown) {
+      const errorMessage = e instanceof Error ? e.message : "Nu am putut crea elevul.";
       toast({
         title: "Eroare",
-        description: e?.message ?? "Nu am putut crea elevul.",
+        description: errorMessage,
         variant: "destructive",
       });
     }

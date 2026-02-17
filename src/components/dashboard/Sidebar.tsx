@@ -17,7 +17,8 @@ import {
   Bell,
   Mail,
   Key,
-  ClipboardCheck
+  ClipboardCheck,
+  type LucideIcon
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -28,7 +29,13 @@ interface SidebarProps {
   onToggle: () => void;
 }
 
-const menuItemsByRole: Record<AppRole, { icon: any; label: string; href: string }[]> = {
+interface MenuItem {
+  icon: LucideIcon;
+  label: string;
+  href: string;
+}
+
+const menuItemsByRole: Record<AppRole, MenuItem[]> = {
   student: [
     { icon: LayoutDashboard, label: "Panou principal", href: "/dashboard" },
     { icon: Clock, label: "Orar", href: "/dashboard/schedule" },

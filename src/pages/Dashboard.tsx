@@ -18,9 +18,17 @@ const Dashboard = () => {
   const gradesQuery = useGradesForScope(scopeQuery.data?.studentIds ?? []);
   const attendanceQuery = useAttendanceForScope(scopeQuery.data?.studentIds ?? []);
 
+  type SchoolEvent = {
+    id: string;
+    title: string;
+    event_date: string;
+    event_time?: string;
+    type: string;
+    subject?: string;
+  };
   const eventsQuery = useQuery({
     queryKey: ["school-events-upcoming"],
-    queryFn: async () => [] as any[],
+    queryFn: async (): Promise<SchoolEvent[]> => [],
   });
 
   const gradesBySubject = useMemo(() => {
@@ -54,7 +62,7 @@ const Dashboard = () => {
   }, [attendanceQuery.data]);
 
   const upcomingEvents = useMemo(() => {
-    return ((eventsQuery.data ?? []) as any[]).map((r) => ({
+    return (eventsQuery.data ?? []).map((r) => ({
       id: r.id,
       title: r.title,
       date: r.event_date,

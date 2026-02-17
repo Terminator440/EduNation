@@ -2,6 +2,7 @@ import React from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle, RefreshCw, Home } from "lucide-react";
+import type { Database } from "@/integrations/supabase/types";
 
 type Props = {
   children: React.ReactNode;
@@ -13,9 +14,7 @@ type State = {
   errorId?: string;
 };
 
-interface ErrorInfo {
-  componentStack: string;
-}
+// ErrorInfo is provided by React.ErrorInfo type
 
 /**
  * ErrorBoundary îmbunătățit cu logging și UI prietenos.
@@ -65,7 +64,7 @@ export default class ErrorBoundary extends React.Component<Props, State> {
         const { data: logId } = await supabase.rpc("log_audit", {
           _user_id: user.id,
           _user_name: user.email || "Unknown",
-          _active_role: "student" as any, // Default role for error logging
+          _active_role: "student" as Database["public"]["Enums"]["app_role"],
           _action: "error.frontend",
           _entity_type: "app_error",
           _entity_id: null,

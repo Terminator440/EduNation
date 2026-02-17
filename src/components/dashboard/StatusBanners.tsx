@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import { BellOff } from "lucide-react";
+import { BellOff, type LucideIcon } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 
 type Banner = {
   id: string;
-  icon: any;
+  icon: LucideIcon;
   title: string;
   description: string;
   actionLabel?: string;

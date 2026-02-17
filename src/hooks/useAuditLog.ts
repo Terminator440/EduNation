@@ -35,7 +35,7 @@ export function useAuditLog() {
             .select("school_id")
             .eq("id", user.id)
             .maybeSingle();
-          schoolId = (profileData as any)?.school_id ?? null;
+          schoolId = profileData?.school_id ?? null;
         }
 
         const { data, error } = await supabase.rpc("log_audit_extended", {

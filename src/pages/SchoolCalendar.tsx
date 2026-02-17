@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { CalendarIcon, ChevronLeft, ChevronRight, PartyPopper, Sun, GraduationCap, BookOpen, Plus } from "lucide-react";
+import { CalendarIcon, ChevronLeft, ChevronRight, PartyPopper, GraduationCap, BookOpen, Plus, type LucideIcon } from "lucide-react";
 import Sidebar from "@/components/dashboard/Sidebar";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -21,7 +21,7 @@ const MONTHS_RO = [
 
 type EventType = "holiday" | "event" | "test" | "homework";
 
-const eventTypeConfig: Record<EventType, { color: string; textColor: string; icon: any; label: string }> = {
+const eventTypeConfig: Record<EventType, { color: string; textColor: string; icon: LucideIcon; label: string }> = {
   holiday: { color: "bg-success", textColor: "text-success", icon: PartyPopper, label: "Vacanță/Sărbătoare" },
   event: { color: "bg-primary", textColor: "text-primary", icon: CalendarIcon, label: "Eveniment" },
   test: { color: "bg-destructive", textColor: "text-destructive", icon: GraduationCap, label: "Test/Examen" },
@@ -51,7 +51,7 @@ const SchoolCalendar = () => {
   const nextMonth = () => setCurrentDate(new Date(year, month + 1, 1));
 
   const eventsByDate = useMemo(() => {
-    const map = new Map<string, any[]>();
+    const map = new Map<string, typeof eventsQuery.data>();
     for (const e of eventsQuery.data ?? []) {
       const key = e.event_date;
       const arr = map.get(key) ?? [];
@@ -253,7 +253,7 @@ const SchoolCalendar = () => {
                         )}>{day}</span>
                         {events.length > 0 && (
                           <div className="flex gap-0.5 mt-1">
-                            {events.slice(0, 3).map((e: any, i: number) => (
+                            {events.slice(0, 3).map((e, i: number) => (
                               <div key={i} className={cn("w-1.5 h-1.5 rounded-full", eventTypeConfig[e.type as EventType].color)} />
                             ))}
                           </div>
@@ -289,7 +289,7 @@ const SchoolCalendar = () => {
                 </h3>
                 {selectedDateEvents.length > 0 ? (
                   <div className="space-y-3">
-                    {selectedDateEvents.map((event: any) => {
+                    {selectedDateEvents.map((event) => {
                       const cfg = eventTypeConfig[event.type as EventType];
                       const Icon = cfg.icon;
                       return (

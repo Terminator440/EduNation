@@ -28,9 +28,9 @@ type AuditRow = {
   action: string;
   entity_type: string | null;
   entity_id: string | null;
-  details: any;
-  old_data?: any;
-  new_data?: any;
+  details: Record<string, unknown> | null;
+  old_data?: Record<string, unknown> | null;
+  new_data?: Record<string, unknown> | null;
   school_id?: string | null;
 };
 
@@ -160,10 +160,11 @@ export default function AuditLogs() {
 
       if (error) throw error;
       setAllRows((data as AuditRow[]) ?? []);
-    } catch (e: any) {
+    } catch (e: unknown) {
+      const errorMessage = e instanceof Error ? e.message : "Nu am putut încărca audit log.";
       toast({
         title: "Eroare",
-        description: e?.message ?? "Nu am putut încărca audit log.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {

@@ -32,8 +32,20 @@ const ParentDashboard = () => {
         .from('parent_student_relations')
         .select('student:students(id,full_name, class:classes(id,name,year,section))')
         .eq('parent_user_id', user!.id);
-      const rows = assertSupabaseOk(res, 'parent_student_relations.select(children)') as any[];
-      return (rows || []).map(r => r.student).filter(Boolean);
+      type ParentStudentRelationRow = {
+        student: {
+          id: string;
+          full_name: string | null;
+          class: {
+            id: string;
+            name: string;
+            year: number;
+            section: string;
+          } | null;
+        } | null;
+      };
+      const rows = assertSupabaseOk(res, 'parent_student_relations.select(children)') as ParentStudentRelationRow[];
+      return (rows || []).map(r => r.student).filter((s): s is NonNullable<typeof s> => s !== null);
     },
   });
 
@@ -78,15 +90,22 @@ const ParentDashboard = () => {
   }, [attendanceQuery.data]);
 
   // Stub: school_events table doesn't exist yet
+  type SchoolEvent = {
+    id: string;
+    title: string;
+    event_date: string;
+    event_time?: string;
+    type: string;
+  };
   const eventsQuery = useQuery({
     queryKey: ['school-events-upcoming-parent'],
-    queryFn: async () => {
-      return [] as any[];
+    queryFn: async (): Promise<SchoolEvent[]> => {
+      return [];
     },
   });
 
   const upcomingEvents = useMemo(() => {
-    const rows = (eventsQuery.data ?? []) as any[];
+    const rows = eventsQuery.data ?? [];
     return rows.map(r => ({
       id: r.id,
       title: r.title,

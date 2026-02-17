@@ -132,12 +132,18 @@ export default function Auth() {
 
       // 4. Logica specifică rolului (Student/Parent)
       if (role === "student" && claimResult.class_id) {
+        type StudentInsert = {
+          user_id: string;
+          class_id: string;
+          full_name: string;
+          student_number: number | null;
+        };
         await supabase.from("students").insert({
           user_id: authData.user.id,
           class_id: claimResult.class_id,
           full_name: claimFullName,
-          student_number: claimStudentNumber as any,
-        } as any);
+          student_number: typeof claimStudentNumber === "number" ? claimStudentNumber : null,
+        } as StudentInsert);
       }
 
       if (role === "parent" && claimResult.student_id) {
@@ -153,10 +159,11 @@ export default function Auth() {
       });
 
       navigate(routeMap[role] || "/dashboard");
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "A apărut o eroare la înregistrare";
       toast({
         title: "Eroare",
-        description: err.message || "A apărut o eroare la înregistrare",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -177,7 +184,7 @@ export default function Auth() {
         });
       }
       // Navigarea se va face prin useEffect-ul de mai jos când "user" devine disponibil
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast({
         title: "Eroare",
         description: err.message || "A apărut o eroare neașteptată.",

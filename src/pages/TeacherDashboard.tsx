@@ -11,8 +11,18 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchGradesForStudents } from "@/features/grades/services/grades.service";
 import { fetchAttendanceForStudents } from "@/features/attendance/services/attendance.service";
+import type { GradeRow } from "@/features/grades/services/grades.service";
+import type { AttendanceRow } from "@/features/attendance/services/attendance.service";
 import { CreateInvitationDialog } from "@/components/invitations/CreateInvitationDialog";
-import { listInvitations, revokeInvitation, getRoleLabelRo, getStatusLabelRo, getInvitationStatus, type InvitationRole } from "@/lib/invitations";
+import {
+  listInvitations,
+  revokeInvitation,
+  getRoleLabelRo,
+  getStatusLabelRo,
+  getInvitationStatus,
+  type InvitationRole,
+  type InvitationWithDetails,
+} from "@/lib/invitations";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 import { useToast } from "@/hooks/use-toast";
@@ -42,11 +52,11 @@ import {
 
 interface Student {
   id: string;
-  user_id: string;
-  student_number: string | number | null;
+  user_id: string | null;
+  student_number: number | null;
   full_name: string | null;
   profile: {
-    full_name: string;
+    full_name: string | null;
     email: string;
   } | null;
   grades: {
@@ -109,7 +119,7 @@ const TeacherDashboard = () => {
   const [invitationRole, setInvitationRole] = useState<InvitationRole>("student");
   const [homeroomClassId, setHomeroomClassId] = useState<string | null>(null);
   const [schoolId, setSchoolId] = useState<string | null>(null);
-  const [homeroomInvitations, setHomeroomInvitations] = useState<any[]>([]);
+  const [homeroomInvitations, setHomeroomInvitations] = useState<InvitationWithDetails[]>([]);
   const [invitesLoading, setInvitesLoading] = useState(false);
 
 
@@ -144,7 +154,7 @@ const TeacherDashboard = () => {
 
         if (profileErr) throw profileErr;
 
-        const sid = (profileData as any)?.school_id || null;
+        const sid = profileData?.school_id ?? null;
         setSchoolId(sid);
 
         const { data: classData, error: classErr } = await supabase
@@ -157,7 +167,7 @@ const TeacherDashboard = () => {
 
         if (classErr) throw classErr;
 
-        const cid = (classData as any)?.id || null;
+        const cid = classData?.id ?? null;
         setHomeroomClassId(cid);
 
         if (sid && cid) {
@@ -231,9 +241,11 @@ const TeacherDashboard = () => {
           .eq("date", dateStr),
       ]);
 
-      const classMap = new Map((classesRes.data || []).map((c: any) => [c.id, c.name]));
-      const subjectMap = new Map((subjectsRes.data || []).map((s: any) => [s.id, s.name]));
-      const signedIds = new Set((registerRes.data || []).map((r: any) => r.timetable_entry_id as string));
+      type IdNameRow = { id: string; name: string };
+      type RegisterRow = { timetable_entry_id: string };
+      const classMap = new Map(((classesRes.data ?? []) as IdNameRow[]).map((c) => [c.id, c.name]));
+      const subjectMap = new Map(((subjectsRes.data ?? []) as IdNameRow[]).map((s) => [s.id, s.name]));
+      const signedIds = new Set(((registerRes.data ?? []) as RegisterRow[]).map((r) => r.timetable_entry_id));
 
       const mapped: TimetableEntry[] = entries.map((e) => ({
         id: e.id,
@@ -250,7 +262,7 @@ const TeacherDashboard = () => {
 
       setTimetableEntries(mapped);
       setSignedEntryIds(signedIds);
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error("Error fetching register:", e);
       setTimetableEntries([]);
       setSignedEntryIds(new Set());
@@ -281,10 +293,11 @@ const TeacherDashboard = () => {
       });
 
       setSignedEntryIds(prev => new Set([...prev, timetableEntryId]));
-    } catch (e: any) {
+    } catch (e: unknown) {
+      const errorMessage = e instanceof Error ? e.message : "Nu s-a putut semna condica.";
       toast({
         title: "Eroare",
-        description: e?.message || "Nu s-a putut semna condica.",
+        description: errorMessage,
         variant: "destructive",
       });
     }
@@ -312,20 +325,28 @@ const TeacherDashboard = () => {
 
         if (studentsData) {
           // Fetch related data in bulk to avoid N+1 queries (production performance)
-          const studentIds = (studentsData || []).map((s: any) => s.id);
-          const userIds = (studentsData || [])
-            .map((s: any) => s.user_id)
-            .filter((id: any) => !!id);
+          type StudentListRow = {
+            id: string;
+            user_id: string | null;
+            student_number: number | null;
+            full_name: string | null;
+          };
+          const studentRows = (studentsData ?? []) as StudentListRow[];
+          const studentIds = studentRows.map((s) => s.id);
+          const userIds = studentRows
+            .map((s) => s.user_id)
+            .filter((id): id is string => typeof id === "string" && id.length > 0);
 
-          const profilesById = new Map<string, any>();
+          type ProfileLite = { id: string; full_name: string | null; email: string };
+          const profilesById = new Map<string, ProfileLite>();
           if (userIds.length > 0) {
             const { data: profilesData, error: profilesErr } = await supabase
               .from('profiles')
               .select('id, full_name, email')
-              .in('id', userIds as any);
+              .in('id', userIds);
 
             if (profilesErr) throw profilesErr;
-            (profilesData || []).forEach((p: any) => profilesById.set(p.id, p));
+            ((profilesData ?? []) as ProfileLite[]).forEach((p) => profilesById.set(p.id, p));
           }
 
           // Use services from features instead of direct Supabase calls
@@ -334,25 +355,38 @@ const TeacherDashboard = () => {
             fetchAttendanceForStudents(studentIds),
           ]);
 
-          const gradesByStudent = new Map<string, any[]>();
-          gradesData.forEach((g: any) => {
-            const arr = gradesByStudent.get(g.student_id) || [];
-            arr.push({ ...g, subject: g.subject });
+          const gradesByStudent = new Map<string, Student["grades"]>();
+          (gradesData as GradeRow[]).forEach((g) => {
+            const arr = gradesByStudent.get(g.student_id) ?? [];
+            arr.push({
+              id: g.id,
+              grade: g.grade,
+              date: g.date,
+              subject: { name: g.subject?.name ?? "Materie" },
+            });
             gradesByStudent.set(g.student_id, arr);
           });
 
-          const attendanceByStudent = new Map<string, any[]>();
-          attendanceData.forEach((a: any) => {
-            const arr = attendanceByStudent.get(a.student_id) || [];
-            arr.push({ ...a, subject: a.subject });
+          const attendanceByStudent = new Map<string, Student["attendance"]>();
+          (attendanceData as AttendanceRow[]).forEach((a) => {
+            const arr = attendanceByStudent.get(a.student_id) ?? [];
+            arr.push({
+              id: a.id,
+              status: a.status,
+              date: a.date,
+              subject: { name: a.subject?.name ?? "Materie" },
+            });
             attendanceByStudent.set(a.student_id, arr);
           });
 
-          const enrichedStudents = (studentsData || []).map((student: any) => ({
-            ...student,
-            profile: student.user_id ? profilesById.get(student.user_id) || null : null,
-            grades: gradesByStudent.get(student.id) || [],
-            attendance: attendanceByStudent.get(student.id) || [],
+          const enrichedStudents: Student[] = studentRows.map((student) => ({
+            id: student.id,
+            user_id: student.user_id,
+            student_number: student.student_number,
+            full_name: student.full_name,
+            profile: student.user_id ? profilesById.get(student.user_id) ?? null : null,
+            grades: gradesByStudent.get(student.id) ?? [],
+            attendance: attendanceByStudent.get(student.id) ?? [],
           }));
 
           setStudents(enrichedStudents);
@@ -451,8 +485,9 @@ const TeacherDashboard = () => {
       setIsAddAttendanceOpen(false);
       setNewAttendance({ status: "present", subjectId: "" });
       fetchData();
-    } catch (error: any) {
-      if (error.code === '23505') {
+    } catch (error: unknown) {
+      const code = typeof error === "object" && error !== null && "code" in error ? (error as { code?: string }).code : undefined;
+      if (code === '23505') {
         toast({
           title: "Eroare",
           description: "Prezența pentru această dată și materie a fost deja înregistrată",
@@ -494,7 +529,7 @@ const TeacherDashboard = () => {
           excuse_reason: motivateReason.trim() ? motivateReason.trim() : null,
           excused_at: new Date().toISOString(),
         })
-        .in('id', selectedAbsences as any);
+        .in('id', selectedAbsences);
 
       if (error) throw error;
 

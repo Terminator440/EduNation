@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Copy, RotateCcw, XCircle, Clock, CheckCircle, AlertTriangle } from "lucide-react";
+import { RotateCcw, XCircle, Clock, CheckCircle, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -24,6 +24,7 @@ import { toast } from "@/hooks/use-toast";
 import {
   type Invitation,
   type InvitationStatus,
+  type InvitationWithDetails,
   getInvitationStatus,
   getRoleLabelRo,
   getStatusLabelRo,
@@ -34,7 +35,7 @@ import { formatDistanceToNow } from "date-fns";
 import { ro } from "date-fns/locale";
 
 interface InvitationsListProps {
-  invitations: Invitation[];
+  invitations: (Invitation | InvitationWithDetails)[];
   onRefresh: () => void;
   onRegenerate?: (invitation: Invitation) => void;
   showRole?: boolean;
@@ -85,14 +86,7 @@ export function InvitationsList({
     setSelectedInvitation(null);
   };
 
-  const handleCopyCode = (inv: Invitation) => {
-    // Note: We can't copy the plain code as we only store the hash
-    // This would need to be called right after creation when we have the plain code
-    toast({
-      title: "Info",
-      description: "Codul poate fi copiat doar la momentul generării.",
-    });
-  };
+  // Removed handleCopyCode - not used, code can only be copied at creation time
 
   if (loading) {
     return (
@@ -136,10 +130,20 @@ export function InvitationsList({
                   <TableCell className="font-medium">{getRoleLabelRo(inv.role)}</TableCell>
                 )}
                 {showClass && (
-                  <TableCell>{(inv as any).class_name || "-"}</TableCell>
+                  <TableCell>
+                    {(() => {
+                      const invWithDetails = inv as InvitationWithDetails;
+                      return invWithDetails.class_name || "-";
+                    })()}
+                  </TableCell>
                 )}
                 {showStudent && (
-                  <TableCell>{(inv as any).student_name || "-"}</TableCell>
+                  <TableCell>
+                    {(() => {
+                      const invWithDetails = inv as InvitationWithDetails;
+                      return invWithDetails.student_name || "-";
+                    })()}
+                  </TableCell>
                 )}
                 <TableCell>
                   <div className="flex items-center gap-2">

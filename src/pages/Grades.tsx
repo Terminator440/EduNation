@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { TrendingUp, TrendingDown, Award, BookOpen } from "lucide-react";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
 import { cn } from "@/lib/utils";

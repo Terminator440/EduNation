@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { exportToCsv } from "@/utils/exportCsv";
 import { fetchClassStatsForDisplay, fetchClassTotalsForDisplay } from "@/lib/reports-rpc";
+import type { Database } from "@/integrations/supabase/types";
 
 type RoleScope = "teacher" | "homeroom_teacher" | "secretariat" | "director" | "uat_admin";
 
@@ -102,8 +103,8 @@ const Reports = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  const roleOk = (r: any): r is RoleScope =>
-    r === "teacher" || r === "homeroom_teacher" || r === "secretariat" || r === "director" || r === "uat_admin";
+  const roleOk = (r: unknown): r is RoleScope =>
+    typeof r === "string" && (r === "teacher" || r === "homeroom_teacher" || r === "secretariat" || r === "director" || r === "uat_admin");
 
   useEffect(() => {
     if (!authLoading && (!user || !roleOk(activeRole))) {
@@ -121,7 +122,7 @@ const Reports = () => {
           .eq("teacher_id", user.id)
           .maybeSingle();
         if (error) throw error;
-        const arr: ClassRow[] = cls ? [cls as any] : [];
+        const arr: ClassRow[] = cls ? [cls as ClassRow] : [];
         setClasses(arr);
         setClassId(arr[0]?.id ?? "");
       } else {
@@ -131,11 +132,12 @@ const Reports = () => {
           .order("year", { ascending: true })
           .order("section", { ascending: true });
         if (error) throw error;
-        setClasses((cls as any) ?? []);
-        setClassId((cls as any)?.[0]?.id ?? "");
+        setClasses((cls as ClassRow[]) ?? []);
+        setClassId((cls as ClassRow[])?.[0]?.id ?? "");
       }
-    } catch (e: any) {
-      toast({ title: "Eroare", description: e?.message ?? "Nu am putut încărca clasele.", variant: "destructive" });
+    } catch (e: unknown) {
+      const errorMessage = e instanceof Error ? e.message : "Nu am putut încărca clasele.";
+      toast({ title: "Eroare", description: errorMessage, variant: "destructive" });
     }
   };
 
@@ -161,7 +163,8 @@ const Reports = () => {
         .eq("class_id", classId)
         .order("student_number", { ascending: true });
       if (stErr) throw stErr;
-      const stRows: StudentRow[] = (st as any) ?? [];
+      type StudentDbRow = Database["public"]["Tables"]["students"]["Row"];
+      const stRows: StudentRow[] = (st as StudentDbRow[]) ?? [];
       setStudents(stRows);
       setSelectedStudentId((prev) => (prev && stRows.some((s) => s.id === prev) ? prev : (stRows[0]?.id ?? "")));
 
@@ -176,12 +179,12 @@ const Reports = () => {
       let gradesQ = supabase
         .from("grades")
         .select("id, date, grade, description, student_id, subjects(name)")
-        .in("student_id", studentIds as any)
+        .in("student_id", studentIds)
         .order("date", { ascending: false });
       let attQ = supabase
         .from("attendance")
         .select("id, date, status, student_id, subjects(name)")
-        .in("student_id", studentIds as any)
+        .in("student_id", studentIds)
         .order("date", { ascending: false });
 
       if (dateFrom) {
@@ -193,11 +196,26 @@ const Reports = () => {
         attQ = attQ.lte("date", dateTo);
       }
 
+      type GradeRowWithSubject = {
+        id: string;
+        date: string;
+        grade: number;
+        description: string | null;
+        student_id: string;
+        subjects: { name: string } | null;
+      };
+      type AttendanceRowWithSubject = {
+        id: string;
+        date: string;
+        status: string;
+        student_id: string;
+        subjects: { name: string } | null;
+      };
       const [{ data: gr, error: grErr }, { data: at, error: atErr }] = await Promise.all([gradesQ, attQ]);
       if (grErr) throw grErr;
       if (atErr) throw atErr;
-      setGrades((gr as any) ?? []);
-      setAttendance((at as any) ?? []);
+      setGrades((gr as GradeRowWithSubject[]) ?? []);
+      setAttendance((at as AttendanceRowWithSubject[]) ?? []);
 
       const params = { p_class_id: classId, p_date_from: dateFrom || null, p_date_to: dateTo || null };
       const [{ data: statsData, error: statsErr }, { data: totalsData, error: totalsErr }] = await Promise.all([
@@ -207,9 +225,10 @@ const Reports = () => {
       if (!statsErr) setClassStatsFromDb(statsData);
       if (!totalsErr && totalsData) setClassTotalsFromDb(totalsData);
 
-      // Teacher register (condică profesor) — best-effort: works only if table + RLS allow access.
+      // Teacher register (condica profesor) - best-effort: works only if table + RLS allow access.
       try {
-        let regQ: any = (supabase as any)
+        type TeacherRegisterQuery = ReturnType<typeof supabase.from<'teacher_register'>>;
+        let regQ: TeacherRegisterQuery = supabase
           .from('teacher_register')
           .select(`
             id,
@@ -224,19 +243,20 @@ const Reports = () => {
               subjects ( name )
             )
           `)
-          .eq('teacher_id', user?.id)
+          .eq('teacher_id', user?.id ?? '')
           .order('date', { ascending: false });
 
-        if (dateFrom) regQ = regQ.gte('date', dateFrom);
-        if (dateTo) regQ = regQ.lte('date', dateTo);
+        if (dateFrom) regQ = regQ.gte('date', dateFrom) as TeacherRegisterQuery;
+        if (dateTo) regQ = regQ.lte('date', dateTo) as TeacherRegisterQuery;
 
         const { data: regData } = await regQ;
-        setRegisterRows((regData as any) ?? []);
+        setRegisterRows((regData as unknown[]) ?? []);
       } catch {
         setRegisterRows([]);
       }
-    } catch (e: any) {
-      toast({ title: "Eroare", description: e?.message ?? "Nu am putut încărca rapoartele.", variant: "destructive" });
+    } catch (e: unknown) {
+      const errorMessage = e instanceof Error ? e.message : "Nu am putut încărca rapoartele.";
+      toast({ title: "Eroare", description: errorMessage, variant: "destructive" });
     } finally {
       setLoading(false);
     }

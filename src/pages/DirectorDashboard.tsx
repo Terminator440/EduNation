@@ -6,7 +6,15 @@ import StatsCard from "@/components/dashboard/StatsCard";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { CreateInvitationDialog } from "@/components/invitations/CreateInvitationDialog";
-import { listInvitations, revokeInvitation, getRoleLabelRo, getStatusLabelRo, getInvitationStatus, type InvitationRole } from "@/lib/invitations";
+import {
+  listInvitations,
+  revokeInvitation,
+  getRoleLabelRo,
+  getStatusLabelRo,
+  getInvitationStatus,
+  type InvitationRole,
+  type InvitationWithDetails,
+} from "@/lib/invitations";
 
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -69,13 +77,13 @@ const DirectorDashboard = () => {
 
   const { toast } = useToast();
 
-  const { user, profile, activeRole, loading: authLoading } = useAuth();
+  const { user, activeRole, loading: authLoading } = useAuth();
 
   // Invitatii (director)
   const [invDialogOpen, setInvDialogOpen] = useState(false);
   const [invRole, setInvRole] = useState<InvitationRole>("teacher");
   const [directorSchoolId, setDirectorSchoolId] = useState<string | null>(null);
-  const [directorInvitations, setDirectorInvitations] = useState<any[]>([]);
+  const [directorInvitations, setDirectorInvitations] = useState<InvitationWithDetails[]>([]);
   const [directorInvLoading, setDirectorInvLoading] = useState(false);
 
   const navigate = useNavigate();
@@ -101,7 +109,7 @@ const DirectorDashboard = () => {
 
         if (profileErr) throw profileErr;
 
-        const sid = (profileData as any)?.school_id || null;
+        const sid = profileData?.school_id ?? null;
         setDirectorSchoolId(sid);
 
         if (sid) {
@@ -225,7 +233,7 @@ const DirectorDashboard = () => {
   return (
     <DashboardLayout
       title="Panou Director"
-      subtitle="Liceul Teoretic „Nicolae Bălcescu""
+      subtitle="Liceul Teoretic &quot;Nicolae Balcescu&quot;"
     >
           {/* Stats */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">

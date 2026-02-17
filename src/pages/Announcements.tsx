@@ -53,8 +53,7 @@ const Announcements = () => {
   const fetchAnnouncements = async () => {
     setLoading(true);
     try {
-      // NOTE: announcements table is added via migration; we cast to any to avoid type-gen mismatch.
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from("announcements")
         .select("id,title,content,created_at,created_by,target_role")
         .order("created_at", { ascending: false })
@@ -62,7 +61,7 @@ const Announcements = () => {
 
       if (error) throw error;
       setAnnouncements((data ?? []) as AnnouncementRow[]);
-    } catch (e: any) {
+    } catch (e: unknown) {
       toast({
         title: "Nu am putut încărca anunțurile",
         description: toFriendlySupabaseError(e),
@@ -88,14 +87,20 @@ const Announcements = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Nu ești autentificat");
 
-      const payload: any = {
+      type AnnouncementInsert = {
+        title: string;
+        content: string;
+        target_role: string | null;
+        created_by: string;
+      };
+      const payload: AnnouncementInsert = {
         title: title.trim(),
         content: content.trim(),
         target_role: targetRole,
         created_by: user.id,
       };
 
-      const { error } = await (supabase as any).from("announcements").insert(payload);
+      const { error } = await supabase.from("announcements").insert(payload);
       if (error) throw error;
 
       setTitle("");
@@ -103,7 +108,7 @@ const Announcements = () => {
       setTargetRole(null);
       toast({ title: "Anunț publicat" });
       await fetchAnnouncements();
-    } catch (e: any) {
+    } catch (e: unknown) {
       toast({
         title: "Nu am putut publica anunțul",
         description: toFriendlySupabaseError(e),

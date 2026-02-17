@@ -8,7 +8,7 @@ type AnyError = {
   code?: string;
   status?: number;
   statusCode?: number;
-} & Record<string, any>;
+} & Record<string, unknown>;
 
 export function toFriendlySupabaseError(err: unknown): string {
   const e = (err as AnyError) ?? {};

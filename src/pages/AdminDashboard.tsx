@@ -10,9 +10,13 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
+import type { Database } from "@/integrations/supabase/types";
 
-const ROLES = ['student','parent','teacher','homeroom_teacher','secretariat','director','uat_admin'] as const;
-type Role = typeof ROLES[number];
+type AppRoleEnum = Database["public"]["Enums"]["app_role"];
+type Role = Exclude<AppRoleEnum, "developer">; // Exclude developer from admin assignable roles
+
+type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
+type UserRoleRow = Database["public"]["Tables"]["user_roles"]["Row"];
 
 type UserRow = {
   id: string;
@@ -50,16 +54,19 @@ const AdminDashboard = () => {
     queryKey: ['admin-users'],
     queryFn: async (): Promise<UserRow[]> => {
       const pRes = await supabase.from('profiles').select('id,full_name,email').order('full_name', { ascending: true });
-      const profiles = assertSupabaseOk(pRes, 'profiles.select(admin)') as any[];
+      const profiles = assertSupabaseOk(pRes, 'profiles.select(admin)') as ProfileRow[];
 
       const rRes = await supabase.from('user_roles').select('user_id,role');
-      const roles = assertSupabaseOk(rRes, 'user_roles.select(admin)') as any[];
+      const roles = assertSupabaseOk(rRes, 'user_roles.select(admin)') as UserRoleRow[];
 
       const roleMap = new Map<string, Role[]>();
       for (const r of roles) {
         const arr = roleMap.get(r.user_id) ?? [];
-        arr.push(r.role);
-        roleMap.set(r.user_id, arr);
+        const role = r.role as Role;
+        if (role !== "developer") {
+          arr.push(role);
+          roleMap.set(r.user_id, arr);
+        }
       }
 
       return (profiles || []).map(p => ({

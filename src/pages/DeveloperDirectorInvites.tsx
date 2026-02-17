@@ -49,7 +49,7 @@ interface School {
 const DeveloperDirectorInvites = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const { toast } = useToast();
-  const { activeRole, user } = useAuth();
+  const { activeRole } = useAuth();
   const { logAction } = useAuditLog();
   const navigate = useNavigate();
 

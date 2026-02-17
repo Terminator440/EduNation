@@ -46,7 +46,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
 import { CreateInvitationDialog } from "@/components/invitations/CreateInvitationDialog";
-import { listInvitations, getInvitationStatus, getStatusLabelRo, getRoleLabelRo, type InvitationRole, type Invitation } from "@/lib/invitations";
+import { listInvitations, type InvitationRole, type Invitation } from "@/lib/invitations";
 import {
   formatStudentNumber,
   hasStudentNumberInput,
@@ -121,8 +121,9 @@ const HomeroomDashboard = () => {
   // Invitation state
   const [invDialogOpen, setInvDialogOpen] = useState(false);
   const [invRole, setInvRole] = useState<InvitationRole>("student");
-  const [homeroomInvitations, setHomeroomInvitations] = useState<Invitation[]>([]);
-  const [homeroomInvLoading, setHomeroomInvLoading] = useState(false);
+  // Note: homeroomInvitations and homeroomInvLoading are kept for future use
+  const [_homeroomInvitations, _setHomeroomInvitations] = useState<Invitation[]>([]);
+  const [_homeroomInvLoading, _setHomeroomInvLoading] = useState(false);
 
   const { user, profile, activeRole, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -253,8 +254,12 @@ const HomeroomDashboard = () => {
         motivatedAbsences: motivated,
       });
 
+      type AttendanceRow = { status: string; student_id: string };
+      type GradeRow = { grade: number; student_id: string };
+      type StudentRow = { id: string; student_number: string | number | null; full_name: string | null; is_active: boolean; user_id: string | null };
+
       const absByStudent = new Map<string, number>();
-      (attendance || []).forEach((a: any) => {
+      (attendance || []).forEach((a: AttendanceRow) => {
         if (!["unexcused", "pending"].includes(a.status)) return;
         absByStudent.set(
           a.student_id,
@@ -263,28 +268,28 @@ const HomeroomDashboard = () => {
       });
 
       const gradesByStudent = new Map<string, number>();
-      (grades || []).forEach((g: any) => {
+      (grades || []).forEach((g: GradeRow) => {
         gradesByStudent.set(g.student_id, (gradesByStudent.get(g.student_id) || 0) + 1);
       });
 
       const threshold = 10;
 
       const manyAbsences: Student[] = (studentsData || [])
-        .filter((s: any) => (absByStudent.get(s.id) || 0) >= threshold)
+        .filter((s: StudentRow) => (absByStudent.get(s.id) || 0) >= threshold)
         .sort(
-          (a: any, b: any) =>
+          (a: StudentRow, b: StudentRow) =>
             (absByStudent.get(b.id) || 0) - (absByStudent.get(a.id) || 0)
         )
-        .map((s: any) => ({ ...s, activation_code: null }));
+        .map((s: StudentRow) => ({ ...s, activation_code: null }));
 
       const noGrades: Student[] = (studentsData || [])
-        .filter((s: any) => (gradesByStudent.get(s.id) || 0) === 0)
+        .filter((s: StudentRow) => (gradesByStudent.get(s.id) || 0) === 0)
         .sort(
-          (a: any, b: any) =>
+          (a: StudentRow, b: StudentRow) =>
             (parseStudentNumberNumeric(a.student_number) ?? 9999) -
             (parseStudentNumberNumeric(b.student_number) ?? 9999)
         )
-        .map((s: any) => ({ ...s, activation_code: null }));
+        .map((s: StudentRow) => ({ ...s, activation_code: null }));
 
       setAlerts({ manyAbsences, noGrades });
     } catch (err) {
@@ -358,40 +363,69 @@ const HomeroomDashboard = () => {
     }
 
     try {
-      let finalNumber: string;
+      let finalNumberDisplay: string;
+      let finalNumberNumeric: number;
+
       if (hasStudentNumberInput(newStudent.studentNumber)) {
-        finalNumber = formatStudentNumber(newStudent.studentNumber);
+        finalNumberDisplay = formatStudentNumber(newStudent.studentNumber);
+        const parsed = parseStudentNumberNumeric(finalNumberDisplay);
+        if (parsed == null) {
+          toast({
+            title: "Eroare",
+            description: "Numărul matricol nu este valid. Exemplu: EN-00001 sau 1.",
+            variant: "destructive",
+          });
+          return;
+        }
+        finalNumberNumeric = parsed;
       } else {
         const { data: existingStudents } = await supabase
           .from("students")
           .select("student_number")
           .eq("class_id", classInfo.id);
+
         const existing = (existingStudents ?? []).map((s) => s.student_number);
-        finalNumber = getNextStudentNumber(existing);
+        finalNumberDisplay = getNextStudentNumber(existing);
+
+        const parsed = parseStudentNumberNumeric(finalNumberDisplay);
+        if (parsed == null) {
+          toast({
+            title: "Eroare",
+            description: "Nu am putut genera un număr matricol valid.",
+            variant: "destructive",
+          });
+          return;
+        }
+        finalNumberNumeric = parsed;
       }
 
       const { data: existingWithNumber } = await supabase
         .from("students")
         .select("id")
         .eq("class_id", classInfo.id)
-        .eq("student_number", finalNumber as any)
+        .eq("student_number", finalNumberNumeric)
         .maybeSingle();
 
       if (existingWithNumber) {
         toast({
           title: "Eroare",
-          description: `Acest număr matricol (${finalNumber}) este deja atribuit.`,
+          description: `Acest număr matricol (${finalNumberDisplay}) este deja atribuit.`,
           variant: "destructive",
         });
         return;
       }
 
       // Schema students: NOT NULL doar class_id; restul au default sau sunt nullable.
-      // Trimitem doar format EN-XXXXX la student_number (coloana trebuie TEXT în DB).
-      const payload: any = {
+      type StudentInsert = {
+        class_id: string;
+        full_name: string;
+        student_number: number;
+        is_active: boolean;
+      };
+      const payload: StudentInsert = {
         class_id: classInfo.id,
         full_name: newStudent.fullName.trim(),
-        student_number: finalNumber,
+        student_number: finalNumberNumeric,
         is_active: false,
       };
 
@@ -401,7 +435,7 @@ const HomeroomDashboard = () => {
 
       toast({
         title: "Elev adăugat!",
-        description: `${newStudent.fullName} a fost adăugat în clasă${finalNumber ? ` (${finalNumber})` : ""}`,
+        description: `${newStudent.fullName} a fost adăugat în clasă (${finalNumberDisplay}).`,
       });
 
       setIsAddStudentOpen(false);
@@ -444,7 +478,8 @@ const HomeroomDashboard = () => {
 
       if (!absenceData) return;
 
-      const subjectIds = [...new Set(absenceData.map((a: any) => a.subject_id))];
+      type AbsenceDataRow = { id: string; date: string; status: string; student_id: string; subject_id: string };
+      const subjectIds = [...new Set(absenceData.map((a: AbsenceDataRow) => a.subject_id))];
       const { data: subjects } = await supabase
         .from("subjects")
         .select("id, name")
@@ -453,7 +488,7 @@ const HomeroomDashboard = () => {
       const subjectMap = Object.fromEntries((subjects || []).map((s) => [s.id, s.name]));
 
       setAbsences(
-        absenceData.map((a: any) => ({
+        absenceData.map((a: AbsenceDataRow) => ({
           id: a.id,
           date: a.date,
           status: a.status,
@@ -478,22 +513,27 @@ const HomeroomDashboard = () => {
     }
 
     try {
-      const updatePayload: any = {
+      type AttendanceUpdate = {
+        status: string;
+        excuse_reason: string | null;
+        excused_at: string;
+      };
+      const updatePayload: AttendanceUpdate = {
         status: "motivated",
         excuse_reason: motivateReason.trim() ? motivateReason.trim() : null,
         excused_at: new Date().toISOString(),
       };
 
-      const { error: updateError } = await (supabase as any)
+      const { error: updateError } = await supabase
         .from("attendance")
         .update(updatePayload)
-        .in("id", selectedAbsences as any);
+        .in("id", selectedAbsences);
 
       if (updateError) {
         const { error: fallbackError } = await supabase
           .from("attendance")
           .update({ status: "motivated" })
-          .in("id", selectedAbsences as any);
+          .in("id", selectedAbsences);
 
         if (fallbackError) throw fallbackError;
       }
@@ -564,11 +604,9 @@ const HomeroomDashboard = () => {
   };
 
   const activeStudents = students.filter((s) => s.is_active).length;
-  const pendingActivation = students.filter((s) => !s.is_active && s.activation_code).length;
-  const notActivated = students.filter((s) => !s.is_active && !s.activation_code).length;
-
-  // (pendingActivation/notActivated sunt calculate dar nefolosite – dacă ESLint ai "no-unused-vars",
-  // fie le afișezi undeva, fie le scoți. Le-am lăsat ca la tine.)
+  // Note: pendingActivation and notActivated are kept for future use
+  const _pendingActivation = students.filter((s) => !s.is_active && s.activation_code).length;
+  const _notActivated = students.filter((s) => !s.is_active && !s.activation_code).length;
 
   if (authLoading || loading) {
     return (

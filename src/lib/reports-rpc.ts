@@ -15,8 +15,11 @@ export interface GetClassStatsParams {
 export async function fetchClassStatsForDisplay(
   params: GetClassStatsParams
 ): Promise<{ data: ClassStatsForDisplayRow[]; error: Error | null }> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- RPC not in generated types yet
-  const { data, error } = await (supabase as any).rpc("get_class_stats_for_display", params);
+  // RPC call - using type assertion as RPC types are complex
+  const { data, error } = await supabase.rpc("get_class_stats_for_display", params) as { 
+    data: ClassStatsForDisplayRow[] | null; 
+    error: Error | null 
+  };
   if (error) return { data: [], error: error as Error };
   return { data: (data ?? []) as ClassStatsForDisplayRow[], error: null };
 }
@@ -24,8 +27,11 @@ export async function fetchClassStatsForDisplay(
 export async function fetchClassTotalsForDisplay(
   params: GetClassStatsParams
 ): Promise<{ data: ClassTotalsForDisplayRow | null; error: Error | null }> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- RPC not in generated types yet
-  const { data, error } = await (supabase as any).rpc("get_class_totals_for_display", params);
+  // RPC call - using type assertion as RPC types are complex
+  const { data, error } = await supabase.rpc("get_class_totals_for_display", params) as { 
+    data: ClassTotalsForDisplayRow[] | null; 
+    error: Error | null 
+  };
   if (error) return { data: null, error: error as Error };
   const arr = (data ?? []) as ClassTotalsForDisplayRow[];
   return { data: arr.length > 0 ? arr[0] : null, error: null };
