@@ -1,0 +1,21 @@
+---
+description: Evitare layout thrashing și bune practici pentru actualizări DOM / animații
+globs: "**/*.tsx,**/*.ts"
+alwaysApply: false
+---
+
+# Layout și performanță DOM
+
+## Layout Thrashing
+
+- **Nu intercala** operațiuni de citire DOM (getBoundingClientRect, offsetWidth, scrollTop, getComputedStyle, etc.) cu scrieri DOM (style, classList, innerHTML) în același bloc sincron sau în useEffect.
+- Dacă trebuie să citești și să scrii: **grupează toate citirile**, apoi **toate scrierile** (sau folosește un singur rAF: citești la început, scrii la final).
+
+## requestAnimationFrame
+
+- Pentru **orice actualizare de UI sau animație manuală** care nu este condusă direct de React (ex: modificări directe pe `element.style`, `classList`, theme pe `document.documentElement`), planifică scrierea în **requestAnimationFrame** astfel încât să aibă loc la începutul unui frame, nu în mijlocul unui commit React.
+- Animațiile bazate doar pe CSS (transition, animation, Tailwind animate-*) nu necesită rAF; React le gestionează prin DOM-ul virtual.
+
+## În useEffect
+
+- Evită în useEffect: citire layout → setState → (re-render) → din nou citire layout în același effect sau în efecte dependente care rulează imediat. Dacă ai nevoie de măsurători după montare, folosește un rAF sau `queueMicrotask` pentru a amâna citirea după paint.
