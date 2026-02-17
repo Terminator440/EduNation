@@ -70,7 +70,7 @@ function SidebarContent({
               variant="ghost"
               size="icon"
               onClick={onToggle}
-              className={cn("transition-transform", isCollapsed && "rotate-180")}
+              className={cn("transition-transform will-change-transform", isCollapsed && "rotate-180")}
             >
               <ChevronLeft className="w-4 h-4" />
             </Button>
@@ -330,7 +330,7 @@ const SidebarInner = ({ isCollapsed, onToggle }: SidebarProps) => {
 
       {/* Desktop: fixed sidebar */}
       <aside className={cn(
-        "hidden md:flex fixed left-0 top-0 h-screen bg-sidebar border-r border-sidebar-border flex-col transition-all duration-300 z-40",
+        "hidden md:flex fixed left-0 top-0 h-screen bg-sidebar border-r border-sidebar-border flex-col transition-all duration-300 will-change-transform z-40",
         isCollapsed ? "w-20" : "w-64"
       )}>
         <SidebarContent

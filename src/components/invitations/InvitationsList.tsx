@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { RotateCcw, XCircle, Clock, CheckCircle, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -91,7 +92,7 @@ export function InvitationsList({
   if (loading) {
     return (
       <div className="flex items-center justify-center py-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+        <Spinner size="md" className="text-primary" />
       </div>
     );
   }

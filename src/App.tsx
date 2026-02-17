@@ -9,13 +9,15 @@ import { AuthProvider } from "@/hooks/useAuth";
 import ProtectedRoute from "./components/ProtectedRoute";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Spinner } from "@/components/ui/spinner";
 
 // Eager-loaded pages (critical path)
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
-// Lazy-loaded pages – bundle-ul inițial rămâne mic; Calendar, Audit, Rapoarte se încarcă doar la navigare
+// Lazy-loaded pages – bundle-ul inițial rămâne mic; Calendar, Audit, Rapoarte, Charts se încarcă doar la navigare.
+// Recharts este în DirectorDashboardChart (chunk separat); secțiunile landing (Benefits, Features, etc.) sunt lazy în Index.
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const TeacherDashboard = lazy(() => import("./pages/TeacherDashboard"));
 const SecretariatDashboard = lazy(() => import("./pages/SecretariatDashboard"));
@@ -78,7 +80,7 @@ const PageFallback = () => (
 /** Fallback minimal pentru secțiunile grele (Calendar, Audit, Rapoarte) – mai puțin DOM/JS în timpul încărcării chunk-ului. */
 const HeavySectionFallback = () => (
   <div className="min-h-screen bg-background flex items-center justify-center" aria-busy="true" aria-label="Se încarcă...">
-    <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary border-t-transparent" />
+    <Spinner size="lg" className="text-primary" />
   </div>
 );
 

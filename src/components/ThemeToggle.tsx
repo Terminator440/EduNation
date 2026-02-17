@@ -12,28 +12,34 @@ const ThemeToggle = () => {
 
   useEffect(() => {
     const stored = localStorage.getItem('theme');
-    if (stored === 'dark') {
-      document.documentElement.classList.add('dark');
-      setIsDark(true);
-    } else if (stored === 'light') {
-      document.documentElement.classList.remove('dark');
-      setIsDark(false);
-    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      document.documentElement.classList.add('dark');
-      setIsDark(true);
-    }
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const applyDark = stored === 'dark' || (stored !== 'light' && prefersDark);
+    const id = requestAnimationFrame(() => {
+      const root = document.documentElement;
+      if (applyDark) {
+        root.classList.add('dark');
+        setIsDark(true);
+      } else {
+        root.classList.remove('dark');
+        setIsDark(false);
+      }
+    });
+    return () => cancelAnimationFrame(id);
   }, []);
 
   const toggleTheme = () => {
-    if (isDark) {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
-      setIsDark(false);
-    } else {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
-      setIsDark(true);
-    }
+    const nextDark = !isDark;
+    requestAnimationFrame(() => {
+      const root = document.documentElement;
+      if (nextDark) {
+        root.classList.add('dark');
+        localStorage.setItem('theme', 'dark');
+      } else {
+        root.classList.remove('dark');
+        localStorage.setItem('theme', 'light');
+      }
+      setIsDark(nextDark);
+    });
   };
 
   return (

@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
+import { Spinner } from "@/components/ui/spinner";
 import { supabase } from "@/integrations/supabase/client";
 import { toFriendlySupabaseError } from "@/utils/supabaseErrors";
 
@@ -134,7 +135,7 @@ const Announcements = () => {
     <div className="min-h-screen w-full bg-background">
       <Sidebar isCollapsed={isCollapsed} onToggle={onToggleSidebar} />
 
-      <div className={cn("w-full min-w-0 transition-all duration-300 pt-14 md:pt-0", isCollapsed ? "ml-0 md:ml-20" : "ml-0 md:ml-64")}>
+      <div className={cn("w-full min-w-0 transition-all duration-300 will-change-transform pt-14 md:pt-0", isCollapsed ? "ml-0 md:ml-20" : "ml-0 md:ml-64")}>
         <header className="w-full h-16 border-b border-border bg-card flex items-center justify-between gap-4 px-4 sm:px-6 lg:px-8 sticky top-14 md:top-0 z-30">
           <div className="flex items-center gap-3">
             <Megaphone className="h-5 w-5 text-primary" />
@@ -195,7 +196,7 @@ const Announcements = () => {
                     Publică
                   </Button>
                   <Button variant="outline" onClick={fetchAnnouncements} disabled={loading} className="gap-2">
-                    <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
+                    {loading ? <Spinner size="sm" className="h-4 w-4 text-current" /> : <RefreshCw className="h-4 w-4" />}
                     Reîncarcă
                   </Button>
                 </div>
@@ -208,7 +209,7 @@ const Announcements = () => {
               <CardTitle>Ultimele anunțuri</CardTitle>
               {!canPublish && (
                 <Button variant="outline" onClick={fetchAnnouncements} disabled={loading} className="gap-2">
-                  <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
+                  {loading ? <Spinner size="sm" className="h-4 w-4 text-current" /> : <RefreshCw className="h-4 w-4" />}
                   Reîncarcă
                 </Button>
               )}

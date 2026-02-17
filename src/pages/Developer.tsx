@@ -268,7 +268,7 @@ export default function Developer() {
       <Sidebar isCollapsed={sidebarCollapsed} onToggle={onToggleSidebar} />
       <main
         className={cn(
-          "w-full min-w-0 transition-all duration-300",
+          "w-full min-w-0 transition-all duration-300 will-change-transform",
           "pt-14 md:pt-0", sidebarCollapsed ? "ml-0 md:ml-20" : "ml-0 md:ml-64"
         )}
       >

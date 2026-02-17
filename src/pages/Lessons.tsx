@@ -12,7 +12,7 @@ const Lessons = () => {
     <div className="min-h-screen w-full bg-background">
       <Sidebar isCollapsed={sidebarCollapsed} onToggle={onToggleSidebar} />
 
-      <main className={cn("w-full min-w-0 transition-all duration-300 pt-14 md:pt-0", sidebarCollapsed ? "ml-0 md:ml-20" : "ml-0 md:ml-64")}>
+      <main className={cn("w-full min-w-0 transition-all duration-300 will-change-transform pt-14 md:pt-0", sidebarCollapsed ? "ml-0 md:ml-20" : "ml-0 md:ml-64")}>
         <header className="w-full h-16 border-b border-border bg-card flex items-center justify-between px-4 sm:px-6 lg:px-8 sticky top-14 md:top-0 z-30">
           <div>
             <h1 className="text-xl font-semibold text-foreground">Lecții și Materiale</h1>

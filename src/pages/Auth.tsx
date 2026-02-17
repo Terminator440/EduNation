@@ -1,10 +1,11 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { Loader2, Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { Spinner } from "@/components/ui/spinner";
 import { useAuth, type AppRole } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { validateInvitationCode, claimInvitation, getRoleLabelRo, type Invitation, type InvitationRole } from "@/lib/invitations";
@@ -205,7 +206,7 @@ export default function Auth() {
   if (loading) {
     return (
       <div className="h-screen flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <Spinner size="lg" className="w-8 h-8 text-primary" />
       </div>
     );
   }
@@ -242,7 +243,7 @@ export default function Auth() {
                     required
                   />
                   {validatingCode && (
-                    <Loader2 className="absolute right-3 top-3 h-4 w-4 animate-spin text-muted-foreground" />
+                    <Spinner size="sm" className="absolute right-3 top-3 h-4 w-4 text-muted-foreground" />
                   )}
                 </div>
                 {codeError && <p className="text-xs text-red-500">{codeError}</p>}
@@ -358,7 +359,7 @@ export default function Auth() {
             >
               {isLoading ? (
                 <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  <Spinner size="sm" className="w-4 h-4 mr-2 text-current" />
                   Se procesează...
                 </>
               ) : isLogin ? (

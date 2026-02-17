@@ -1,11 +1,13 @@
+import { lazy, Suspense } from "react";
 import Header from "@/components/landing/Header";
 import HeroSection from "@/components/landing/HeroSection";
-import BenefitsSection from "@/components/landing/BenefitsSection";
-import FeaturesSection from "@/components/landing/FeaturesSection";
-import TrustSection from "@/components/landing/TrustSection";
-import ImplementationSection from "@/components/landing/ImplementationSection";
-import LeadFormSection from "@/components/landing/LeadFormSection";
 import Footer from "@/components/landing/Footer";
+
+const BenefitsSection = lazy(() => import("@/components/landing/BenefitsSection"));
+const FeaturesSection = lazy(() => import("@/components/landing/FeaturesSection"));
+const TrustSection = lazy(() => import("@/components/landing/TrustSection"));
+const ImplementationSection = lazy(() => import("@/components/landing/ImplementationSection"));
+const LeadFormSection = lazy(() => import("@/components/landing/LeadFormSection"));
 
 const Index = () => {
   return (
@@ -13,11 +15,13 @@ const Index = () => {
       <Header />
       <main>
         <HeroSection />
-        <BenefitsSection />
-        <FeaturesSection />
-        <TrustSection />
-        <ImplementationSection />
-        <LeadFormSection />
+        <Suspense fallback={<div className="min-h-[40vh]" aria-hidden />}>
+          <BenefitsSection />
+          <FeaturesSection />
+          <TrustSection />
+          <ImplementationSection />
+          <LeadFormSection />
+        </Suspense>
       </main>
       <Footer />
     </div>

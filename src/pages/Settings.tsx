@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useTransition } from "react";
 import { User, Bell, Shield, Palette, Sun, Moon, Lock, Info } from "lucide-react";
 import Sidebar from "@/components/dashboard/Sidebar";
 import { cn } from "@/lib/utils";
+import { Spinner } from "@/components/ui/spinner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -59,28 +60,33 @@ const Settings = () => {
 
   useEffect(() => {
     const stored = localStorage.getItem('theme');
-    if (stored === 'dark') {
-      document.documentElement.classList.add('dark');
-      setIsDark(true);
-    } else if (stored === 'light') {
-      document.documentElement.classList.remove('dark');
-      setIsDark(false);
-    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      document.documentElement.classList.add('dark');
-      setIsDark(true);
-    }
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const applyDark = stored === 'dark' || (stored !== 'light' && prefersDark);
+    const id = requestAnimationFrame(() => {
+      const root = document.documentElement;
+      if (applyDark) {
+        root.classList.add('dark');
+        setIsDark(true);
+      } else {
+        root.classList.remove('dark');
+        setIsDark(false);
+      }
+    });
+    return () => cancelAnimationFrame(id);
   }, []);
 
   const setTheme = (dark: boolean) => {
-    if (dark) {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
-      setIsDark(true);
-    } else {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
-      setIsDark(false);
-    }
+    requestAnimationFrame(() => {
+      const root = document.documentElement;
+      if (dark) {
+        root.classList.add('dark');
+        localStorage.setItem('theme', 'dark');
+      } else {
+        root.classList.remove('dark');
+        localStorage.setItem('theme', 'light');
+      }
+      setIsDark(dark);
+    });
     toast({
       title: "Temă schimbată",
       description: `Tema ${dark ? 'întunecată' : 'luminoasă'} a fost aplicată.`,
@@ -265,7 +271,7 @@ const Settings = () => {
                       <tab.icon className="w-5 h-5 shrink-0" />
                       <span className="font-medium">{tab.label}</span>
                       {isPending && selectedTab === tab.id && (
-                        <span className="ml-auto h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" aria-hidden />
+                        <Spinner size="sm" className="ml-auto h-4 w-4 text-primary-foreground" aria-hidden />
                       )}
                     </button>
                   ))}

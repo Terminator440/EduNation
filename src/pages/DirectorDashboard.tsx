@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { useNavigate } from "react-router-dom";
 /* Lucide: import doar iconițele folosite (tree-shaking) — nu importa întreaga librărie */
 import { Users, GraduationCap, TrendingUp, FileText, Shield, Bell, BarChart3, Building, Megaphone, Search } from "lucide-react";
@@ -39,9 +40,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { PaginationControls } from "@/components/ui/pagination-controls";
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Spinner } from "@/components/ui/spinner";
+
+const DirectorDashboardChart = lazy(() => import("./DirectorDashboardChart"));
 
 interface SchoolStats {
   totalStudents: number;
@@ -158,6 +161,17 @@ const DirectorDashboard = () => {
     }
     return list;
   }, [directorInvitations, invSearchDebounced, invRoleFilter]);
+
+  const invScrollRef = useRef<HTMLDivElement>(null);
+  const INV_ROW_HEIGHT = 56;
+  const invVirtualizer = useVirtualizer({
+    count: filteredInvitations.length,
+    getScrollElement: () => invScrollRef.current,
+    estimateSize: () => INV_ROW_HEIGHT,
+    overscan: 6,
+  });
+  const invVirtualItems = invVirtualizer.getVirtualItems();
+  const invTotalSize = invVirtualizer.getTotalSize();
 
   const auditPagination = usePagination(auditLogs, { initialPage: 1, initialPageSize: 10 });
 
@@ -344,7 +358,7 @@ const DirectorDashboard = () => {
   if (authLoading || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        <Spinner size="md" className="text-primary" />
       </div>
     );
   }
@@ -404,44 +418,22 @@ const DirectorDashboard = () => {
 
           <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
             <div className="lg:col-span-2 space-y-6">
-              {/* Distribuție note - analiză vizuală (content-visibility: auto pentru secțiuni sub fold) */}
-              <Card className="content-visibility-auto">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <BarChart3 className="h-5 w-5" />
-                    Distribuția notelor
-                  </CardTitle>
-                  <p className="text-sm text-muted-foreground">
-                    Număr de note pe fiecare valoare (1–10) în școală
-                  </p>
-                </CardHeader>
-                <CardContent>
-                  {gradeChartData.every((d) => d.count === 0) ? (
-                    <p className="py-12 text-center text-muted-foreground">Nu există note încă.</p>
-                  ) : (
-                    <ChartContainer
-                      config={{
-                        count: { label: "Note", color: "hsl(var(--primary))" },
-                      }}
-                      className="h-[17.5rem] w-full"
-                    >
-                      <BarChart data={gradeChartData} margin={{ top: 8, right: 8, left: 8, bottom: 8 }}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                        <XAxis
-                          dataKey="nota"
-                          tickLine={false}
-                          axisLine={false}
-                          tickMargin={8}
-                          tickFormatter={(v) => v}
-                        />
-                        <YAxis tickLine={false} axisLine={false} tickMargin={8} />
-                        <ChartTooltip content={<ChartTooltipContent />} />
-                        <Bar dataKey="count" fill="var(--color-count)" radius={[4, 4, 0, 0]} />
-                      </BarChart>
-                    </ChartContainer>
-                  )}
-                </CardContent>
-              </Card>
+              {/* Grafic recharts – chunk separat, mai puțin RAM pe dispozitive slabe */}
+              <Suspense
+                fallback={
+                  <Card className="content-visibility-auto">
+                    <CardHeader>
+                      <Skeleton className="h-6 w-48" />
+                      <Skeleton className="h-4 w-64 mt-2" />
+                    </CardHeader>
+                    <CardContent>
+                      <Skeleton className="h-[17.5rem] w-full rounded-lg" />
+                    </CardContent>
+                  </Card>
+                }
+              >
+                <DirectorDashboardChart data={gradeChartData} />
+              </Suspense>
 
               {/* Audit Logs — max 10 rânduri per pagină; pe mobil mai puține coloane */}
               <Card className="content-visibility-auto">
@@ -664,57 +656,81 @@ const DirectorDashboard = () => {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="w-full overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="whitespace-nowrap">Rol</TableHead>
-                          <TableHead className="whitespace-nowrap">Status</TableHead>
-                          <TableHead className="whitespace-nowrap">Creat</TableHead>
-                          <TableHead className="whitespace-nowrap">Expiră</TableHead>
-                          <TableHead className="whitespace-nowrap">Contact</TableHead>
-                          <TableHead className="text-right whitespace-nowrap">Acțiuni</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {filteredInvitations.map((inv) => (
-                          <TableRow key={inv.id}>
-                            <TableCell>{getRoleLabelRo(inv.role)}</TableCell>
-                            <TableCell>{getStatusLabelRo(getInvitationStatus(inv))}</TableCell>
-                            <TableCell>
-                              {inv.created_at ? new Date(inv.created_at).toLocaleString("ro-RO") : "-"}
-                            </TableCell>
-                            <TableCell>
-                              {inv.expires_at ? new Date(inv.expires_at).toLocaleString("ro-RO") : "-"}
-                            </TableCell>
-                            <TableCell>
-                              {inv.invited_email || inv.invited_phone ? (
-                                <div className="text-xs">
-                                  {inv.invited_email && <div>{inv.invited_email}</div>}
-                                  {inv.invited_phone && <div>{inv.invited_phone}</div>}
-                                </div>
-                              ) : (
-                                <span className="text-xs text-muted-foreground">—</span>
-                              )}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                disabled={!!inv.revoked_at || !!inv.used_at}
-                                onClick={() => handleRevokeInvitation(inv.id)}
+                  <div className="w-full border rounded-md overflow-hidden">
+                    <div
+                      className="grid grid-cols-[6rem_5rem_7rem_7rem_1fr_5rem] gap-2 px-4 py-3 border-b bg-muted/40 text-sm font-medium"
+                      role="row"
+                    >
+                      <div className="whitespace-nowrap">Rol</div>
+                      <div className="whitespace-nowrap">Status</div>
+                      <div className="whitespace-nowrap">Creat</div>
+                      <div className="whitespace-nowrap">Expiră</div>
+                      <div className="whitespace-nowrap min-w-0">Contact</div>
+                      <div className="text-right whitespace-nowrap">Acțiuni</div>
+                    </div>
+                    <div
+                      ref={invScrollRef}
+                      className="overflow-auto overscroll-contain"
+                      style={{ minHeight: 240, maxHeight: "40vh" }}
+                      role="table"
+                      aria-rowcount={filteredInvitations.length}
+                    >
+                      {filteredInvitations.length === 0 ? (
+                        <div className="py-8 text-center text-sm text-muted-foreground">
+                          {invSearchQuery.trim() || invRoleFilter !== "all"
+                            ? "Niciun rezultat pentru filtrele alese."
+                            : "Nu ai invitații create."}
+                        </div>
+                      ) : (
+                        <div style={{ height: invTotalSize, position: "relative", width: "100%" }}>
+                          {invVirtualItems.map((virtualRow) => {
+                            const inv = filteredInvitations[virtualRow.index];
+                            return (
+                              <div
+                                key={inv.id}
+                                data-index={virtualRow.index}
+                                className="grid grid-cols-[6rem_5rem_7rem_7rem_1fr_5rem] gap-2 px-4 py-3 border-b items-center text-sm absolute left-0 w-full hover:bg-muted/50"
+                                style={{
+                                  transform: `translateY(${virtualRow.start}px)`,
+                                  minHeight: INV_ROW_HEIGHT,
+                                }}
+                                role="row"
                               >
-                                Revocă
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+                                <div>{getRoleLabelRo(inv.role)}</div>
+                                <div>{getStatusLabelRo(getInvitationStatus(inv))}</div>
+                                <div>
+                                  {inv.created_at ? new Date(inv.created_at).toLocaleString("ro-RO") : "-"}
+                                </div>
+                                <div>
+                                  {inv.expires_at ? new Date(inv.expires_at).toLocaleString("ro-RO") : "-"}
+                                </div>
+                                <div className="min-w-0">
+                                  {inv.invited_email || inv.invited_phone ? (
+                                    <div className="text-xs">
+                                      {inv.invited_email && <div className="truncate">{inv.invited_email}</div>}
+                                      {inv.invited_phone && <div>{inv.invited_phone}</div>}
+                                    </div>
+                                  ) : (
+                                    <span className="text-xs text-muted-foreground">—</span>
+                                  )}
+                                </div>
+                                <div className="text-right">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    disabled={!!inv.revoked_at || !!inv.used_at}
+                                    onClick={() => handleRevokeInvitation(inv.id)}
+                                  >
+                                    Revocă
+                                  </Button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  {filteredInvitations.length === 0 && (invSearchQuery.trim() || invRoleFilter !== "all") && (
-                    <p className="text-sm text-muted-foreground py-2">Niciun rezultat pentru filtrele alese.</p>
-                  )}
                 </>
               )}
             </CardContent>

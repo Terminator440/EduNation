@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -152,7 +152,7 @@ export function CreateAnnouncementDialog({
             Anulează
           </Button>
           <Button onClick={handleCreate} disabled={creating || !canSubmit}>
-            {creating && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+            {creating && <Spinner size="sm" className="w-4 h-4 mr-2 text-current" />}
             Publică
           </Button>
         </DialogFooter>

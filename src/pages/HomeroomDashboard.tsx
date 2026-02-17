@@ -21,6 +21,7 @@ import StatsCard from "@/components/dashboard/StatsCard";
 import RoleSwitcher from "@/components/RoleSwitcher";
 import ThemeToggle from "@/components/ThemeToggle";
 import { cn } from "@/lib/utils";
+import { Spinner } from "@/components/ui/spinner";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -612,7 +613,7 @@ const HomeroomDashboard = () => {
   if (authLoading || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        <Spinner size="md" className="text-primary" />
       </div>
     );
   }
@@ -626,7 +627,7 @@ const HomeroomDashboard = () => {
 
       <main
         className={cn(
-          "w-full min-w-0 transition-all duration-300",
+          "w-full min-w-0 transition-all duration-300 will-change-transform",
           "pt-14 md:pt-0", sidebarCollapsed ? "ml-0 md:ml-20" : "ml-0 md:ml-64"
         )}
       >

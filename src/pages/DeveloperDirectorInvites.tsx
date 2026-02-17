@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Shield, Copy, Check, Loader2, Plus, RefreshCw, PlusCircle, AlertCircle } from "lucide-react";
+import { Shield, Copy, Check, Plus, RefreshCw, PlusCircle, AlertCircle } from "lucide-react";
 import Sidebar from "@/components/dashboard/Sidebar";
 import { cn } from "@/lib/utils";
+import { Spinner } from "@/components/ui/spinner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -219,7 +220,7 @@ const DeveloperDirectorInvites = () => {
       <Sidebar isCollapsed={sidebarCollapsed} onToggle={onToggleSidebar} />
       
       <main className={cn(
-        "w-full min-w-0 transition-all duration-300",
+        "w-full min-w-0 transition-all duration-300 will-change-transform",
         "pt-14 md:pt-0", sidebarCollapsed ? "ml-0 md:ml-20" : "ml-0 md:ml-64"
       )}>
         <header className="w-full h-16 border-b border-border bg-card flex items-center gap-4 px-4 sm:px-6 lg:px-8 sticky top-14 md:top-0 z-30">
@@ -352,7 +353,7 @@ const DeveloperDirectorInvites = () => {
                     </div>
 
                     <Button onClick={handleCreate} disabled={creating || !selectedSchoolId}>
-                      {creating && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                      {creating && <Spinner size="sm" className="w-4 h-4 mr-2 text-current" />}
                       Generează cod de invitație
                     </Button>
                   </>
@@ -408,7 +409,7 @@ const DeveloperDirectorInvites = () => {
                     </CardDescription>
                   </div>
                   <Button variant="outline" size="sm" onClick={fetchInvitations} disabled={loadingInvitations}>
-                    <RefreshCw className={cn("w-4 h-4 mr-2", loadingInvitations && "animate-spin")} />
+                    {loadingInvitations ? <Spinner size="sm" className="w-4 h-4 mr-2 text-current" /> : <RefreshCw className="w-4 h-4 mr-2" />}
                     Actualizează
                   </Button>
                 </div>
@@ -416,7 +417,7 @@ const DeveloperDirectorInvites = () => {
               <CardContent>
                 {loadingInvitations ? (
                   <div className="flex items-center justify-center py-8">
-                    <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                    <Spinner size="md" className="w-6 h-6 text-muted-foreground" />
                   </div>
                 ) : invitations.length === 0 ? (
                   <p className="text-center text-muted-foreground py-8">

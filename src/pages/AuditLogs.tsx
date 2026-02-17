@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -8,8 +9,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { exportToCsv } from "@/utils/exportCsv";
-import { usePagination } from "@/hooks/usePagination";
-import { PaginationControls } from "@/components/ui/pagination-controls";
 import { Shield, Download, RefreshCw, Search, Filter, Eye } from "lucide-react";
 import {
   Dialog,
@@ -19,6 +18,7 @@ import {
 } from "@/components/ui/dialog";
 import Sidebar from "@/components/dashboard/Sidebar";
 import { cn } from "@/lib/utils";
+import { Spinner } from "@/components/ui/spinner";
 
 type AuditRow = {
   id: string;
@@ -148,8 +148,17 @@ export default function AuditLogs() {
     return result;
   }, [allRows, q, entityType, dateFrom, dateTo]);
 
-  // Pagination — max 10–15 rânduri per pagină; pe mobil mai puține coloane pentru a evita reflow
-  const pagination = usePagination(filteredRows, { initialPageSize: 15 });
+  // Virtualizare: doar rândurile vizibile sunt în DOM
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const ROW_HEIGHT = 52;
+  const virtualizer = useVirtualizer({
+    count: filteredRows.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => ROW_HEIGHT,
+    overscan: 8,
+  });
+  const virtualItems = virtualizer.getVirtualItems();
+  const totalSize = virtualizer.getTotalSize();
 
   const fetchRows = async () => {
     if (!canView) return;
@@ -240,7 +249,7 @@ export default function AuditLogs() {
     <div className="min-h-screen w-full bg-background max-w-full overflow-x-hidden">
       <Sidebar isCollapsed={sidebarCollapsed} onToggle={onToggleSidebar} />
       <main className={cn(
-        "w-full min-w-0 max-w-full overflow-x-hidden transition-all duration-300 pt-14 md:pt-0",
+        "w-full min-w-0 max-w-full overflow-x-hidden transition-all duration-300 will-change-transform pt-14 md:pt-0",
         sidebarCollapsed ? "ml-0 md:ml-20" : "ml-0 md:ml-64"
       )}>
         <div className="w-full max-w-screen-xl mx-auto px-2 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 lg:py-8 space-y-6">
@@ -267,7 +276,7 @@ export default function AuditLogs() {
                 Export CSV
               </Button>
               <Button onClick={fetchRows} disabled={loading} className="gap-2 w-full sm:w-auto">
-                <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+                {loading ? <Spinner size="sm" className="w-4 h-4 text-current" /> : <RefreshCw className="w-4 h-4" />}
                 {loading ? "Se încarcă..." : "Reîncarcă"}
               </Button>
             </div>
@@ -329,7 +338,7 @@ export default function AuditLogs() {
             </CardContent>
           </Card>
 
-          {/* Table — content-visibility pentru secțiune sub fold */}
+          {/* Tabel virtualizat — doar rândurile vizibile sunt în DOM */}
           <Card className="content-visibility-auto">
             <CardHeader>
               <CardTitle className="text-base">
@@ -337,73 +346,92 @@ export default function AuditLogs() {
               </CardTitle>
             </CardHeader>
             <CardContent className="p-2 sm:p-6">
-              <div className="w-full overflow-x-auto border border-border rounded-lg">
-                <table className="w-full text-sm table-fixed sm:table-auto">
-                  <thead>
-                    <tr className="text-left border-b">
-                      <th className="py-3 pr-2 sm:pr-4 font-medium whitespace-nowrap w-20 sm:w-auto">Data</th>
-                      <th className="py-3 pr-2 sm:pr-4 font-medium whitespace-nowrap min-w-0">Utilizator</th>
-                      <th className="hidden sm:table-cell py-3 pr-4 font-medium whitespace-nowrap">Rol</th>
-                      <th className="py-3 pr-2 sm:pr-4 font-medium whitespace-nowrap min-w-0">Acțiune</th>
-                      <th className="hidden md:table-cell py-3 pr-4 font-medium whitespace-nowrap">Entitate</th>
-                      <th className="hidden lg:table-cell py-3 pr-4 font-medium whitespace-nowrap">ID</th>
-                      <th className="py-3 font-medium whitespace-nowrap w-12">Detalii</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {pagination.paginatedData.map((r) => (
-                      <tr key={r.id} className="border-b last:border-b-0 hover:bg-muted/50">
-                        <td className="py-3 pr-2 sm:pr-4 whitespace-nowrap text-xs sm:text-sm">
-                          {new Date(r.created_at).toLocaleString("ro-RO")}
-                        </td>
-                        <td className="py-3 pr-2 sm:pr-4 truncate min-w-0">{r.user_name ?? "—"}</td>
-                        <td className="hidden sm:table-cell py-3 pr-4">
-                          <Badge variant="outline">{roleLabel(r.active_role)}</Badge>
-                        </td>
-                        <td className="py-3 pr-2 sm:pr-4 min-w-0">
-                          <Badge variant={getActionBadgeVariant(r.action)}>
-                            {actionLabel(r.action)}
-                          </Badge>
-                        </td>
-                        <td className="hidden md:table-cell py-3 pr-4 text-muted-foreground">
-                          {r.entity_type ?? "—"}
-                        </td>
-                        <td className="hidden lg:table-cell py-3 pr-4 font-mono text-xs text-muted-foreground">
-                          {r.entity_id ? r.entity_id.slice(0, 8) + "..." : "—"}
-                        </td>
-                        <td className="py-3">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setSelectedRow(r)}
-                            className="gap-1 h-8 w-8 p-0"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                        </td>
-                      </tr>
-                    ))}
-                    {!pagination.paginatedData.length && (
-                      <tr>
-                        <td className="py-8 text-center text-muted-foreground" colSpan={7}>
-                          Nu există înregistrări pentru filtrele curente.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
+              <div className="w-full border border-border rounded-lg overflow-hidden">
+                {/* Header fix — același grid ca rândurile */}
+                <div
+                  className="grid text-left border-b bg-muted/40 text-sm font-medium shrink-0"
+                  style={{
+                    gridTemplateColumns: "5rem 1fr 4.5rem 1fr 4.5rem 3.5rem 3rem",
+                  }}
+                  role="row"
+                >
+                  <div className="py-3 pr-2 sm:pr-4 whitespace-nowrap">Data</div>
+                  <div className="py-3 pr-2 sm:pr-4 whitespace-nowrap min-w-0">Utilizator</div>
+                  <div className="hidden sm:block py-3 pr-4 whitespace-nowrap">Rol</div>
+                  <div className="py-3 pr-2 sm:pr-4 whitespace-nowrap min-w-0">Acțiune</div>
+                  <div className="hidden md:block py-3 pr-4 whitespace-nowrap">Entitate</div>
+                  <div className="hidden lg:block py-3 pr-4 whitespace-nowrap">ID</div>
+                  <div className="py-3 whitespace-nowrap w-12">Detalii</div>
+                </div>
 
-              <div className="mt-4">
-                <PaginationControls
-                  page={pagination.page}
-                  totalPages={pagination.totalPages}
-                  totalItems={pagination.totalItems}
-                  pageSize={pagination.pageSize}
-                  onPageChange={pagination.goToPage}
-                  onPageSizeChange={pagination.setPageSize}
-                  pageSizeOptions={[10, 15, 20, 50]}
-                />
+                {/* Corp virtualizat */}
+                <div
+                  ref={scrollRef}
+                  className="w-full overflow-auto overscroll-contain"
+                  style={{ minHeight: 320, maxHeight: "60vh" }}
+                  role="table"
+                  aria-rowcount={filteredRows.length}
+                >
+                  {filteredRows.length === 0 ? (
+                    <div className="py-8 text-center text-muted-foreground text-sm">
+                      Nu există înregistrări pentru filtrele curente.
+                    </div>
+                  ) : (
+                    <div
+                      style={{
+                        height: totalSize,
+                        width: "100%",
+                        position: "relative",
+                      }}
+                    >
+                      {virtualItems.map((virtualRow) => {
+                        const r = filteredRows[virtualRow.index];
+                        return (
+                          <div
+                            key={r.id}
+                            data-index={virtualRow.index}
+                            className="grid absolute left-0 w-full text-sm border-b last:border-b-0 hover:bg-muted/50 items-center"
+                            style={{
+                              gridTemplateColumns: "5rem 1fr 4.5rem 1fr 4.5rem 3.5rem 3rem",
+                              transform: `translateY(${virtualRow.start}px)`,
+                              minHeight: ROW_HEIGHT,
+                            }}
+                            role="row"
+                          >
+                            <div className="py-3 pr-2 sm:pr-4 whitespace-nowrap text-xs sm:text-sm">
+                              {new Date(r.created_at).toLocaleString("ro-RO")}
+                            </div>
+                            <div className="py-3 pr-2 sm:pr-4 truncate min-w-0">{r.user_name ?? "—"}</div>
+                            <div className="hidden sm:flex py-3 pr-4 items-center">
+                              <Badge variant="outline">{roleLabel(r.active_role)}</Badge>
+                            </div>
+                            <div className="py-3 pr-2 sm:pr-4 min-w-0">
+                              <Badge variant={getActionBadgeVariant(r.action)}>
+                                {actionLabel(r.action)}
+                              </Badge>
+                            </div>
+                            <div className="hidden md:block py-3 pr-4 text-muted-foreground">
+                              {r.entity_type ?? "—"}
+                            </div>
+                            <div className="hidden lg:block py-3 pr-4 font-mono text-xs text-muted-foreground">
+                              {r.entity_id ? r.entity_id.slice(0, 8) + "..." : "—"}
+                            </div>
+                            <div className="py-3">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setSelectedRow(r)}
+                                className="gap-1 h-8 w-8 p-0"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               </div>
             </CardContent>
           </Card>

@@ -1,5 +1,6 @@
-import { Bell, CheckCheck, Loader2 } from "lucide-react";
+import { Bell, CheckCheck } from "lucide-react";
 import { Link } from "react-router-dom";
+import { Spinner } from "@/components/ui/spinner";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -73,7 +74,7 @@ export function NotificationsPopover() {
         <ScrollArea className="h-[20rem]">
           {loading ? (
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              <Spinner size="sm" className="h-6 w-6 text-muted-foreground" />
             </div>
           ) : notifications.length === 0 ? (
             <p className="py-8 px-4 text-center text-sm text-muted-foreground">

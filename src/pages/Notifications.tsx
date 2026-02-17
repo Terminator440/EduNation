@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { Link } from "react-router-dom";
-import { Bell, CheckCheck, Loader2 } from "lucide-react";
+import { Bell, CheckCheck } from "lucide-react";
 import Sidebar from "@/components/dashboard/Sidebar";
 import RoleSwitcher from "@/components/RoleSwitcher";
 import ThemeToggle from "@/components/ThemeToggle";
@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useNotifications } from "@/hooks/useNotifications";
 import { cn } from "@/lib/utils";
+import { Spinner } from "@/components/ui/spinner";
 
 const Notifications = () => {
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -53,7 +54,7 @@ const Notifications = () => {
             <CardContent>
               {loading ? (
                 <div className="flex justify-center py-12">
-                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                  <Spinner size="lg" className="h-8 w-8 text-muted-foreground" />
                 </div>
               ) : notifications.length === 0 ? (
                 <p className="text-center text-muted-foreground py-8">

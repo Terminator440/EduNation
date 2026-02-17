@@ -16,6 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
+import { Spinner } from "@/components/ui/spinner";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 
@@ -319,7 +320,7 @@ const TakeAttendance = () => {
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        <Spinner size="md" className="text-primary" />
       </div>
     );
   }
@@ -330,7 +331,7 @@ const TakeAttendance = () => {
     <div className="min-h-screen w-full bg-background">
       <Sidebar isCollapsed={sidebarCollapsed} onToggle={onToggleSidebar} />
 
-      <main className={cn("w-full min-w-0 transition-all duration-300 pt-14 md:pt-0", sidebarCollapsed ? "ml-0 md:ml-20" : "ml-0 md:ml-64")}>
+      <main className={cn("w-full min-w-0 transition-all duration-300 will-change-transform pt-14 md:pt-0", sidebarCollapsed ? "ml-0 md:ml-20" : "ml-0 md:ml-64")}>
         <header className="w-full h-16 border-b border-border bg-card flex items-center justify-between gap-4 px-4 sm:px-6 lg:px-8 sticky top-14 md:top-0 z-30">
           <div>
             <h1 className="text-xl font-semibold text-foreground flex items-center gap-2">
@@ -364,7 +365,7 @@ const TakeAttendance = () => {
                     {WEEKDAY_NAMES[todayWeekday] || "Necunoscut"}
                   </Badge>
                   <Button variant="outline" size="sm" onClick={fetchSlots} disabled={loading} className="gap-2">
-                    <RefreshCw className={cn("w-4 h-4", loading && "animate-spin")} />
+                    {loading ? <Spinner size="sm" className="w-4 h-4 text-current" /> : <RefreshCw className="w-4 h-4" />}
                     Reîncarcă
                   </Button>
                 </div>
@@ -386,7 +387,7 @@ const TakeAttendance = () => {
             <CardContent>
               {loading ? (
                 <div className="flex items-center justify-center py-8">
-                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                  <Spinner size="sm" className="text-primary" />
                 </div>
               ) : slots.length === 0 ? (
                 <p className="text-center text-muted-foreground py-8">

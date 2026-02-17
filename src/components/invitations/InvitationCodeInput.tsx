@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
-import { Key, CheckCircle, XCircle, Loader2 } from "lucide-react";
+import { Key, CheckCircle, XCircle } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Spinner } from "@/components/ui/spinner";
 import { Label } from "@/components/ui/label";
 import { validateInvitationCode, getRoleLabelRo, type Invitation } from "@/lib/invitations";
 
@@ -71,7 +72,7 @@ export function InvitationCodeInput({
           disabled={disabled}
         />
         <div className="absolute right-3 top-1/2 -translate-y-1/2">
-          {validating && <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />}
+          {validating && <Spinner size="sm" className="w-5 h-5 text-muted-foreground" />}
           {!validating && validationResult?.valid && (
             <CheckCircle className="w-5 h-5 text-green-500" />
           )}

@@ -73,7 +73,7 @@ export default function DashboardLayout({
 
       <main
         className={cn(
-          "w-full min-w-0 transition-all duration-300 pt-14 md:pt-0",
+          "w-full min-w-0 transition-all duration-300 will-change-transform pt-14 md:pt-0",
           sidebarCollapsed ? "ml-0 md:ml-20" : "ml-0 md:ml-64"
         )}
       >

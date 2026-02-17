@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -156,7 +156,7 @@ const AddSchoolDialog = ({ open, onOpenChange, onSchoolAdded }: AddSchoolDialogP
               Anulează
             </Button>
             <Button type="submit" disabled={saving || !name.trim()}>
-              {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              {saving && <Spinner size="sm" className="w-4 h-4 mr-2 text-current" />}
               Adaugă școala
             </Button>
           </DialogFooter>

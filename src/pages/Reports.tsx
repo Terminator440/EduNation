@@ -15,6 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
+import { Spinner } from "@/components/ui/spinner";
 import { supabase } from "@/integrations/supabase/client";
 import { exportToCsv } from "@/utils/exportCsv";
 import { fetchClassStatsForDisplay, fetchClassTotalsForDisplay } from "@/lib/reports-rpc";
@@ -399,7 +400,7 @@ const Reports = () => {
   if (authLoading || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        <Spinner size="md" className="text-primary" />
       </div>
     );
   }
@@ -408,7 +409,7 @@ const Reports = () => {
     <div className="min-h-screen w-full bg-background max-w-full overflow-x-hidden">
       <Sidebar isCollapsed={sidebarCollapsed} onToggle={onToggleSidebar} />
 
-      <main className={cn("w-full min-w-0 max-w-full overflow-x-hidden transition-all duration-300 pt-14 md:pt-0", sidebarCollapsed ? "ml-0 md:ml-20" : "ml-0 md:ml-64")}> 
+      <main className={cn("w-full min-w-0 max-w-full overflow-x-hidden transition-all duration-300 will-change-transform pt-14 md:pt-0", sidebarCollapsed ? "ml-0 md:ml-20" : "ml-0 md:ml-64")}> 
         <header className="w-full h-16 border-b border-border bg-card flex items-center justify-between gap-4 px-4 sm:px-6 lg:px-8 sticky top-14 md:top-0 z-30 print:hidden">
           <div>
             <h1 className="text-xl font-semibold text-foreground flex items-center gap-2">

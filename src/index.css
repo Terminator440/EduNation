@@ -169,23 +169,39 @@
   }
 
   .animate-float {
+    will-change: transform;
     animation: float 6s ease-in-out infinite;
   }
 
   .animate-fade-up {
+    will-change: transform;
     animation: fadeUp 0.6s ease-out forwards;
   }
 
   .animate-fade-in {
+    will-change: opacity;
     animation: fadeIn 0.5s ease-out forwards;
   }
 
   .animate-scale-in {
+    will-change: transform;
     animation: scaleIn 0.3s ease-out forwards;
   }
 
   .animate-slide-in-right {
+    will-change: transform;
     animation: slideInRight 0.4s ease-out forwards;
+  }
+
+  /* GPU layer pentru animații/tranziții – mută randarea pe compositor */
+  .will-change-transform {
+    will-change: transform;
+  }
+}
+
+@layer utilities {
+  .will-change-transform {
+    will-change: transform;
   }
 }
 

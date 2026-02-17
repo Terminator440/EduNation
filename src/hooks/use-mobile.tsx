@@ -7,12 +7,20 @@ export function useIsMobile() {
 
   React.useEffect(() => {
     const mql = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`);
+    let rafId: number = 0;
     const onChange = () => {
-      setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
+      rafId = requestAnimationFrame(() => {
+        setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
+      });
     };
     mql.addEventListener("change", onChange);
-    setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
-    return () => mql.removeEventListener("change", onChange);
+    rafId = requestAnimationFrame(() => {
+      setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
+    });
+    return () => {
+      mql.removeEventListener("change", onChange);
+      cancelAnimationFrame(rafId);
+    };
   }, []);
 
   return !!isMobile;
