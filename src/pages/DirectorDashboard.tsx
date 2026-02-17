@@ -94,6 +94,7 @@ const DirectorDashboard = () => {
   const [invDialogOpen, setInvDialogOpen] = useState(false);
   const [invRole, setInvRole] = useState<InvitationRole>("teacher");
   const [directorSchoolId, setDirectorSchoolId] = useState<string | null>(null);
+  const [schoolName, setSchoolName] = useState<string>("");
   const [directorInvitations, setDirectorInvitations] = useState<InvitationWithDetails[]>([]);
   const [directorInvLoading, setDirectorInvLoading] = useState(false);
 
@@ -128,7 +129,7 @@ const DirectorDashboard = () => {
 
         const { data: profileData, error: profileErr } = await supabase
           .from("profiles")
-          .select("school_id")
+          .select("school_id, schools(name)")
           .eq("id", user.id)
           .maybeSingle();
 
@@ -136,6 +137,8 @@ const DirectorDashboard = () => {
 
         const sid = profileData?.school_id ?? null;
         setDirectorSchoolId(sid);
+        const name = (profileData?.schools as { name: string } | null)?.name ?? "";
+        setSchoolName(name);
 
         if (sid) {
           const invs = await listInvitations({ schoolId: sid, limit: 100 });
@@ -268,7 +271,7 @@ const DirectorDashboard = () => {
   return (
     <DashboardLayout
       title="Panou Director"
-      subtitle="Liceul Teoretic &quot;Nicolae Balcescu&quot;"
+      subtitle={schoolName || undefined}
     >
           {/* Stats */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
