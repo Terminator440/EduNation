@@ -63,7 +63,9 @@ export const useSchoolEventsForMonth = (year: number, monthIndex0: number) => {
   });
 };
 
-// Fetch lessons for current user (stub - lessons table doesn't exist yet)
+/**
+ * @planned - urmează să fie integrat cu Tabelul Lessons
+ */
 export const useLessonsForCurrentUser = (_role: string | null, _userId: string | null) => {
   return useQuery({
     queryKey: ['lessons', _role, _userId],

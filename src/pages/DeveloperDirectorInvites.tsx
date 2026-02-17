@@ -34,7 +34,7 @@ import {
   getStatusColor,
   type Invitation 
 } from "@/lib/invitations";
-import { useAuditLog } from "@/hooks/useAuditLog";
+import { useAuditLog, AUDIT_ACTIONS } from "@/hooks/useAuditLog";
 import { format } from "date-fns";
 import { ro } from "date-fns/locale";
 import { toFriendlySupabaseError } from "@/utils/supabaseErrors";
@@ -160,7 +160,7 @@ const DeveloperDirectorInvites = () => {
       
       // Audit log
       await logAction({
-        action: "developer_create_director_invitation",
+        action: AUDIT_ACTIONS.INVITATION_CREATE,
         entityType: "invitation",
         entityId: result.invitation_id,
         details: {

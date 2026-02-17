@@ -1,4 +1,3 @@
-import { supabase } from '@/integrations/supabase/client';
 import { handleServiceError } from './error-handler';
 
 /**
@@ -16,10 +15,4 @@ export const assertSupabaseOk = <T>(
     throw new Error(`Eroare la comunicarea cu serverul (${context}).`);
   }
   return result.data;
-};
-
-export const getCurrentUserId = async (): Promise<string> => {
-  const { data, error } = await supabase.auth.getUser();
-  if (error || !data.user) throw new Error('Nu ești autentificat.');
-  return data.user.id;
 };

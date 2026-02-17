@@ -19,7 +19,7 @@ import { useClasses, useCreateStudentWithActivation, useStudentsForSecretariat }
 import { useToast } from "@/hooks/use-toast";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-
+import { parseEmailOrPhone } from "@/lib/contact";
 
 const SecretariatDashboard = () => {
   const [searchQuery, setSearchQuery] = useState("");
@@ -42,17 +42,7 @@ const SecretariatDashboard = () => {
     return { totalStudents, activeStudents, inactiveStudents, classesCount };
   }, [studentsQuery.data, classesQuery.data]);
 
-  
-  const parseEmailOrPhone = (value: string): { email: string | null; phone: string | null } => {
-    const v = value.trim();
-    if (!v) return { email: null, phone: null };
-    if (v.includes('@')) return { email: v.toLowerCase(), phone: null };
-    // Normalize phone: keep + and digits
-    const phone = v.replace(/[^0-9+]/g, '');
-    return { email: null, phone: phone || null };
-  };
-
-const handleCreateStudent = async () => {
+  const handleCreateStudent = async () => {
     if (!user) return;
     if (!newStudentName.trim() || !newStudentClassId) {
       toast({
@@ -63,14 +53,32 @@ const handleCreateStudent = async () => {
       return;
     }
     try {
-      const parsed = parseEmailOrPhone(newStudentContact);
+      let contactEmail: string | null = null;
+      let contactPhone: string | null = null;
+      if (newStudentContact.trim()) {
+        try {
+          const parsed = parseEmailOrPhone(newStudentContact);
+          contactEmail = parsed.email;
+          contactPhone = parsed.phone;
+        } catch (parseErr) {
+          const msg = parseErr instanceof Error ? parseErr.message : "";
+          const friendlyMsg =
+            msg === "contact_invalid_email"
+              ? "Format email invalid. Exemplu: nume@domeniu.ro"
+              : msg === "contact_invalid_phone"
+                ? "Format telefon invalid. Exemplu: 0712345678 sau +40712345678"
+                : "Email sau telefon invalid.";
+          toast({ title: "Date contact invalide", description: friendlyMsg, variant: "destructive" });
+          return;
+        }
+      }
       const res = await createStudent.mutateAsync({
         full_name: newStudentName.trim(),
         class_id: newStudentClassId,
         created_by: user.id,
         expires_in_days: 14,
-        contact_email: parsed.email,
-        contact_phone: parsed.phone,
+        contact_email: contactEmail,
+        contact_phone: contactPhone,
       });
       setNewStudentName("");
       setNewStudentContact("");
