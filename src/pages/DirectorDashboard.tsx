@@ -1,11 +1,8 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Users, GraduationCap, TrendingUp, FileText, Shield, Bell, BarChart3, Building } from "lucide-react";
-import Sidebar from "@/components/dashboard/Sidebar";
+import DashboardLayout from "@/components/layouts/DashboardLayout";
 import StatsCard from "@/components/dashboard/StatsCard";
-import RoleSwitcher from "@/components/RoleSwitcher";
-import ThemeToggle from "@/components/ThemeToggle";
-import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { CreateInvitationDialog } from "@/components/invitations/CreateInvitationDialog";
@@ -57,7 +54,6 @@ interface PendingExcuseRequest {
 }
 
 const DirectorDashboard = () => {
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [stats, setStats] = useState<SchoolStats>({
     totalStudents: 0,
     totalTeachers: 0,
@@ -83,8 +79,6 @@ const DirectorDashboard = () => {
   const [directorInvLoading, setDirectorInvLoading] = useState(false);
 
   const navigate = useNavigate();
-
-  const displayName = profile?.full_name || user?.email?.split('@')[0] || 'Utilizator';
 
   useEffect(() => {
     if (!authLoading && (!user || activeRole !== 'director')) {
@@ -229,28 +223,10 @@ const DirectorDashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <Sidebar isCollapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(!sidebarCollapsed)} />
-      
-      <main className={cn(
-        "transition-all duration-300",
-        sidebarCollapsed ? "ml-20" : "ml-64"
-      )}>
-        <header className="h-16 border-b border-border bg-card/50 backdrop-blur-sm flex items-center justify-between px-8 sticky top-0 z-30">
-          <div>
-            <h1 className="text-xl font-semibold text-foreground">Panou Director</h1>
-            <p className="text-sm text-muted-foreground">Liceul Teoretic „Nicolae Bălcescu"</p>
-          </div>
-          <div className="flex items-center gap-4">
-            <ThemeToggle />
-            <RoleSwitcher />
-            <div className="w-10 h-10 rounded-full bg-gradient-primary flex items-center justify-center text-primary-foreground font-semibold">
-              {displayName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
-            </div>
-          </div>
-        </header>
-
-        <div className="p-8">
+    <DashboardLayout
+      title="Panou Director"
+      subtitle="Liceul Teoretic „Nicolae Bălcescu""
+    >
           {/* Stats */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <StatsCard
@@ -543,10 +519,7 @@ const DirectorDashboard = () => {
             }
           }}
         />
-
-        </div>
-      </main>
-    </div>
+    </DashboardLayout>
   );
 };
 

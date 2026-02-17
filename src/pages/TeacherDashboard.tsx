@@ -1,16 +1,16 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Users, GraduationCap, UserCircle, TrendingUp, Plus, Search, MessageSquare, CheckCircle, ClipboardSignature } from "lucide-react";
-import Sidebar from "@/components/dashboard/Sidebar";
+import DashboardLayout from "@/components/layouts/DashboardLayout";
 import StatsCard from "@/components/dashboard/StatsCard";
-import RoleSwitcher from "@/components/RoleSwitcher";
-import ThemeToggle from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchGradesForStudents } from "@/features/grades/services/grades.service";
+import { fetchAttendanceForStudents } from "@/features/attendance/services/attendance.service";
 import { CreateInvitationDialog } from "@/components/invitations/CreateInvitationDialog";
 import { listInvitations, revokeInvitation, getRoleLabelRo, getStatusLabelRo, getInvitationStatus, type InvitationRole } from "@/lib/invitations";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -86,7 +86,6 @@ interface TimetableEntry {
 }
 
 const TeacherDashboard = () => {
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [students, setStudents] = useState<Student[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -312,81 +311,51 @@ const TeacherDashboard = () => {
           .eq('class_id', classData.id);
 
         if (studentsData) {
-          
-// Fetch related data in bulk to avoid N+1 queries (production performance)
-const studentIds = (studentsData || []).map((s: any) => s.id);
-const userIds = (studentsData || [])
-  .map((s: any) => s.user_id)
-  .filter((id: any) => !!id);
+          // Fetch related data in bulk to avoid N+1 queries (production performance)
+          const studentIds = (studentsData || []).map((s: any) => s.id);
+          const userIds = (studentsData || [])
+            .map((s: any) => s.user_id)
+            .filter((id: any) => !!id);
 
-const profilesById = new Map<string, any>();
-if (userIds.length > 0) {
-  const { data: profilesData, error: profilesErr } = await supabase
-    .from('profiles')
-    .select('id, full_name, email')
-    .in('id', userIds as any);
+          const profilesById = new Map<string, any>();
+          if (userIds.length > 0) {
+            const { data: profilesData, error: profilesErr } = await supabase
+              .from('profiles')
+              .select('id, full_name, email')
+              .in('id', userIds as any);
 
-  if (profilesErr) throw profilesErr;
-  (profilesData || []).forEach((p: any) => profilesById.set(p.id, p));
-}
+            if (profilesErr) throw profilesErr;
+            (profilesData || []).forEach((p: any) => profilesById.set(p.id, p));
+          }
 
-const { data: gradesData, error: gradesErr } = await supabase
-  .from('grades')
-  .select(`
-    id,
-    grade,
-    date,
-    description,
-    student_id,
-    subject_id,
-    subjects (
-      id,
-      name
-    )
-  `)
-  .in('student_id', studentIds as any);
+          // Use services from features instead of direct Supabase calls
+          const [gradesData, attendanceData] = await Promise.all([
+            fetchGradesForStudents(studentIds),
+            fetchAttendanceForStudents(studentIds),
+          ]);
 
-if (gradesErr) throw gradesErr;
+          const gradesByStudent = new Map<string, any[]>();
+          gradesData.forEach((g: any) => {
+            const arr = gradesByStudent.get(g.student_id) || [];
+            arr.push({ ...g, subject: g.subject });
+            gradesByStudent.set(g.student_id, arr);
+          });
 
-const { data: attendanceData, error: attendanceErr } = await supabase
-  .from('attendance')
-  .select(`
-    id,
-    date,
-    status,
-    student_id,
-    subject_id,
-    subjects (
-      id,
-      name
-    )
-  `)
-  .in('student_id', studentIds as any);
+          const attendanceByStudent = new Map<string, any[]>();
+          attendanceData.forEach((a: any) => {
+            const arr = attendanceByStudent.get(a.student_id) || [];
+            arr.push({ ...a, subject: a.subject });
+            attendanceByStudent.set(a.student_id, arr);
+          });
 
-if (attendanceErr) throw attendanceErr;
+          const enrichedStudents = (studentsData || []).map((student: any) => ({
+            ...student,
+            profile: student.user_id ? profilesById.get(student.user_id) || null : null,
+            grades: gradesByStudent.get(student.id) || [],
+            attendance: attendanceByStudent.get(student.id) || [],
+          }));
 
-const gradesByStudent = new Map<string, any[]>();
-(gradesData || []).forEach((g: any) => {
-  const arr = gradesByStudent.get(g.student_id) || [];
-  arr.push({ ...g, subject: g.subjects });
-  gradesByStudent.set(g.student_id, arr);
-});
-
-const attendanceByStudent = new Map<string, any[]>();
-(attendanceData || []).forEach((a: any) => {
-  const arr = attendanceByStudent.get(a.student_id) || [];
-  arr.push({ ...a, subject: a.subjects });
-  attendanceByStudent.set(a.student_id, arr);
-});
-
-const enrichedStudents = (studentsData || []).map((student: any) => ({
-  ...student,
-  profile: student.user_id ? profilesById.get(student.user_id) || null : null,
-  grades: gradesByStudent.get(student.id) || [],
-  attendance: attendanceByStudent.get(student.id) || [],
-}));
-
-setStudents(enrichedStudents);
+          setStudents(enrichedStudents);
         }
 
         const { data: subjectsData } = await supabase
@@ -598,25 +567,10 @@ setStudents(enrichedStudents);
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <Sidebar isCollapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(!sidebarCollapsed)} />
-      
-      <main className={cn(
-        "transition-all duration-300",
-        sidebarCollapsed ? "ml-20" : "ml-64"
-      )}>
-        <header className="h-16 border-b border-border bg-card/50 backdrop-blur-sm flex items-center justify-between px-8 sticky top-0 z-30">
-          <div>
-            <h1 className="text-xl font-semibold text-foreground">Panou Profesor</h1>
-            <p className="text-sm text-muted-foreground">Gestionează elevii clasei tale</p>
-          </div>
-          <div className="flex items-center gap-4">
-            <ThemeToggle />
-            <RoleSwitcher />
-          </div>
-        </header>
-
-        <div className="p-8">
+    <DashboardLayout
+      title="Panou Profesor"
+      subtitle="Gestionează elevii clasei tale"
+    >
           {/* Stats */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <StatsCard
@@ -1144,10 +1098,7 @@ setStudents(enrichedStudents);
             }
           }}
         />
-
-        </div>
-      </main>
-    </div>
+    </DashboardLayout>
   );
 };
 

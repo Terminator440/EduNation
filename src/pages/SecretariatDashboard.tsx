@@ -1,9 +1,7 @@
 import { useMemo, useState } from "react";
 import { Users, GraduationCap, FileText, Calendar, Plus, Upload, Search } from "lucide-react";
-import Sidebar from "@/components/dashboard/Sidebar";
+import DashboardLayout from "@/components/layouts/DashboardLayout";
 import StatsCard from "@/components/dashboard/StatsCard";
-import RoleSwitcher from "@/components/RoleSwitcher";
-import ThemeToggle from "@/components/ThemeToggle";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -24,7 +22,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 
 
 const SecretariatDashboard = () => {
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [newStudentName, setNewStudentName] = useState("");
   const [newStudentClassId, setNewStudentClassId] = useState<string>("");
@@ -35,8 +32,6 @@ const SecretariatDashboard = () => {
   const classesQuery = useClasses();
   const studentsQuery = useStudentsForSecretariat(searchQuery);
   const createStudent = useCreateStudentWithActivation();
-
-  const displayName = profile?.full_name || user?.email?.split('@')[0] || 'Utilizator';
 
   const stats = useMemo(() => {
     const students = studentsQuery.data ?? [];
@@ -93,28 +88,10 @@ const handleCreateStudent = async () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <Sidebar isCollapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(!sidebarCollapsed)} />
-      
-      <main className={cn(
-        "transition-all duration-300",
-        sidebarCollapsed ? "ml-20" : "ml-64"
-      )}>
-        <header className="h-16 border-b border-border bg-card/50 backdrop-blur-sm flex items-center justify-between px-8 sticky top-0 z-30">
-          <div>
-            <h1 className="text-xl font-semibold text-foreground">Panou Secretariat</h1>
-            <p className="text-sm text-muted-foreground">Gestionare elevi și clase</p>
-          </div>
-          <div className="flex items-center gap-4">
-            <ThemeToggle />
-            <RoleSwitcher />
-            <div className="w-10 h-10 rounded-full bg-gradient-primary flex items-center justify-center text-primary-foreground font-semibold">
-              {displayName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
-            </div>
-          </div>
-        </header>
-
-        <div className="p-8">
+    <DashboardLayout
+      title="Panou Secretariat"
+      subtitle="Gestionare elevi și clase"
+    >
           {/* Stats */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <StatsCard
@@ -281,9 +258,7 @@ const handleCreateStudent = async () => {
               </Card>
             </div>
           </div>
-        </div>
-      </main>
-    </div>
+    </DashboardLayout>
   );
 };
 
