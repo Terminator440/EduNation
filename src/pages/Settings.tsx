@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useTransition } from "react";
 import { User, Bell, Shield, Palette, Sun, Moon, Lock, Info } from "lucide-react";
 import Sidebar from "@/components/dashboard/Sidebar";
 import { cn } from "@/lib/utils";
@@ -19,7 +19,11 @@ const CAN_EDIT_PERSONAL_INFO: string[] = [
 const Settings = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [activeTab, setActiveTab] = useState("profile");
+  const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
+
+  /** Tab selectat pentru feedback vizual instant (buton „apăsat”); conținutul trece în activeTab prin startTransition. */
+  const [selectedTab, setSelectedTab] = useState("profile");
   const { activeRole, user, profile, refetchProfile } = useAuth();
   
   // Email din sesiunea Auth (sursa de adevăr)
@@ -209,17 +213,28 @@ const Settings = () => {
     { id: "appearance", label: "Aspect", icon: Palette },
   ];
 
+  const handleTabChange = useCallback((tabId: string) => {
+    setSelectedTab(tabId);
+    startTransition(() => {
+      setActiveTab(tabId);
+    });
+  }, []);
+
+  const onToggleSidebar = useCallback(() => {
+    setSidebarCollapsed((prev) => !prev);
+  }, []);
+
   const isDeveloper = activeRole === 'developer';
 
   return (
     <div className="min-h-screen w-full bg-background">
-      <Sidebar isCollapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(!sidebarCollapsed)} />
+      <Sidebar isCollapsed={sidebarCollapsed} onToggle={onToggleSidebar} />
       
       <main className={cn(
         "w-full min-w-0 transition-all duration-300",
         "pt-14 md:pt-0", sidebarCollapsed ? "ml-0 md:ml-20" : "ml-0 md:ml-64"
       )}>
-        <header className="w-full h-16 border-b border-border bg-card/50 backdrop-blur-sm flex items-center px-4 sm:px-6 lg:px-8 sticky top-14 md:top-0 z-30">
+        <header className="w-full h-16 border-b border-border bg-card flex items-center px-4 sm:px-6 lg:px-8 sticky top-14 md:top-0 z-30">
           <div>
             <h1 className="text-xl font-semibold text-foreground">Setări</h1>
             <p className="text-sm text-muted-foreground">Configurează-ți contul</p>
@@ -231,29 +246,36 @@ const Settings = () => {
             <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-4">
               {/* Tabs */}
               <div className="md:col-span-1">
-                <nav className="space-y-1">
+                <nav className="space-y-1" role="tablist" aria-label="Secțiuni setări">
                   {tabs.map(tab => (
                     <button
                       key={tab.id}
-                      onClick={() => setActiveTab(tab.id)}
+                      type="button"
+                      onClick={() => handleTabChange(tab.id)}
+                      aria-selected={selectedTab === tab.id}
+                      aria-busy={isPending && selectedTab === tab.id}
+                      role="tab"
                       className={cn(
-                        "w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-colors",
-                        activeTab === tab.id
+                        "w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-colors active:scale-[0.98]",
+                        selectedTab === tab.id
                           ? "bg-primary text-primary-foreground"
                           : "text-muted-foreground hover:bg-secondary hover:text-foreground"
                       )}
                     >
-                      <tab.icon className="w-5 h-5" />
+                      <tab.icon className="w-5 h-5 shrink-0" />
                       <span className="font-medium">{tab.label}</span>
+                      {isPending && selectedTab === tab.id && (
+                        <span className="ml-auto h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" aria-hidden />
+                      )}
                     </button>
                   ))}
                 </nav>
               </div>
 
-              {/* Content */}
-              <div className="md:col-span-3">
-                <div className="bg-card rounded-2xl border border-border p-6">
-                  {activeTab === "profile" && (
+              {/* Content – actualizat cu prioritate scăzută (startTransition) ca UI-ul să rămână responsiv */}
+              <div className="md:col-span-3" aria-busy={isPending} aria-live="polite">
+                <div className={cn("bg-card rounded-2xl border border-border p-6 transition-opacity duration-150", isPending && "opacity-90")}>
+                  <div role="tabpanel" aria-hidden={activeTab !== "profile"} className={cn(activeTab !== "profile" && "hidden")}>
                     <div className="space-y-6">
                       <div>
                         <h2 className="text-lg font-semibold text-foreground mb-4">Informații personale</h2>
@@ -397,9 +419,9 @@ const Settings = () => {
                         )}
                       </div>
                     </div>
-                  )}
+                  </div>
 
-                  {activeTab === "notifications" && (
+                  <div role="tabpanel" aria-hidden={activeTab !== "notifications"} className={cn(activeTab !== "notifications" && "hidden")}>
                     <div className="space-y-6">
                       <h2 className="text-lg font-semibold text-foreground mb-4">Preferințe notificări</h2>
                       <div className="space-y-4">
@@ -427,9 +449,9 @@ const Settings = () => {
                         </Button>
                       </div>
                     </div>
-                  )}
+                  </div>
 
-                  {activeTab === "security" && (
+                  <div role="tabpanel" aria-hidden={activeTab !== "security"} className={cn(activeTab !== "security" && "hidden")}>
                     <div className="space-y-6">
                       <h2 className="text-lg font-semibold text-foreground mb-4">Securitate cont</h2>
                       <div className="space-y-4">
@@ -491,9 +513,9 @@ const Settings = () => {
                         </Button>
                       </div>
                     </div>
-                  )}
+                  </div>
 
-                  {activeTab === "appearance" && (
+                  <div role="tabpanel" aria-hidden={activeTab !== "appearance"} className={cn(activeTab !== "appearance" && "hidden")}>
                     <div className="space-y-6">
                       <h2 className="text-lg font-semibold text-foreground mb-4">Aspect aplicație</h2>
                       <div className="space-y-4">
@@ -531,7 +553,7 @@ const Settings = () => {
                         </div>
                       </div>
                     </div>
-                  )}
+                  </div>
                 </div>
               </div>
             </div>

@@ -68,7 +68,7 @@ const LeadFormSection = () => {
             </div>
 
             {/* Right side - Form */}
-            <div className="bg-card p-8 rounded-2xl border border-border shadow-lg">
+            <div className="bg-card p-8 rounded-2xl border border-border">
               <form onSubmit={handleSubmit} className="space-y-5">
                 <div className="space-y-2">
                   <Label htmlFor="name">Nume și prenume *</Label>

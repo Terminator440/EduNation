@@ -1,9 +1,12 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Users, GraduationCap, TrendingUp, FileText, Shield, Bell, BarChart3, Building, Megaphone } from "lucide-react";
+/* Lucide: import doar iconițele folosite (tree-shaking) — nu importa întreaga librărie */
+import { Users, GraduationCap, TrendingUp, FileText, Shield, Bell, BarChart3, Building, Megaphone, Search } from "lucide-react";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
 import StatsCard from "@/components/dashboard/StatsCard";
 import { useAuth } from "@/hooks/useAuth";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
+import { usePagination } from "@/hooks/usePagination";
 import { supabase } from "@/integrations/supabase/client";
 import { CreateInvitationDialog } from "@/components/invitations/CreateInvitationDialog";
 import { CreateAnnouncementDialog } from "@/components/announcements/CreateAnnouncementDialog";
@@ -20,6 +23,14 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -29,6 +40,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import { PaginationControls } from "@/components/ui/pagination-controls";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 
 interface SchoolStats {
@@ -103,6 +115,11 @@ const DirectorDashboard = () => {
 
   const [gradesDistributionRaw, setGradesDistributionRaw] = useState<{ grade: number; cnt: number }[]>([]);
 
+  // Search/filter for invitations (debounced search to avoid work on every keystroke)
+  const [invSearchQuery, setInvSearchQuery] = useState("");
+  const [invRoleFilter, setInvRoleFilter] = useState<string>("all");
+  const invSearchDebounced = useDebouncedValue(invSearchQuery, 300);
+
   const navigate = useNavigate();
 
   const gradeChartData = useMemo(() => {
@@ -113,6 +130,36 @@ const DirectorDashboard = () => {
       count: map.get(grade) ?? 0,
     }));
   }, [gradesDistributionRaw]);
+
+  const averageGradeDisplay = useMemo(
+    () => (stats.averageGrade > 0 ? stats.averageGrade.toFixed(2) : "-"),
+    [stats.averageGrade]
+  );
+
+  const gradesSubtitle = useMemo(
+    () => `Din ${stats.totalGrades} note`,
+    [stats.totalGrades]
+  );
+
+  const filteredInvitations = useMemo(() => {
+    let list = directorInvitations;
+    const q = invSearchDebounced.trim().toLowerCase();
+    if (q) {
+      list = list.filter(
+        (inv) =>
+          (inv.invited_email?.toLowerCase().includes(q)) ||
+          (inv.invited_phone?.includes(q)) ||
+          (inv.first_name?.toLowerCase().includes(q)) ||
+          (inv.last_name?.toLowerCase().includes(q))
+      );
+    }
+    if (invRoleFilter !== "all") {
+      list = list.filter((inv) => inv.role === invRoleFilter);
+    }
+    return list;
+  }, [directorInvitations, invSearchDebounced, invRoleFilter]);
+
+  const auditPagination = usePagination(auditLogs, { initialPage: 1, initialPageSize: 10 });
 
   useEffect(() => {
     if (!authLoading && (!user || activeRole !== 'director')) {
@@ -158,7 +205,7 @@ const DirectorDashboard = () => {
   }, [user, activeRole]);
 
 
-  const fetchAnnouncements = async () => {
+  const fetchAnnouncements = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('announcements')
@@ -170,16 +217,9 @@ const DirectorDashboard = () => {
     } catch {
       setRecentAnnouncements([]);
     }
-  };
+  }, []);
 
-  useEffect(() => {
-    if (user && activeRole === 'director') {
-      fetchData();
-      fetchAnnouncements();
-    }
-  }, [user, activeRole]);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       const [
@@ -209,7 +249,7 @@ const DirectorDashboard = () => {
           .from('audit_logs')
           .select('id, user_name, active_role, action, entity_type, created_at')
           .order('created_at', { ascending: false })
-          .limit(10),
+          .limit(100),
       ]);
 
       const gradesStats = Array.isArray(gradesStatsData) && gradesStatsData.length > 0
@@ -240,14 +280,23 @@ const DirectorDashboard = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const decideExcuseRequest = async (_req: PendingExcuseRequest, _decision: 'approved' | 'rejected') => {
-    // attendance_excuse_requests table doesn't exist yet
-    toast({ title: 'Info', description: 'Funcționalitate indisponibilă - tabela nu există.' });
-  };
+  useEffect(() => {
+    if (user && activeRole === 'director') {
+      fetchData();
+      fetchAnnouncements();
+    }
+  }, [user, activeRole, fetchData, fetchAnnouncements]);
 
-  const getRoleLabel = (role: string) => {
+  const decideExcuseRequest = useCallback(
+    async (_req: PendingExcuseRequest, _decision: 'approved' | 'rejected') => {
+      toast({ title: 'Info', description: 'Funcționalitate indisponibilă - tabela nu există.' });
+    },
+    [toast]
+  );
+
+  const getRoleLabel = useCallback((role: string) => {
     const labels: Record<string, string> = {
       student: 'Elev',
       parent: 'Părinte',
@@ -258,7 +307,39 @@ const DirectorDashboard = () => {
       uat_admin: 'Admin UAT',
     };
     return labels[role] || role;
-  };
+  }, []);
+
+  const handleRevokeInvitation = useCallback(
+    async (invId: string) => {
+      try {
+        await revokeInvitation(invId);
+        if (directorSchoolId) {
+          const invs = await listInvitations({ schoolId: directorSchoolId, limit: 100 });
+          setDirectorInvitations(invs);
+        }
+      } catch (e) {
+        console.error("Failed to revoke invitation:", e);
+      }
+    },
+    [directorSchoolId]
+  );
+
+  const handleInvitationsCreated = useCallback(async () => {
+    if (directorSchoolId) {
+      const invs = await listInvitations({ schoolId: directorSchoolId, limit: 100 });
+      setDirectorInvitations(invs);
+    }
+  }, [directorSchoolId]);
+
+  const openAnnouncementDialog = useCallback(() => setAnnouncementDialogOpen(true), []);
+  const openInviteDialogTeacher = useCallback(() => {
+    setInvRole("teacher");
+    setInvDialogOpen(true);
+  }, []);
+  const openInviteDialogHomeroom = useCallback(() => {
+    setInvRole("homeroom_teacher");
+    setInvDialogOpen(true);
+  }, []);
 
   if (authLoading || loading) {
     return (
@@ -291,8 +372,8 @@ const DirectorDashboard = () => {
             />
             <StatsCard
               title="Media Generală"
-              value={stats.averageGrade > 0 ? stats.averageGrade.toFixed(2) : "-"}
-              subtitle={`Din ${stats.totalGrades} note`}
+              value={averageGradeDisplay}
+              subtitle={gradesSubtitle}
               icon={TrendingUp}
               variant="accent"
             />
@@ -307,7 +388,7 @@ const DirectorDashboard = () => {
 
           {/* Quick Actions */}
           <div className="flex flex-wrap gap-4 mb-8">
-            <Button className="gap-2" onClick={() => setAnnouncementDialogOpen(true)}>
+            <Button className="gap-2" onClick={openAnnouncementDialog}>
               <Bell className="h-4 w-4" />
               Publică Anunț
             </Button>
@@ -323,8 +404,8 @@ const DirectorDashboard = () => {
 
           <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
             <div className="lg:col-span-2 space-y-6">
-              {/* Distribuție note - analiză vizuală */}
-              <Card>
+              {/* Distribuție note - analiză vizuală (content-visibility: auto pentru secțiuni sub fold) */}
+              <Card className="content-visibility-auto">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <BarChart3 className="h-5 w-5" />
@@ -342,7 +423,7 @@ const DirectorDashboard = () => {
                       config={{
                         count: { label: "Note", color: "hsl(var(--primary))" },
                       }}
-                      className="h-[280px] w-full"
+                      className="h-[17.5rem] w-full"
                     >
                       <BarChart data={gradeChartData} margin={{ top: 8, right: 8, left: 8, bottom: 8 }}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} />
@@ -362,8 +443,8 @@ const DirectorDashboard = () => {
                 </CardContent>
               </Card>
 
-              {/* Audit Logs */}
-              <Card>
+              {/* Audit Logs — max 10 rânduri per pagină; pe mobil mai puține coloane */}
+              <Card className="content-visibility-auto">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Shield className="h-5 w-5" />
@@ -374,43 +455,57 @@ const DirectorDashboard = () => {
                   {auditLogs.length === 0 ? (
                     <p className="text-center py-8 text-muted-foreground">Nu există înregistrări în jurnalul de audit.</p>
                   ) : (
-                    <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Utilizator</TableHead>
-                          <TableHead>Rol</TableHead>
-                          <TableHead>Acțiune</TableHead>
-                          <TableHead>Entitate</TableHead>
-                          <TableHead>Data/Ora</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {auditLogs.map((log) => (
-                          <TableRow key={log.id}>
-                            <TableCell className="font-medium">{log.user_name}</TableCell>
-                            <TableCell>
-                              <span className="px-2 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary">
-                                {getRoleLabel(log.active_role)}
-                              </span>
-                            </TableCell>
-                            <TableCell>{log.action}</TableCell>
-                            <TableCell className="text-muted-foreground">{log.entity_type || '-'}</TableCell>
-                            <TableCell className="text-muted-foreground text-sm">
-                              {new Date(log.created_at).toLocaleString('ro-RO')}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                    </div>
+                    <>
+                      <div className="overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="whitespace-nowrap">Utilizator</TableHead>
+                              <TableHead className="hidden sm:table-cell whitespace-nowrap">Rol</TableHead>
+                              <TableHead className="whitespace-nowrap">Acțiune</TableHead>
+                              <TableHead className="hidden md:table-cell whitespace-nowrap">Entitate</TableHead>
+                              <TableHead className="whitespace-nowrap">Data/Ora</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {auditPagination.paginatedData.map((log) => (
+                              <TableRow key={log.id}>
+                                <TableCell className="font-medium whitespace-nowrap">{log.user_name}</TableCell>
+                                <TableCell className="hidden sm:table-cell">
+                                  <span className="px-2 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary">
+                                    {getRoleLabel(log.active_role)}
+                                  </span>
+                                </TableCell>
+                                <TableCell className="whitespace-nowrap">{log.action}</TableCell>
+                                <TableCell className="hidden md:table-cell text-muted-foreground whitespace-nowrap">{log.entity_type || '-'}</TableCell>
+                                <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
+                                  {new Date(log.created_at).toLocaleString('ro-RO')}
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                      <div className="mt-4">
+                        <PaginationControls
+                          page={auditPagination.page}
+                          totalPages={auditPagination.totalPages}
+                          totalItems={auditPagination.totalItems}
+                          pageSize={auditPagination.pageSize}
+                          onPageChange={auditPagination.goToPage}
+                          onPageSizeChange={auditPagination.setPageSize}
+                          pageSizeOptions={[10, 15]}
+                          showPageSize={true}
+                        />
+                      </div>
+                    </>
                   )}
                 </CardContent>
               </Card>
             </div>
 
-            {/* Quick Stats */}
-            <div className="space-y-6">
+            {/* Quick Stats — coloană dreaptă, de obicei sub fold */}
+            <div className="space-y-6 content-visibility-auto">
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -525,26 +620,14 @@ const DirectorDashboard = () => {
             </div>
           </div>
         {activeRole === "director" && (
-          <Card className="mt-8">
+          <Card className="mt-8 content-visibility-auto">
             <CardHeader className="flex flex-col sm:flex-row items-start gap-4">
               <CardTitle>Invitații (director)</CardTitle>
               <div className="flex flex-wrap gap-2 w-full sm:w-auto">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setInvRole("teacher");
-                    setInvDialogOpen(true);
-                  }}
-                >
+                <Button variant="outline" onClick={openInviteDialogTeacher}>
                   Invită profesor
                 </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setInvRole("homeroom_teacher");
-                    setInvDialogOpen(true);
-                  }}
-                >
+                <Button variant="outline" onClick={openInviteDialogHomeroom}>
                   Invită diriginte
                 </Button>
               </div>
@@ -559,64 +642,80 @@ const DirectorDashboard = () => {
               ) : directorInvitations.length === 0 ? (
                 <p className="text-sm text-muted-foreground">Nu ai invitații create.</p>
               ) : (
-                <div className="w-full overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="whitespace-nowrap">Rol</TableHead>
-                      <TableHead className="whitespace-nowrap">Status</TableHead>
-                      <TableHead className="whitespace-nowrap">Creat</TableHead>
-                      <TableHead className="whitespace-nowrap">Expiră</TableHead>
-                      <TableHead className="whitespace-nowrap">Contact</TableHead>
-                      <TableHead className="text-right whitespace-nowrap">Acțiuni</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {directorInvitations.map((inv) => (
-                      <TableRow key={inv.id}>
-                        <TableCell>{getRoleLabelRo(inv.role)}</TableCell>
-                        <TableCell>{getStatusLabelRo(getInvitationStatus(inv))}</TableCell>
-                        <TableCell>
-                          {inv.created_at ? new Date(inv.created_at).toLocaleString("ro-RO") : "-"}
-                        </TableCell>
-                        <TableCell>
-                          {inv.expires_at ? new Date(inv.expires_at).toLocaleString("ro-RO") : "-"}
-                        </TableCell>
-                        <TableCell>
-                          {inv.invited_email || inv.invited_phone ? (
-                            <div className="text-xs">
-                              {inv.invited_email && <div>{inv.invited_email}</div>}
-                              {inv.invited_phone && <div>{inv.invited_phone}</div>}
-                            </div>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">—</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            disabled={!!inv.revoked_at || !!inv.used_at}
-                            onClick={async () => {
-                              try {
-                                await revokeInvitation(inv.id);
-                                if (directorSchoolId) {
-                                  const invs = await listInvitations({ schoolId: directorSchoolId, limit: 100 });
-                                  setDirectorInvitations(invs);
-                                }
-                              } catch (e) {
-                                console.error("Failed to revoke invitation:", e);
-                              }
-                            }}
-                          >
-                            Revocă
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-                </div>
+                <>
+                  <div className="flex flex-col sm:flex-row gap-2 mb-4">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Caută după email, telefon, nume..."
+                        value={invSearchQuery}
+                        onChange={(e) => setInvSearchQuery(e.target.value)}
+                        className="pl-9"
+                      />
+                    </div>
+                    <Select value={invRoleFilter} onValueChange={setInvRoleFilter}>
+                      <SelectTrigger className="w-full sm:w-[11.25rem]">
+                        <SelectValue placeholder="Rol" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Toate rolurile</SelectItem>
+                        <SelectItem value="teacher">Profesor</SelectItem>
+                        <SelectItem value="homeroom_teacher">Diriginte</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="w-full overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="whitespace-nowrap">Rol</TableHead>
+                          <TableHead className="whitespace-nowrap">Status</TableHead>
+                          <TableHead className="whitespace-nowrap">Creat</TableHead>
+                          <TableHead className="whitespace-nowrap">Expiră</TableHead>
+                          <TableHead className="whitespace-nowrap">Contact</TableHead>
+                          <TableHead className="text-right whitespace-nowrap">Acțiuni</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredInvitations.map((inv) => (
+                          <TableRow key={inv.id}>
+                            <TableCell>{getRoleLabelRo(inv.role)}</TableCell>
+                            <TableCell>{getStatusLabelRo(getInvitationStatus(inv))}</TableCell>
+                            <TableCell>
+                              {inv.created_at ? new Date(inv.created_at).toLocaleString("ro-RO") : "-"}
+                            </TableCell>
+                            <TableCell>
+                              {inv.expires_at ? new Date(inv.expires_at).toLocaleString("ro-RO") : "-"}
+                            </TableCell>
+                            <TableCell>
+                              {inv.invited_email || inv.invited_phone ? (
+                                <div className="text-xs">
+                                  {inv.invited_email && <div>{inv.invited_email}</div>}
+                                  {inv.invited_phone && <div>{inv.invited_phone}</div>}
+                                </div>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">—</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={!!inv.revoked_at || !!inv.used_at}
+                                onClick={() => handleRevokeInvitation(inv.id)}
+                              >
+                                Revocă
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                  {filteredInvitations.length === 0 && (invSearchQuery.trim() || invRoleFilter !== "all") && (
+                    <p className="text-sm text-muted-foreground py-2">Niciun rezultat pentru filtrele alese.</p>
+                  )}
+                </>
               )}
             </CardContent>
           </Card>
@@ -627,12 +726,7 @@ const DirectorDashboard = () => {
           onOpenChange={setInvDialogOpen}
           schoolId={directorSchoolId || ""}
           role={invRole}
-          onCreated={async () => {
-            if (directorSchoolId) {
-              const invs = await listInvitations({ schoolId: directorSchoolId, limit: 100 });
-              setDirectorInvitations(invs);
-            }
-          }}
+          onCreated={handleInvitationsCreated}
         />
 
         <CreateAnnouncementDialog

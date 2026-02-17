@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { BookOpen, Calendar, FileText, ClipboardList } from "lucide-react";
 import { Link } from "react-router-dom";
 
@@ -32,7 +33,7 @@ const actions = [
   },
 ];
 
-const QuickActions = () => {
+const QuickActions = memo(function QuickActions() {
   const getColorClasses = (color: string) => {
     switch (color) {
       case "primary":
@@ -56,7 +57,7 @@ const QuickActions = () => {
           <Link
             key={action.label}
             to={action.href}
-            className="group flex flex-col items-center p-4 rounded-xl border border-border hover:border-primary/30 hover:shadow-md transition-all"
+            className="group flex flex-col items-center p-4 rounded-xl border border-border hover:border-primary/30 transition-colors"
           >
             <div
               className={`w-12 h-12 rounded-xl flex items-center justify-center mb-3 transition-colors ${getColorClasses(
@@ -72,6 +73,6 @@ const QuickActions = () => {
       </div>
     </div>
   );
-};
+});
 
 export default QuickActions;

@@ -1000,7 +1000,7 @@ const TeacherDashboard = () => {
                                     value={message.content}
                                     onChange={(e) => setMessage(p => ({ ...p, content: e.target.value }))}
                                     placeholder="Scrie mesajul aici..."
-                                    className="mt-1 min-h-[100px]"
+                                    className="mt-1 min-h-[6.25rem]"
                                   />
                                 </div>
                                 <Button 

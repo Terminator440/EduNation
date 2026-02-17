@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Shield, Copy, Check, Loader2, Plus, RefreshCw, PlusCircle, AlertCircle } from "lucide-react";
 import Sidebar from "@/components/dashboard/Sidebar";
@@ -48,6 +48,7 @@ interface School {
 
 const DeveloperDirectorInvites = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const onToggleSidebar = useCallback(() => setSidebarCollapsed((prev) => !prev), []);
   const { toast } = useToast();
   const { activeRole } = useAuth();
   const { logAction } = useAuditLog();
@@ -215,13 +216,13 @@ const DeveloperDirectorInvites = () => {
 
   return (
     <div className="min-h-screen w-full bg-background">
-      <Sidebar isCollapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(!sidebarCollapsed)} />
+      <Sidebar isCollapsed={sidebarCollapsed} onToggle={onToggleSidebar} />
       
       <main className={cn(
         "w-full min-w-0 transition-all duration-300",
         "pt-14 md:pt-0", sidebarCollapsed ? "ml-0 md:ml-20" : "ml-0 md:ml-64"
       )}>
-        <header className="w-full h-16 border-b border-border bg-card/50 backdrop-blur-sm flex items-center gap-4 px-4 sm:px-6 lg:px-8 sticky top-14 md:top-0 z-30">
+        <header className="w-full h-16 border-b border-border bg-card flex items-center gap-4 px-4 sm:px-6 lg:px-8 sticky top-14 md:top-0 z-30">
           <div className="flex items-center gap-3">
             <Shield className="w-6 h-6 text-primary" />
             <div>

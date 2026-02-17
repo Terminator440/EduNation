@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Download, FileText, Printer, RefreshCw } from "lucide-react";
 
@@ -83,6 +83,7 @@ const todayKey = () => {
 
 const Reports = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const onToggleSidebar = useCallback(() => setSidebarCollapsed((prev) => !prev), []);
   const [loading, setLoading] = useState(true);
 
   const [classes, setClasses] = useState<ClassRow[]>([]);
@@ -405,10 +406,10 @@ const Reports = () => {
 
   return (
     <div className="min-h-screen w-full bg-background max-w-full overflow-x-hidden">
-      <Sidebar isCollapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(!sidebarCollapsed)} />
+      <Sidebar isCollapsed={sidebarCollapsed} onToggle={onToggleSidebar} />
 
       <main className={cn("w-full min-w-0 max-w-full overflow-x-hidden transition-all duration-300 pt-14 md:pt-0", sidebarCollapsed ? "ml-0 md:ml-20" : "ml-0 md:ml-64")}> 
-        <header className="w-full h-16 border-b border-border bg-card/50 backdrop-blur-sm flex items-center justify-between gap-4 px-4 sm:px-6 lg:px-8 sticky top-14 md:top-0 z-30 print:hidden">
+        <header className="w-full h-16 border-b border-border bg-card flex items-center justify-between gap-4 px-4 sm:px-6 lg:px-8 sticky top-14 md:top-0 z-30 print:hidden">
           <div>
             <h1 className="text-xl font-semibold text-foreground flex items-center gap-2">
               <FileText className="w-5 h-5" />

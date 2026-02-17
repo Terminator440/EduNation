@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useCallback } from "react";
 import { Shield, Users, GraduationCap, ClipboardList, CalendarDays, Plus, Trash2 } from "lucide-react";
 import Sidebar from "@/components/dashboard/Sidebar";
 import { cn } from "@/lib/utils";
@@ -27,6 +27,7 @@ type UserRow = {
 
 const AdminDashboard = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const onToggleSidebar = useCallback(() => setSidebarCollapsed((prev) => !prev), []);
   const { user } = useAuth();
 
   const statsQuery = useQuery({
@@ -106,10 +107,10 @@ const AdminDashboard = () => {
 
   return (
     <div className="min-h-screen w-full bg-background">
-      <Sidebar isCollapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(!sidebarCollapsed)} />
+      <Sidebar isCollapsed={sidebarCollapsed} onToggle={onToggleSidebar} />
 
       <main className={cn("w-full min-w-0 transition-all duration-300 pt-14 md:pt-0", sidebarCollapsed ? "ml-0 md:ml-20" : "ml-0 md:ml-64")}>
-        <header className="w-full h-16 border-b border-border bg-card/50 backdrop-blur-sm flex items-center justify-between px-4 sm:px-6 lg:px-8 sticky top-14 md:top-0 z-30">
+        <header className="w-full h-16 border-b border-border bg-card flex items-center justify-between px-4 sm:px-6 lg:px-8 sticky top-14 md:top-0 z-30">
           <div>
             <h1 className="text-xl font-semibold text-foreground">Admin (UAT)</h1>
             <p className="text-sm text-muted-foreground">Management utilizatori, roluri și audit</p>

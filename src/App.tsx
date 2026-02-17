@@ -15,7 +15,7 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
-// Lazy-loaded pages
+// Lazy-loaded pages – bundle-ul inițial rămâne mic; Calendar, Audit, Rapoarte se încarcă doar la navigare
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const TeacherDashboard = lazy(() => import("./pages/TeacherDashboard"));
 const SecretariatDashboard = lazy(() => import("./pages/SecretariatDashboard"));
@@ -75,17 +75,26 @@ const PageFallback = () => (
   </div>
 );
 
-/** Shorthand for a protected lazy route */
+/** Fallback minimal pentru secțiunile grele (Calendar, Audit, Rapoarte) – mai puțin DOM/JS în timpul încărcării chunk-ului. */
+const HeavySectionFallback = () => (
+  <div className="min-h-screen bg-background flex items-center justify-center" aria-busy="true" aria-label="Se încarcă...">
+    <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary border-t-transparent" />
+  </div>
+);
+
+/** Shorthand for a protected lazy route. Optional fallback for heavy sections (e.g. Calendar, Audit, Reports). */
 function PR({
   roles,
   children,
+  fallback,
 }: {
   roles: AppRole[];
   children: React.ReactNode;
+  fallback?: React.ReactNode;
 }) {
   return (
     <ProtectedRoute allowedRoles={roles}>
-      <Suspense fallback={<PageFallback />}>{children}</Suspense>
+      <Suspense fallback={fallback ?? <PageFallback />}>{children}</Suspense>
     </ProtectedRoute>
   );
 }
@@ -125,14 +134,15 @@ const App = () => (
               {/* Feature pages */}
               <Route path="/dashboard/grades" element={<PR roles={["student", "parent"]}><Grades /></PR>} />
               <Route path="/dashboard/attendance" element={<PR roles={["student", "parent"]}><Attendance /></PR>} />
-              <Route path="/dashboard/calendar" element={<PR roles={allRoles}><SchoolCalendar /></PR>} />
+              {/* Calendar, Audit, Rapoarte: lazy + Suspense cu fallback minimal – chunk-ul se încarcă doar la acces, mai puțin RAM pe dispozitive slabe (ex. A30s) */}
+              <Route path="/dashboard/calendar" element={<PR roles={allRoles} fallback={<HeavySectionFallback />}><SchoolCalendar /></PR>} />
               <Route path="/dashboard/schedule" element={<PR roles={allRoles}><Schedule /></PR>} />
               <Route path="/dashboard/lessons" element={<PR roles={["student", "teacher", "homeroom_teacher", "secretariat", "director"]}><Lessons /></PR>} />
               <Route path="/dashboard/settings" element={<PR roles={allPlusDev}><Settings /></PR>} />
 
-              {/* Reports & Audit */}
-              <Route path="/reports" element={<PR roles={["teacher", "homeroom_teacher", "secretariat", "director", "uat_admin"]}><Reports /></PR>} />
-              <Route path="/audit" element={<PR roles={["secretariat", "director", "uat_admin", "developer", "homeroom_teacher"]}><AuditLogs /></PR>} />
+              {/* Reports & Audit – lazy, chunk separat, fallback minimal */}
+              <Route path="/reports" element={<PR roles={["teacher", "homeroom_teacher", "secretariat", "director", "uat_admin"]} fallback={<HeavySectionFallback />}><Reports /></PR>} />
+              <Route path="/audit" element={<PR roles={["secretariat", "director", "uat_admin", "developer", "homeroom_teacher"]} fallback={<HeavySectionFallback />}><AuditLogs /></PR>} />
 
               {/* Communication */}
               <Route path="/announcements" element={<PR roles={allRoles}><Announcements /></PR>} />

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -95,6 +95,10 @@ export default function AuditLogs() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const { toast } = useToast();
 
+  const onToggleSidebar = useCallback(() => {
+    setSidebarCollapsed((prev) => !prev);
+  }, []);
+
   const [allRows, setAllRows] = useState<AuditRow[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -144,8 +148,8 @@ export default function AuditLogs() {
     return result;
   }, [allRows, q, entityType, dateFrom, dateTo]);
 
-  // Pagination
-  const pagination = usePagination(filteredRows, { initialPageSize: 20 });
+  // Pagination — max 10–15 rânduri per pagină; pe mobil mai puține coloane pentru a evita reflow
+  const pagination = usePagination(filteredRows, { initialPageSize: 15 });
 
   const fetchRows = async () => {
     if (!canView) return;
@@ -207,7 +211,7 @@ export default function AuditLogs() {
   if (!canView) {
     return (
       <div className="min-h-screen w-full bg-background max-w-full overflow-x-hidden">
-        <Sidebar isCollapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(!sidebarCollapsed)} />
+        <Sidebar isCollapsed={sidebarCollapsed} onToggle={onToggleSidebar} />
         <main className={cn(
           "w-full min-w-0 transition-all duration-300 pt-14 md:pt-0",
           sidebarCollapsed ? "ml-0 md:ml-20" : "ml-0 md:ml-64"
@@ -234,7 +238,7 @@ export default function AuditLogs() {
 
   return (
     <div className="min-h-screen w-full bg-background max-w-full overflow-x-hidden">
-      <Sidebar isCollapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(!sidebarCollapsed)} />
+      <Sidebar isCollapsed={sidebarCollapsed} onToggle={onToggleSidebar} />
       <main className={cn(
         "w-full min-w-0 max-w-full overflow-x-hidden transition-all duration-300 pt-14 md:pt-0",
         sidebarCollapsed ? "ml-0 md:ml-20" : "ml-0 md:ml-64"
@@ -325,8 +329,8 @@ export default function AuditLogs() {
             </CardContent>
           </Card>
 
-          {/* Table */}
-          <Card>
+          {/* Table — content-visibility pentru secțiune sub fold */}
+          <Card className="content-visibility-auto">
             <CardHeader>
               <CardTitle className="text-base">
                 Evenimente ({filteredRows.length} înregistrări)
@@ -334,37 +338,37 @@ export default function AuditLogs() {
             </CardHeader>
             <CardContent className="p-2 sm:p-6">
               <div className="w-full overflow-x-auto border border-border rounded-lg">
-                <table className="w-full text-sm">
+                <table className="w-full text-sm table-fixed sm:table-auto">
                   <thead>
                     <tr className="text-left border-b">
-                      <th className="py-3 pr-4 font-medium whitespace-nowrap">Data</th>
-                      <th className="py-3 pr-4 font-medium whitespace-nowrap">Utilizator</th>
-                      <th className="py-3 pr-4 font-medium whitespace-nowrap">Rol</th>
-                      <th className="py-3 pr-4 font-medium whitespace-nowrap">Acțiune</th>
-                      <th className="py-3 pr-4 font-medium whitespace-nowrap">Entitate</th>
-                      <th className="py-3 pr-4 font-medium whitespace-nowrap">ID</th>
-                      <th className="py-3 font-medium whitespace-nowrap">Detalii</th>
+                      <th className="py-3 pr-2 sm:pr-4 font-medium whitespace-nowrap w-20 sm:w-auto">Data</th>
+                      <th className="py-3 pr-2 sm:pr-4 font-medium whitespace-nowrap min-w-0">Utilizator</th>
+                      <th className="hidden sm:table-cell py-3 pr-4 font-medium whitespace-nowrap">Rol</th>
+                      <th className="py-3 pr-2 sm:pr-4 font-medium whitespace-nowrap min-w-0">Acțiune</th>
+                      <th className="hidden md:table-cell py-3 pr-4 font-medium whitespace-nowrap">Entitate</th>
+                      <th className="hidden lg:table-cell py-3 pr-4 font-medium whitespace-nowrap">ID</th>
+                      <th className="py-3 font-medium whitespace-nowrap w-12">Detalii</th>
                     </tr>
                   </thead>
                   <tbody>
                     {pagination.paginatedData.map((r) => (
                       <tr key={r.id} className="border-b last:border-b-0 hover:bg-muted/50">
-                        <td className="py-3 pr-4 whitespace-nowrap">
+                        <td className="py-3 pr-2 sm:pr-4 whitespace-nowrap text-xs sm:text-sm">
                           {new Date(r.created_at).toLocaleString("ro-RO")}
                         </td>
-                        <td className="py-3 pr-4">{r.user_name ?? "—"}</td>
-                        <td className="py-3 pr-4">
+                        <td className="py-3 pr-2 sm:pr-4 truncate min-w-0">{r.user_name ?? "—"}</td>
+                        <td className="hidden sm:table-cell py-3 pr-4">
                           <Badge variant="outline">{roleLabel(r.active_role)}</Badge>
                         </td>
-                        <td className="py-3 pr-4">
+                        <td className="py-3 pr-2 sm:pr-4 min-w-0">
                           <Badge variant={getActionBadgeVariant(r.action)}>
                             {actionLabel(r.action)}
                           </Badge>
                         </td>
-                        <td className="py-3 pr-4 text-muted-foreground">
+                        <td className="hidden md:table-cell py-3 pr-4 text-muted-foreground">
                           {r.entity_type ?? "—"}
                         </td>
-                        <td className="py-3 pr-4 font-mono text-xs text-muted-foreground">
+                        <td className="hidden lg:table-cell py-3 pr-4 font-mono text-xs text-muted-foreground">
                           {r.entity_id ? r.entity_id.slice(0, 8) + "..." : "—"}
                         </td>
                         <td className="py-3">
@@ -372,9 +376,9 @@ export default function AuditLogs() {
                             variant="ghost"
                             size="sm"
                             onClick={() => setSelectedRow(r)}
-                            className="gap-1"
+                            className="gap-1 h-8 w-8 p-0"
                           >
-                            <Eye className="w-4 h-4" />
+                            <Eye className="h-4 w-4" />
                           </Button>
                         </td>
                       </tr>
@@ -398,6 +402,7 @@ export default function AuditLogs() {
                   pageSize={pagination.pageSize}
                   onPageChange={pagination.goToPage}
                   onPageSizeChange={pagination.setPageSize}
+                  pageSizeOptions={[10, 15, 20, 50]}
                 />
               </div>
             </CardContent>

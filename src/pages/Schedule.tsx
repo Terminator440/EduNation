@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { CalendarX2, Clock } from "lucide-react";
 import Sidebar from "@/components/dashboard/Sidebar";
 import ThemeToggle from "@/components/ThemeToggle";
@@ -30,6 +30,7 @@ type TimetableEntry = {
 
 export default function Schedule() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const onToggleSidebar = useCallback(() => setSidebarCollapsed((prev) => !prev), []);
   const { user, profile, activeRole } = useAuth();
   const [viewMode, setViewMode] = useState<"class" | "teacher">("class");
 
@@ -108,10 +109,10 @@ export default function Schedule() {
 
   return (
     <div className="min-h-screen w-full bg-background">
-      <Sidebar isCollapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(!sidebarCollapsed)} />
+      <Sidebar isCollapsed={sidebarCollapsed} onToggle={onToggleSidebar} />
 
       <main className={cn("w-full min-w-0 transition-all duration-300 pt-14 md:pt-0", sidebarCollapsed ? "ml-0 md:ml-20" : "ml-0 md:ml-64")}>
-        <header className="w-full h-16 border-b border-border bg-card/50 backdrop-blur-sm flex items-center justify-between px-4 sm:px-6 lg:px-8 sticky top-14 md:top-0 z-30">
+        <header className="w-full h-16 border-b border-border bg-card flex items-center justify-between px-4 sm:px-6 lg:px-8 sticky top-14 md:top-0 z-30">
           <div>
             <h1 className="text-xl font-semibold text-foreground flex items-center gap-2">
               <Clock className="w-5 h-5" />

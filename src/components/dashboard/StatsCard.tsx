@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -15,7 +16,7 @@ interface StatsCardProps {
   showIcon?: boolean;
 }
 
-const StatsCard = ({ title, value, subtitle, icon: Icon, trend, variant = "default", showIcon = true }: StatsCardProps) => {
+const StatsCard = memo(function StatsCard({ title, value, subtitle, icon: Icon, trend, variant = "default", showIcon = true }: StatsCardProps) {
   const iconColors = {
     default: "bg-secondary text-muted-foreground",
     primary: "bg-primary/10 text-primary",
@@ -25,7 +26,7 @@ const StatsCard = ({ title, value, subtitle, icon: Icon, trend, variant = "defau
   };
 
   return (
-    <div className="bg-card rounded-2xl p-6 border border-border shadow-sm hover:shadow-md transition-shadow">
+    <div className="bg-card rounded-2xl p-6 border border-border">
       <div className="flex items-start justify-between">
         <div className="min-w-0 flex-1">
           <p className="text-sm text-muted-foreground font-medium">{title}</p>
@@ -55,6 +56,6 @@ const StatsCard = ({ title, value, subtitle, icon: Icon, trend, variant = "defau
       </div>
     </div>
   );
-};
+});
 
 export default StatsCard;

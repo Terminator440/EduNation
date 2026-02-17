@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { Bell, CheckCheck, Loader2 } from "lucide-react";
 import Sidebar from "@/components/dashboard/Sidebar";
@@ -11,11 +11,12 @@ import { cn } from "@/lib/utils";
 
 const Notifications = () => {
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const onToggleSidebar = useCallback(() => setIsCollapsed((prev) => !prev), []);
   const { notifications, loading, unreadCount, markAsRead, markAllAsRead } = useNotifications();
 
   return (
     <div className="min-h-screen w-full bg-background flex">
-      <Sidebar isCollapsed={isCollapsed} onToggle={() => setIsCollapsed(!isCollapsed)} />
+      <Sidebar isCollapsed={isCollapsed} onToggle={onToggleSidebar} />
       <div className={cn(
         "flex-1 min-w-0 w-full pt-14 md:pt-0",
         isCollapsed ? "ml-0 md:ml-20" : "ml-0 md:ml-64"

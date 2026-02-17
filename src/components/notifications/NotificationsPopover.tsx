@@ -46,7 +46,7 @@ export function NotificationsPopover() {
           <Bell className="h-5 w-5" />
           {unreadCount > 0 && (
             <span
-              className="absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full bg-destructive text-[10px] font-medium text-destructive-foreground flex items-center justify-center"
+              className="absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full bg-destructive text-[0.625rem] font-medium text-destructive-foreground flex items-center justify-center"
               aria-label={`${unreadCount} necitite`}
             >
               {unreadCount > 9 ? "9+" : unreadCount}
@@ -70,7 +70,7 @@ export function NotificationsPopover() {
           )}
         </div>
 
-        <ScrollArea className="h-[320px]">
+        <ScrollArea className="h-[20rem]">
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -105,7 +105,7 @@ export function NotificationsPopover() {
                           {n.message ?? n.body ?? ""}
                         </p>
                       <div className="flex items-center justify-between mt-2">
-                        <span className="text-[10px] text-muted-foreground">
+                        <span className="text-[0.625rem] text-muted-foreground">
                           {getTypeLabel(n.type)} · {formatDate(n.created_at)}
                         </span>
                       </div>

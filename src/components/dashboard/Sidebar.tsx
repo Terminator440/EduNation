@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback, memo } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { 
   LayoutDashboard, 
@@ -99,7 +99,7 @@ function SidebarContent({
                   className={cn(
                     "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 group",
                     isActive 
-                      ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-md" 
+                      ? "bg-sidebar-primary text-sidebar-primary-foreground" 
                       : "text-sidebar-foreground hover:bg-sidebar-accent"
                   )}
                 >
@@ -269,7 +269,9 @@ const homeRoutes: Record<AppRole, string> = {
   developer: '/developer',
 };
 
-const Sidebar = ({ isCollapsed, onToggle }: SidebarProps) => {
+const noop = () => {};
+
+const SidebarInner = ({ isCollapsed, onToggle }: SidebarProps) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { signOut, activeRole } = useAuth();
@@ -278,12 +280,13 @@ const Sidebar = ({ isCollapsed, onToggle }: SidebarProps) => {
   const menuItems = activeRole ? menuItemsByRole[activeRole] : menuItemsByRole.student;
   const homeHref = activeRole ? homeRoutes[activeRole] : '/dashboard';
 
-  const handleSignOut = async () => {
+  const handleSignOut = useCallback(async () => {
     await signOut();
     navigate('/');
-  };
+  }, [signOut, navigate]);
 
-  const closeMobile = () => setMobileOpen(false);
+  const closeMobile = useCallback(() => setMobileOpen(false), []);
+  const openMobile = useCallback(() => setMobileOpen(true), []);
 
   const sidebarContentProps = {
     menuItems,
@@ -296,12 +299,12 @@ const Sidebar = ({ isCollapsed, onToggle }: SidebarProps) => {
 
   return (
     <>
-      {/* Mobile: hamburger + Sheet */}
-      <div className="md:hidden fixed inset-x-0 top-0 z-40 flex items-center w-full h-14 px-4 bg-card/95 backdrop-blur-sm border-b border-border">
+      {/* Mobile: bară fixă (fixed). Pentru mai puțin lag la scroll pe mobil, într-un refactor viitor bară ar putea fi mutată în interiorul main cu sticky top-0. */}
+      <div className="md:hidden fixed inset-x-0 top-0 z-40 flex items-center w-full h-14 px-4 bg-card border-b border-border">
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => setMobileOpen(true)}
+          onClick={openMobile}
           aria-label="Deschide meniul"
           className="text-foreground"
         >
@@ -332,7 +335,7 @@ const Sidebar = ({ isCollapsed, onToggle }: SidebarProps) => {
       )}>
         <SidebarContent
           {...sidebarContentProps}
-          onLinkClick={() => {}}
+          onLinkClick={noop}
           showToggle={true}
         />
       </aside>
@@ -340,4 +343,5 @@ const Sidebar = ({ isCollapsed, onToggle }: SidebarProps) => {
   );
 };
 
+const Sidebar = memo(SidebarInner);
 export default Sidebar;

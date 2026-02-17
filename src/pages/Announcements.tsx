@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 
 import { Megaphone, Plus, RefreshCw } from "lucide-react";
 
@@ -39,6 +39,7 @@ const Announcements = () => {
   const { toast } = useToast();
   const { activeRole } = useAuth();
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const onToggleSidebar = useCallback(() => setIsCollapsed((prev) => !prev), []);
   const [loading, setLoading] = useState(false);
   const [announcements, setAnnouncements] = useState<AnnouncementRow[]>([]);
 
@@ -131,7 +132,7 @@ const Announcements = () => {
 
   return (
     <div className="min-h-screen w-full bg-background">
-      <Sidebar isCollapsed={isCollapsed} onToggle={() => setIsCollapsed(!isCollapsed)} />
+      <Sidebar isCollapsed={isCollapsed} onToggle={onToggleSidebar} />
 
       <div className={cn("w-full min-w-0 transition-all duration-300 pt-14 md:pt-0", isCollapsed ? "ml-0 md:ml-20" : "ml-0 md:ml-64")}>
         <header className="w-full h-16 border-b border-border bg-card flex items-center justify-between gap-4 px-4 sm:px-6 lg:px-8 sticky top-14 md:top-0 z-30">
@@ -184,7 +185,7 @@ const Announcements = () => {
                     value={content}
                     onChange={(e) => setContent(e.target.value)}
                     placeholder="Scrie mesajul anunțului..."
-                    className="min-h-[120px]"
+                    className="min-h-[7.5rem]"
                   />
                 </div>
 

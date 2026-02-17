@@ -59,7 +59,7 @@ const BenefitsSection = () => {
             return (
               <div
                 key={key}
-                className="bg-card rounded-2xl p-8 border border-border shadow-md hover:shadow-lg transition-all duration-300 hover:border-primary/20"
+                className="bg-card rounded-2xl p-8 border border-border transition-colors duration-300 hover:border-primary/20"
               >
                 <div className="flex items-center gap-3 mb-4">
                   <div

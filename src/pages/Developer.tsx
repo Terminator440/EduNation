@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { CheckCircle2, AlertTriangle, XCircle, Shield, Bell, Database, KeyRound, GraduationCap, UserCircle, Calendar, Megaphone, Info } from "lucide-react";
 import Sidebar from "@/components/dashboard/Sidebar";
 import { cn } from "@/lib/utils";
@@ -41,6 +41,7 @@ const levelToUi = (level: HealthLevel) => {
 
 export default function Developer() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const onToggleSidebar = useCallback(() => setSidebarCollapsed((prev) => !prev), []);
   const { user, activeRole, userRoles } = useAuth();
 
   const [checks, setChecks] = useState<HealthCheck[]>([
@@ -264,7 +265,7 @@ export default function Developer() {
 
   return (
     <div className="min-h-screen w-full bg-background">
-      <Sidebar isCollapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(!sidebarCollapsed)} />
+      <Sidebar isCollapsed={sidebarCollapsed} onToggle={onToggleSidebar} />
       <main
         className={cn(
           "w-full min-w-0 transition-all duration-300",

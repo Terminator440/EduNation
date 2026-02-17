@@ -142,7 +142,7 @@ export function CreateAnnouncementDialog({
               value={content}
               onChange={(e) => setContent(e.target.value)}
               placeholder="Scrie mesajul anunțului..."
-              className="min-h-[140px] resize-none"
+              className="min-h-[8.75rem] resize-none"
             />
           </div>
         </div>
