@@ -374,7 +374,7 @@ const HomeroomDashboard = () => {
         .from("students")
         .select("id")
         .eq("class_id", classInfo.id)
-        .eq("student_number", finalNumber)
+        .eq("student_number", finalNumber as any)
         .maybeSingle();
 
       if (existingWithNumber) {
@@ -388,14 +388,10 @@ const HomeroomDashboard = () => {
 
       // Schema students: NOT NULL doar class_id; restul au default sau sunt nullable.
       // Trimitem doar format EN-XXXXX la student_number (coloana trebuie TEXT în DB).
-      const payload = {
+      const payload: any = {
         class_id: classInfo.id,
         full_name: newStudent.fullName.trim(),
         student_number: finalNumber,
-        contact_email: newStudent.email.trim()
-          ? newStudent.email.trim().toLowerCase()
-          : null,
-        contact_phone: newStudent.phone.trim() ? newStudent.phone.trim() : null,
         is_active: false,
       };
 

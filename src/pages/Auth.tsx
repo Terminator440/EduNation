@@ -115,7 +115,8 @@ export default function Auth() {
           ? `${claimResult.first_name} ${claimResult.last_name}`.trim()
           : resolvedFullName;
       const claimPhone = (claimResult.invited_phone && claimResult.invited_phone.trim()) || resolvedPhone;
-      const claimStudentNumber = claimResult.invited_student_number ?? invStudentNumber ?? null;
+      const rawStudentNum = claimResult.invited_student_number ?? invStudentNumber ?? null;
+      const claimStudentNumber = rawStudentNum != null ? String(rawStudentNum) : null;
 
       // 3. Update Profil: school_id, full_name, phone from invitation
       const profileUpdates: { school_id?: string; full_name?: string; phone?: string | null } = {};
@@ -135,8 +136,8 @@ export default function Auth() {
           user_id: authData.user.id,
           class_id: claimResult.class_id,
           full_name: claimFullName,
-          student_number: claimStudentNumber,
-        });
+          student_number: claimStudentNumber as any,
+        } as any);
       }
 
       if (role === "parent" && claimResult.student_id) {
