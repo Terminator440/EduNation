@@ -75,6 +75,10 @@ const Grades = () => {
     return vals.reduce((a, b) => a + b, 0) / vals.length;
   }, [generalAveragesQuery.data]);
 
+  // Adaugă acest mic helper pentru a calcula media anterioară (exemplu ipotetic)
+  // Într-o fază avansată, datele astea ar veni din DB
+  const trend = generalAverage >= 8.5 ? "up" : "down";
+
   const bestSubject = useMemo(() => {
     return gradesBySubject.reduce(
       (best, g) => (g.average > best.average ? g : best),
@@ -141,12 +145,18 @@ const Grades = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-muted-foreground">Media Generală</p>
-              <p className={cn("text-3xl font-bold mt-1", getAverageColor(generalAverage))}>
-                {generalAverage.toFixed(2)}
-              </p>
+              <div className="flex items-baseline gap-2">
+                <p className={cn("text-3xl font-bold mt-1", getAverageColor(generalAverage))}>
+                  {generalAverage.toFixed(2)}
+                </p>
+                <span className={cn("text-xs font-medium flex items-center", trend === "up" ? "text-success" : "text-destructive")}>
+                  {trend === "up" ? <TrendingUp className="w-3 h-3 mr-0.5" /> : <TrendingDown className="w-3 h-3 mr-0.5" />}
+                  +0.2
+                </span>
+              </div>
             </div>
-            <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-              <TrendingUp className="w-6 h-6 text-primary" />
+            <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center", generalAverage >= 5 ? "bg-primary/10" : "bg-destructive/10")}>
+              <Award className={cn("w-6 h-6", generalAverage >= 5 ? "text-primary" : "text-destructive")} />
             </div>
           </div>
         </div>

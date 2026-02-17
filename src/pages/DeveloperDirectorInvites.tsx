@@ -157,16 +157,19 @@ const DeveloperDirectorInvites = () => {
     if (result.success && result.plain_code) {
       setGeneratedForName(intendedFor.trim() || getSchoolName(selectedSchoolId));
       setGeneratedCode(result.plain_code);
-      
-      // Audit log
+
+      // Audit log profesional - Cerință pentru certificarea de 60 lei/elev
       await logAction({
         action: AUDIT_ACTIONS.INVITATION_CREATE,
         entityType: "invitation",
         entityId: result.invitation_id,
         details: {
           school_id: selectedSchoolId,
+          school_name: getSchoolName(selectedSchoolId),
+          intended_for: intendedFor.trim() || "Nespecificat",
           expires_hours: parseInt(expiresHours, 10),
           max_uses: parseInt(maxUses, 10),
+          role_assigned: "director",
         },
       });
 
@@ -175,8 +178,6 @@ const DeveloperDirectorInvites = () => {
         description: "Copiază codul și trimite-l directorului.",
       });
 
-      // Refresh list
-      // Reset form
       setIntendedFor("");
       fetchInvitations();
     } else {

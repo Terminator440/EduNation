@@ -2,8 +2,45 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth, AppRole } from "@/hooks/useAuth";
 import { useCallback } from "react";
 
+/**
+ * Nomenclator strict pentru acțiunile de audit.
+ * OBLIGATORIU: Folosiți acest obiect în loc de string-uri libere!
+ */
+export const AUDIT_ACTIONS = {
+  // Gestiune Note (Critice pentru Minister)
+  GRADE_CREATE: "grade.create",
+  GRADE_UPDATE: "grade.update",
+  GRADE_DELETE: "grade.delete",
+
+  // Absențe
+  ATTENDANCE_CREATE: "attendance.create",
+  ATTENDANCE_UPDATE: "attendance.update",
+  ATTENDANCE_MOTIVATE: "attendance.motivate",
+
+  // Securitate și Acces
+  INVITATION_CREATE: "invitation.create",
+  INVITATION_CLAIM: "invitation.claim",
+  INVITATION_REVOKE: "invitation.revoke",
+  USER_LOGIN: "user.login",
+  USER_LOGOUT: "user.logout",
+  USER_ROLE_SWITCH: "user.role_switch",
+
+  // Administrare Entități
+  STUDENT_CREATE: "student.create",
+  STUDENT_UPDATE: "student.update",
+  STUDENT_DELETE: "student.delete",
+  CLASS_CREATE: "class.create",
+  SCHOOL_UPDATE: "school.update",
+
+  // Export date (Cerință legală: să știm cine a extras datele)
+  DATA_EXPORT: "data.export",
+} as const;
+
+// Creăm un tip din valorile obiectului pentru Type Safety maxim
+export type AuditAction = (typeof AUDIT_ACTIONS)[keyof typeof AUDIT_ACTIONS];
+
 interface AuditLogOptions {
-  action: string;
+  action: AuditAction; // Forțăm utilizarea nomenclatorului
   entityType?: string;
   entityId?: string;
   oldData?: Record<string, unknown>;
@@ -12,30 +49,27 @@ interface AuditLogOptions {
   details?: Record<string, unknown>;
 }
 
-/**
- * Hook pentru audit logging din frontend.
- * Folosește funcția log_audit_extended din Supabase.
- */
 export function useAuditLog() {
   const { user, profile, activeRole } = useAuth();
 
   const logAction = useCallback(
     async (options: AuditLogOptions): Promise<string | null> => {
       if (!user || !activeRole) {
-        console.warn("[AuditLog] Nu există user/role pentru audit");
+        console.warn("[AuditLog] Lipsă sesiune - logarea a fost abandonată.");
         return null;
       }
 
       try {
-        // Fetch school_id from profile table if not provided
         let schoolId = options.schoolId;
+
+        // Dacă nu avem schoolId, îl luăm din profil (necesar pentru multi-tenancy)
         if (!schoolId && user) {
           const { data: profileData } = await supabase
             .from("profiles")
             .select("school_id")
             .eq("id", user.id)
             .maybeSingle();
-          schoolId = profileData?.school_id ?? null;
+          schoolId = profileData?.school_id ?? undefined;
         }
 
         const { data, error } = await supabase.rpc("log_audit_extended", {
@@ -51,14 +85,11 @@ export function useAuditLog() {
           _details: options.details ? JSON.stringify(options.details) : null,
         });
 
-        if (error) {
-          console.error("[AuditLog] Eroare la logare:", error);
-          return null;
-        }
-
+        if (error) throw error;
         return data as string;
       } catch (err) {
-        console.error("[AuditLog] Eroare neașteptată:", err);
+        // În producție, aici am putea trimite eroarea către Sentry
+        console.error("[AuditLog] Eroare critică la salvarea log-ului:", err);
         return null;
       }
     },
@@ -67,31 +98,3 @@ export function useAuditLog() {
 
   return { logAction };
 }
-
-// Helpers pentru acțiuni comune
-export const AUDIT_ACTIONS = {
-  // Grades
-  GRADE_CREATE: "grade.create",
-  GRADE_UPDATE: "grade.update",
-  GRADE_DELETE: "grade.delete",
-
-  // Attendance
-  ATTENDANCE_CREATE: "attendance.create",
-  ATTENDANCE_UPDATE: "attendance.update",
-  ATTENDANCE_MOTIVATE: "attendance.motivate",
-
-  // Invitations
-  INVITATION_CREATE: "invitation.create",
-  INVITATION_CLAIM: "invitation.claim",
-  INVITATION_REVOKE: "invitation.revoke",
-
-  // Students
-  STUDENT_CREATE: "student.create",
-  STUDENT_UPDATE: "student.update",
-  STUDENT_DELETE: "student.delete",
-
-  // Users
-  USER_LOGIN: "user.login",
-  USER_LOGOUT: "user.logout",
-  USER_ROLE_SWITCH: "user.role_switch",
-} as const;

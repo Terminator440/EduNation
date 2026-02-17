@@ -1,11 +1,12 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Users, GraduationCap, TrendingUp, FileText, Shield, Bell, BarChart3, Building } from "lucide-react";
+import { Users, GraduationCap, TrendingUp, FileText, Shield, Bell, BarChart3, Building, Megaphone } from "lucide-react";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
 import StatsCard from "@/components/dashboard/StatsCard";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { CreateInvitationDialog } from "@/components/invitations/CreateInvitationDialog";
+import { CreateAnnouncementDialog } from "@/components/announcements/CreateAnnouncementDialog";
 import {
   listInvitations,
   revokeInvitation,
@@ -27,6 +28,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 
 interface SchoolStats {
   totalStudents: number;
@@ -45,6 +48,14 @@ interface AuditLog {
   action: string;
   entity_type: string | null;
   created_at: string;
+}
+
+interface AnnouncementRow {
+  id: string;
+  title: string;
+  content: string;
+  created_at: string;
+  target_role: string | null;
 }
 
 interface PendingExcuseRequest {
@@ -86,7 +97,21 @@ const DirectorDashboard = () => {
   const [directorInvitations, setDirectorInvitations] = useState<InvitationWithDetails[]>([]);
   const [directorInvLoading, setDirectorInvLoading] = useState(false);
 
+  const [announcementDialogOpen, setAnnouncementDialogOpen] = useState(false);
+  const [recentAnnouncements, setRecentAnnouncements] = useState<AnnouncementRow[]>([]);
+
+  const [gradesDistributionRaw, setGradesDistributionRaw] = useState<{ grade: number; cnt: number }[]>([]);
+
   const navigate = useNavigate();
+
+  const gradeChartData = useMemo(() => {
+    const fromDb = gradesDistributionRaw;
+    const map = new Map(fromDb.map((r) => [r.grade, r.cnt]));
+    return [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((grade) => ({
+      nota: String(grade),
+      count: map.get(grade) ?? 0,
+    }));
+  }, [gradesDistributionRaw]);
 
   useEffect(() => {
     if (!authLoading && (!user || activeRole !== 'director')) {
@@ -130,51 +155,65 @@ const DirectorDashboard = () => {
   }, [user, activeRole]);
 
 
+  const fetchAnnouncements = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('announcements')
+        .select('id, title, content, created_at, target_role')
+        .order('created_at', { ascending: false })
+        .limit(5);
+      if (error) throw error;
+      setRecentAnnouncements((data ?? []) as AnnouncementRow[]);
+    } catch {
+      setRecentAnnouncements([]);
+    }
+  };
+
   useEffect(() => {
     if (user && activeRole === 'director') {
       fetchData();
+      fetchAnnouncements();
     }
   }, [user, activeRole]);
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Fetch students count
-      const { count: studentsCount } = await supabase
-        .from('students')
-        .select('*', { count: 'exact', head: true });
+      const [
+        { count: studentsCount },
+        { count: classesCount },
+        { count: teachersCount },
+        { data: gradesStatsData },
+        { data: gradesDistData },
+        { count: absencesCount },
+        { count: activeUsersCount },
+        { data: logsData },
+      ] = await Promise.all([
+        supabase.from('students').select('*', { count: 'exact', head: true }),
+        supabase.from('classes').select('*', { count: 'exact', head: true }),
+        supabase
+          .from('user_roles')
+          .select('*', { count: 'exact', head: true })
+          .in('role', ['teacher', 'homeroom_teacher']),
+        supabase.rpc('get_school_grades_stats'),
+        supabase.rpc('get_grades_distribution'),
+        supabase
+          .from('attendance')
+          .select('*', { count: 'exact', head: true })
+          .in('status', ['unexcused', 'pending']),
+        supabase.from('profiles').select('*', { count: 'exact', head: true }),
+        supabase
+          .from('audit_logs')
+          .select('id, user_name, active_role, action, entity_type, created_at')
+          .order('created_at', { ascending: false })
+          .limit(10),
+      ]);
 
-      // Fetch classes count
-      const { count: classesCount } = await supabase
-        .from('classes')
-        .select('*', { count: 'exact', head: true });
-
-      // Fetch teachers count
-      const { count: teachersCount } = await supabase
-        .from('user_roles')
-        .select('*', { count: 'exact', head: true })
-        .in('role', ['teacher', 'homeroom_teacher']);
-
-      // Fetch all grades for average
-      const { data: gradesData } = await supabase
-        .from('grades')
-        .select('grade');
-
-      const totalGrades = gradesData?.length || 0;
-      const avgGrade = gradesData && gradesData.length > 0
-        ? gradesData.reduce((sum, g) => sum + Number(g.grade), 0) / gradesData.length
-        : 0;
-
-      // Fetch absences count (unexcused + pending)
-      const { count: absencesCount } = await supabase
-        .from('attendance')
-        .select('*', { count: 'exact', head: true })
-        .in('status', ['unexcused', 'pending']);
-
-      // Fetch profiles count (active users)
-      const { count: activeUsersCount } = await supabase
-        .from('profiles')
-        .select('*', { count: 'exact', head: true });
+      const gradesStats = Array.isArray(gradesStatsData) && gradesStatsData.length > 0
+        ? gradesStatsData[0] as { total_count: number | null; average_grade: number | null }
+        : null;
+      const totalGrades = Number(gradesStats?.total_count ?? 0);
+      const avgGrade = gradesStats?.average_grade != null ? Number(gradesStats.average_grade) : 0;
 
       setStats({
         totalStudents: studentsCount || 0,
@@ -186,14 +225,10 @@ const DirectorDashboard = () => {
         activeUsers: activeUsersCount || 0,
       });
 
-      // Fetch audit logs
-      const { data: logsData } = await supabase
-        .from('audit_logs')
-        .select('id, user_name, active_role, action, entity_type, created_at')
-        .order('created_at', { ascending: false })
-        .limit(10);
-
       setAuditLogs(logsData || []);
+
+      const distRows = (gradesDistData ?? []) as { grade: number; cnt: number }[];
+      setGradesDistributionRaw(distRows);
 
       // attendance_excuse_requests table doesn't exist yet - skip
       setPendingExcuseRequests([]);
@@ -269,7 +304,7 @@ const DirectorDashboard = () => {
 
           {/* Quick Actions */}
           <div className="flex flex-wrap gap-4 mb-8">
-            <Button className="gap-2">
+            <Button className="gap-2" onClick={() => setAnnouncementDialogOpen(true)}>
               <Bell className="h-4 w-4" />
               Publică Anunț
             </Button>
@@ -284,8 +319,47 @@ const DirectorDashboard = () => {
           </div>
 
           <div className="grid lg:grid-cols-3 gap-8">
-            {/* Audit Logs */}
-            <div className="lg:col-span-2">
+            <div className="lg:col-span-2 space-y-6">
+              {/* Distribuție note - analiză vizuală */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <BarChart3 className="h-5 w-5" />
+                    Distribuția notelor
+                  </CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    Număr de note pe fiecare valoare (1–10) în școală
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  {gradeChartData.every((d) => d.count === 0) ? (
+                    <p className="py-12 text-center text-muted-foreground">Nu există note încă.</p>
+                  ) : (
+                    <ChartContainer
+                      config={{
+                        count: { label: "Note", color: "hsl(var(--primary))" },
+                      }}
+                      className="h-[280px] w-full"
+                    >
+                      <BarChart data={gradeChartData} margin={{ top: 8, right: 8, left: 8, bottom: 8 }}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                        <XAxis
+                          dataKey="nota"
+                          tickLine={false}
+                          axisLine={false}
+                          tickMargin={8}
+                          tickFormatter={(v) => v}
+                        />
+                        <YAxis tickLine={false} axisLine={false} tickMargin={8} />
+                        <ChartTooltip content={<ChartTooltipContent />} />
+                        <Bar dataKey="count" fill="var(--color-count)" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ChartContainer>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Audit Logs */}
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -332,6 +406,32 @@ const DirectorDashboard = () => {
 
             {/* Quick Stats */}
             <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Megaphone className="h-5 w-5" />
+                    Ultimele anunțuri
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {recentAnnouncements.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">Nu există anunțuri recente.</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {recentAnnouncements.map((a) => (
+                        <div key={a.id} className="p-3 rounded-lg border border-border">
+                          <p className="font-medium text-sm">{a.title}</p>
+                          <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{a.content}</p>
+                          <span className="text-xs text-muted-foreground">
+                            {new Date(a.created_at).toLocaleString('ro-RO')}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -526,6 +626,14 @@ const DirectorDashboard = () => {
               setDirectorInvitations(invs);
             }
           }}
+        />
+
+        <CreateAnnouncementDialog
+          open={announcementDialogOpen}
+          onOpenChange={setAnnouncementDialogOpen}
+          authorId={user?.id ?? ""}
+          schoolId={directorSchoolId}
+          onCreated={fetchAnnouncements}
         />
     </DashboardLayout>
   );
