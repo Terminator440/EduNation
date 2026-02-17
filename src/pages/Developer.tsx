@@ -263,15 +263,15 @@ export default function Developer() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen w-full bg-background">
       <Sidebar isCollapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(!sidebarCollapsed)} />
       <main
         className={cn(
-          "transition-all duration-300",
-          sidebarCollapsed ? "ml-20" : "ml-64"
+          "w-full min-w-0 transition-all duration-300",
+          "pt-14 md:pt-0", sidebarCollapsed ? "ml-0 md:ml-20" : "ml-0 md:ml-64"
         )}
       >
-        <div className="p-6 max-w-6xl mx-auto">
+        <div className="w-full max-w-screen-xl mx-auto p-4 sm:p-6 lg:p-8">
           <div className="flex items-start justify-between gap-4 mb-6">
             <div>
               <div className="flex items-center gap-2">
@@ -307,7 +307,7 @@ export default function Developer() {
 
           {/* System Health Checks */}
           <h2 className="text-lg font-semibold mb-4">Verificări Sistem</h2>
-          <div className="grid gap-4 md:grid-cols-3 mb-8">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3 mb-8">
             {checks.map((c) => {
               const ui = levelToUi(c.level);
               const Icon = ui.icon;
@@ -351,7 +351,7 @@ export default function Developer() {
           <p className="text-sm text-muted-foreground mb-4">
             Acestea verifică dacă tabelele principale există și dacă politicile RLS permit cel puțin citirea datelor. "RLS denied" înseamnă că politicile sunt prea stricte sau lipsesc.
           </p>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mb-8">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 mb-8">
             {canaryChecks.map((c) => {
               const ui = levelToUi(c.level);
               const Icon = ui.icon;
@@ -387,7 +387,7 @@ export default function Developer() {
 
           {/* Notifications Section */}
           <h2 className="text-lg font-semibold mb-4">Notificări</h2>
-          <div className="grid gap-4 md:grid-cols-2 mb-8">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 mb-8">
             {/* In-App Notifications */}
             <Card>
               <CardHeader>

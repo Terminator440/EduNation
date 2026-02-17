@@ -214,14 +214,14 @@ const DeveloperDirectorInvites = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen w-full bg-background">
       <Sidebar isCollapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(!sidebarCollapsed)} />
       
       <main className={cn(
-        "transition-all duration-300",
-        sidebarCollapsed ? "ml-20" : "ml-64"
+        "w-full min-w-0 transition-all duration-300",
+        "pt-14 md:pt-0", sidebarCollapsed ? "ml-0 md:ml-20" : "ml-0 md:ml-64"
       )}>
-        <header className="h-16 border-b border-border bg-card/50 backdrop-blur-sm flex items-center px-8 sticky top-0 z-30">
+        <header className="w-full h-16 border-b border-border bg-card/50 backdrop-blur-sm flex items-center gap-4 px-4 sm:px-6 lg:px-8 sticky top-14 md:top-0 z-30">
           <div className="flex items-center gap-3">
             <Shield className="w-6 h-6 text-primary" />
             <div>
@@ -231,7 +231,7 @@ const DeveloperDirectorInvites = () => {
           </div>
         </header>
 
-        <div className="p-8">
+        <div className="w-full max-w-screen-xl mx-auto p-4 sm:p-6 lg:p-8">
           <div className="max-w-4xl mx-auto space-y-8">
             {/* Create invitation form */}
             <Card>
@@ -275,7 +275,7 @@ const DeveloperDirectorInvites = () => {
                       </Alert>
                     )}
 
-                    <div className="grid sm:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                       <div className="space-y-2">
                         <Label>Școala *</Label>
                         <Select 
@@ -318,7 +318,7 @@ const DeveloperDirectorInvites = () => {
                       </div>
                     </div>
 
-                    <div className="grid sm:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                       <div className="space-y-2">
                         <Label>Valabilitate</Label>
                         <Select value={expiresHours} onValueChange={setExpiresHours}>
@@ -422,6 +422,7 @@ const DeveloperDirectorInvites = () => {
                     Nu există invitații de director generate.
                   </p>
                 ) : (
+                  <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -466,6 +467,7 @@ const DeveloperDirectorInvites = () => {
                       })}
                     </TableBody>
                   </Table>
+                  </div>
                 )}
               </CardContent>
             </Card>

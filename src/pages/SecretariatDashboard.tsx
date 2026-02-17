@@ -141,7 +141,7 @@ const SecretariatDashboard = () => {
                 Adaugă elev + generează cod
               </CardTitle>
             </CardHeader>
-            <CardContent className="grid gap-4 md:grid-cols-3">
+            <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-3">
               <div className="md:col-span-1">
                 <Label>Nume elev</Label>
                 <Input
@@ -190,7 +190,7 @@ const SecretariatDashboard = () => {
             </CardContent>
           </Card>
 
-          <div className="grid lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
             {/* Students Table */}
             <div className="lg:col-span-2">
               <Card>
@@ -207,6 +207,7 @@ const SecretariatDashboard = () => {
                   </div>
                 </CardHeader>
                 <CardContent>
+                  <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -240,6 +241,7 @@ const SecretariatDashboard = () => {
                       })}
                     </TableBody>
                   </Table>
+                  </div>
                 </CardContent>
               </Card>
             </div>

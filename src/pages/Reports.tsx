@@ -404,11 +404,11 @@ const Reports = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen w-full bg-background max-w-full overflow-x-hidden">
       <Sidebar isCollapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(!sidebarCollapsed)} />
 
-      <main className={cn("transition-all duration-300", sidebarCollapsed ? "ml-20" : "ml-64")}> 
-        <header className="h-16 border-b border-border bg-card/50 backdrop-blur-sm flex items-center justify-between px-8 sticky top-0 z-30 print:hidden">
+      <main className={cn("w-full min-w-0 max-w-full overflow-x-hidden transition-all duration-300 pt-14 md:pt-0", sidebarCollapsed ? "ml-0 md:ml-20" : "ml-0 md:ml-64")}> 
+        <header className="w-full h-16 border-b border-border bg-card/50 backdrop-blur-sm flex items-center justify-between gap-4 px-4 sm:px-6 lg:px-8 sticky top-14 md:top-0 z-30 print:hidden">
           <div>
             <h1 className="text-xl font-semibold text-foreground flex items-center gap-2">
               <FileText className="w-5 h-5" />
@@ -422,7 +422,7 @@ const Reports = () => {
           </div>
         </header>
 
-        <div className="p-8 space-y-6">
+        <div className="w-full max-w-screen-xl mx-auto px-2 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 lg:py-8 space-y-6 max-w-full overflow-x-hidden">
           {/* Filters */}
           <Card className="print:hidden">
             <CardHeader className="flex flex-row items-center justify-between">
@@ -431,11 +431,11 @@ const Reports = () => {
                 <RefreshCw className="w-4 h-4" /> Reîncarcă
               </Button>
             </CardHeader>
-            <CardContent className="grid gap-4 md:grid-cols-4">
+            <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-4">
               <div className="md:col-span-2">
                 <Label>Clasă</Label>
                 <Select value={classId || undefined} onValueChange={setClassId} disabled={loading || classes.length === 0}>
-                  <SelectTrigger>
+                  <SelectTrigger className="w-full">
                     <SelectValue placeholder={loading ? "Se încarcă..." : classes.length === 0 ? "Nu există clase" : "Alege clasa"} />
                   </SelectTrigger>
                   <SelectContent>
@@ -449,11 +449,11 @@ const Reports = () => {
               </div>
               <div>
                 <Label>De la</Label>
-                <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+                <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-full" />
               </div>
               <div>
                 <Label>Până la</Label>
-                <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+                <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-full" />
               </div>
             </CardContent>
           </Card>
@@ -468,19 +468,19 @@ const Reports = () => {
 
             <TabsContent value="export" className="space-y-6">
               <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
+                <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                   <CardTitle>Export CSV</CardTitle>
-                  <div className="flex gap-2">
-                    <Button variant="secondary" className="gap-2" onClick={exportStudentsCsv}>
+                  <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                    <Button variant="secondary" className="gap-2 w-full sm:w-auto justify-center" onClick={exportStudentsCsv}>
                       <Download className="w-4 h-4" /> Elevi
                     </Button>
-                    <Button variant="secondary" className="gap-2" onClick={exportGradesCsv}>
+                    <Button variant="secondary" className="gap-2 w-full sm:w-auto justify-center" onClick={exportGradesCsv}>
                       <Download className="w-4 h-4" /> Note
                     </Button>
-                    <Button variant="secondary" className="gap-2" onClick={exportAttendanceCsv}>
+                    <Button variant="secondary" className="gap-2 w-full sm:w-auto justify-center" onClick={exportAttendanceCsv}>
                       <Download className="w-4 h-4" /> Absențe/Prezență
                     </Button>
-                    <Button variant="secondary" className="gap-2" onClick={exportRegisterCsv}>
+                    <Button variant="secondary" className="gap-2 w-full sm:w-auto justify-center" onClick={exportRegisterCsv}>
                       <Download className="w-4 h-4" /> Condică profesor
                     </Button>
                   </div>
@@ -495,15 +495,15 @@ const Reports = () => {
                   <CardTitle>Previzualizare rapidă</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="rounded-xl border border-border overflow-hidden">
+                  <div className="rounded-xl border border-border overflow-x-auto">
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead className="w-[90px]">Nr.</TableHead>
+                          <TableHead className="w-full">Nr.</TableHead>
                           <TableHead>Elev</TableHead>
-                          <TableHead className="w-[160px]">Medie (interval)</TableHead>
-                          <TableHead className="w-[140px]">Absențe</TableHead>
-                          <TableHead className="w-[160px]">Alerte</TableHead>
+                          <TableHead className="w-full">Medie (interval)</TableHead>
+                          <TableHead className="w-full">Absențe</TableHead>
+                          <TableHead className="w-full">Alerte</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -540,7 +540,7 @@ const Reports = () => {
                     <Printer className="w-4 h-4" /> Print
                   </Button>
                 </CardHeader>
-                <CardContent className="grid gap-4 md:grid-cols-2">
+                <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <div>
                     <Label>Elev (situație elev)</Label>
                     <Select value={selectedStudentId || undefined} onValueChange={setSelectedStudentId} disabled={students.length === 0}>
@@ -575,7 +575,7 @@ const Reports = () => {
                     </div>
                   </div>
 
-                  <div className="mt-6 grid gap-6 md:grid-cols-2">
+                  <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2">
                     {/* Student report */}
                     <div className="border border-border rounded-xl p-4">
                       <h3 className="font-semibold">Situație elev</h3>
@@ -590,13 +590,13 @@ const Reports = () => {
 
                       <div className="mt-4">
                         <h4 className="font-medium">Note (interval)</h4>
-                        <div className="rounded-lg border border-border overflow-hidden mt-2">
+                        <div className="rounded-lg border border-border overflow-x-auto mt-2">
                           <Table>
                             <TableHeader>
                               <TableRow>
                                 <TableHead>Data</TableHead>
                                 <TableHead>Materie</TableHead>
-                                <TableHead className="w-[90px]">Notă</TableHead>
+                                <TableHead className="w-full">Notă</TableHead>
                               </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -631,14 +631,14 @@ const Reports = () => {
                       <p className="text-sm text-muted-foreground">Medie (interval): {classStats.avg == null ? "—" : classStats.avg.toFixed(2)}</p>
                       <p className="text-sm text-muted-foreground">Absențe: {classStats.absences} • Motivate: {classStats.motivated}</p>
 
-                      <div className="rounded-lg border border-border overflow-hidden mt-3">
+                      <div className="rounded-lg border border-border overflow-x-auto mt-3">
                         <Table>
                           <TableHeader>
                             <TableRow>
-                              <TableHead className="w-[80px]">Nr.</TableHead>
+                              <TableHead className="w-full">Nr.</TableHead>
                               <TableHead>Elev</TableHead>
-                              <TableHead className="w-[120px]">Medie</TableHead>
-                              <TableHead className="w-[120px]">Absențe</TableHead>
+                              <TableHead className="w-full">Medie</TableHead>
+                              <TableHead className="w-full">Absențe</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -659,17 +659,17 @@ const Reports = () => {
                   {registerRows.length > 0 && (
                     <div className="mt-6 border border-border rounded-xl p-4">
                       <h3 className="font-semibold">Condică profesor (interval)</h3>
-                      <div className="rounded-lg border border-border overflow-hidden mt-3">
+                      <div className="rounded-lg border border-border overflow-x-auto mt-3">
                         <Table>
                           <TableHeader>
                             <TableRow>
-                              <TableHead className="w-[110px]">Data</TableHead>
+                              <TableHead className="w-full">Data</TableHead>
                               <TableHead>Clasă</TableHead>
                               <TableHead>Materie</TableHead>
-                              <TableHead className="w-[90px]">Ora</TableHead>
-                              <TableHead className="w-[110px]">Interval</TableHead>
-                              <TableHead className="w-[90px]">Sala</TableHead>
-                              <TableHead className="w-[110px]">Status</TableHead>
+                              <TableHead className="w-full">Ora</TableHead>
+                              <TableHead className="w-full">Interval</TableHead>
+                              <TableHead className="w-full">Sala</TableHead>
+                              <TableHead className="w-full">Status</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -703,7 +703,7 @@ const Reports = () => {
                 <CardHeader>
                   <CardTitle>Rezumat (interval)</CardTitle>
                 </CardHeader>
-                <CardContent className="grid gap-4 md:grid-cols-3">
+                <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-3">
                   <div className="rounded-xl border border-border p-4">
                     <p className="text-sm text-muted-foreground">Elevi</p>
                     <p className="text-2xl font-bold">{students.length}</p>

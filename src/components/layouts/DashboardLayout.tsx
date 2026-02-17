@@ -25,7 +25,7 @@ export default function DashboardLayout({
     profile?.full_name || user?.email?.split("@")[0] || "Utilizator";
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen w-full bg-background">
       <Sidebar
         isCollapsed={sidebarCollapsed}
         onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
@@ -33,22 +33,22 @@ export default function DashboardLayout({
 
       <main
         className={cn(
-          "transition-all duration-300",
-          sidebarCollapsed ? "ml-20" : "ml-64"
+          "w-full min-w-0 transition-all duration-300 pt-14 md:pt-0",
+          sidebarCollapsed ? "ml-0 md:ml-20" : "ml-0 md:ml-64"
         )}
       >
-        <header className="h-16 border-b border-border bg-card/50 backdrop-blur-sm flex items-center justify-between px-8 sticky top-0 z-30">
-          <div>
-            <h1 className="text-xl font-semibold text-foreground">{title}</h1>
+        <header className="w-full h-16 border-b border-border bg-card/50 backdrop-blur-sm flex items-center justify-between gap-4 px-4 sm:px-6 lg:px-8 sticky top-14 md:top-0 z-30">
+          <div className="min-w-0 flex-1">
+            <h1 className="text-lg sm:text-xl font-semibold text-foreground truncate">{title}</h1>
             {subtitle && (
-              <p className="text-sm text-muted-foreground">{subtitle}</p>
+              <p className="text-sm text-muted-foreground truncate">{subtitle}</p>
             )}
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4 shrink-0">
             {headerActions}
             <ThemeToggle />
             <RoleSwitcher />
-            <div className="w-10 h-10 rounded-full bg-gradient-primary flex items-center justify-center text-primary-foreground font-semibold text-sm">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-gradient-primary flex items-center justify-center text-primary-foreground font-semibold text-xs sm:text-sm">
               {displayName
                 .split(" ")
                 .map((n) => n[0])
@@ -59,7 +59,9 @@ export default function DashboardLayout({
           </div>
         </header>
 
-        <div className="p-8">{children}</div>
+        <div className="w-full max-w-screen-xl mx-auto p-4 sm:p-6 lg:p-8">
+          {children}
+        </div>
       </main>
     </div>
   );

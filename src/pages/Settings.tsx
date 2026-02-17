@@ -212,23 +212,23 @@ const Settings = () => {
   const isDeveloper = activeRole === 'developer';
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen w-full bg-background">
       <Sidebar isCollapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(!sidebarCollapsed)} />
       
       <main className={cn(
-        "transition-all duration-300",
-        sidebarCollapsed ? "ml-20" : "ml-64"
+        "w-full min-w-0 transition-all duration-300",
+        "pt-14 md:pt-0", sidebarCollapsed ? "ml-0 md:ml-20" : "ml-0 md:ml-64"
       )}>
-        <header className="h-16 border-b border-border bg-card/50 backdrop-blur-sm flex items-center px-8 sticky top-0 z-30">
+        <header className="w-full h-16 border-b border-border bg-card/50 backdrop-blur-sm flex items-center px-4 sm:px-6 lg:px-8 sticky top-14 md:top-0 z-30">
           <div>
             <h1 className="text-xl font-semibold text-foreground">Setări</h1>
             <p className="text-sm text-muted-foreground">Configurează-ți contul</p>
           </div>
         </header>
 
-        <div className="p-8 pt-8">
-          <div className="max-w-4xl mx-auto">
-            <div className="grid md:grid-cols-4 gap-8">
+        <div className="w-full max-w-screen-xl mx-auto p-4 sm:p-6 lg:p-8">
+          <div className="max-w-4xl">
+            <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-4">
               {/* Tabs */}
               <div className="md:col-span-1">
                 <nav className="space-y-1">
@@ -386,7 +386,7 @@ const Settings = () => {
                           variant="hero"
                           onClick={handleSave}
                           disabled={profileSaving || !canEditPersonalInfo}
-                          className="min-w-[180px]"
+                          className="w-full"
                         >
                           {profileSaving ? "Se salvează..." : "Salvează modificările"}
                         </Button>
@@ -422,7 +422,7 @@ const Settings = () => {
                         ))}
                       </div>
                       <div className="pt-4 border-t border-border">
-                        <Button variant="hero" onClick={handleSave} className="min-w-[180px]">
+                        <Button variant="hero" onClick={handleSave} className="w-full">
                           Salvează preferințele
                         </Button>
                       </div>
@@ -484,7 +484,7 @@ const Settings = () => {
                         <Button 
                           variant="hero" 
                           onClick={handlePasswordChange} 
-                          className="min-w-[180px]"
+                          className="w-full"
                           disabled={!isPasswordFormValid}
                         >
                           Schimbă parola

@@ -82,7 +82,7 @@ const Dashboard = () => {
         <StatsCard title="Evenimente" value={String(upcomingEvents.length)} subtitle="Următoarele zile" icon={Calendar} variant="warning" />
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-8">
           <GradesTable grades={gradesBySubject} />
         </div>

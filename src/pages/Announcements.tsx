@@ -130,11 +130,11 @@ const Announcements = () => {
   }, [announcements, activeRole]);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen w-full bg-background">
       <Sidebar isCollapsed={isCollapsed} onToggle={() => setIsCollapsed(!isCollapsed)} />
 
-      <div className={cn("transition-all duration-300", isCollapsed ? "ml-20" : "ml-64")}>
-        <header className="h-16 border-b border-border bg-card flex items-center justify-between px-6">
+      <div className={cn("w-full min-w-0 transition-all duration-300 pt-14 md:pt-0", isCollapsed ? "ml-0 md:ml-20" : "ml-0 md:ml-64")}>
+        <header className="w-full h-16 border-b border-border bg-card flex items-center justify-between gap-4 px-4 sm:px-6 lg:px-8 sticky top-14 md:top-0 z-30">
           <div className="flex items-center gap-3">
             <Megaphone className="h-5 w-5 text-primary" />
             <h1 className="text-xl font-semibold">Anunțuri</h1>
@@ -145,7 +145,7 @@ const Announcements = () => {
           </div>
         </header>
 
-        <main className="p-6 space-y-6">
+        <main className="w-full max-w-screen-xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
           {canPublish && (
             <Card>
               <CardHeader>
@@ -155,7 +155,7 @@ const Announcements = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="ann-title">Titlu</Label>
                     <Input id="ann-title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Ex: Ședință cu părinții" />

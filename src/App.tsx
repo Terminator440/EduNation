@@ -101,6 +101,7 @@ const App = () => (
       <BrowserRouter>
         <AuthProvider>
           <ErrorBoundary>
+            <div className="min-h-screen w-full max-w-full overflow-x-hidden">
             <Routes>
               {/* Public */}
               <Route path="/" element={<Index />} />
@@ -145,6 +146,7 @@ const App = () => (
 
               <Route path="*" element={<NotFound />} />
             </Routes>
+            </div>
           </ErrorBoundary>
         </AuthProvider>
       </BrowserRouter>

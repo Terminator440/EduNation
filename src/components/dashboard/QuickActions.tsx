@@ -51,7 +51,7 @@ const QuickActions = () => {
   return (
     <div className="bg-card rounded-2xl border border-border p-6">
       <h3 className="text-lg font-semibold text-foreground mb-4">Acțiuni rapide</h3>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         {actions.map((action) => (
           <Link
             key={action.label}

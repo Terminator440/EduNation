@@ -128,7 +128,7 @@ const AddSchoolDialog = ({ open, onOpenChange, onSchoolAdded }: AddSchoolDialogP
             />
           </div>
 
-          <div className="grid sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="school-phone">Telefon (opțional)</Label>
               <Input

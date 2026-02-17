@@ -140,7 +140,7 @@ const Grades = () => {
       )}
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <div className="bg-card rounded-2xl p-6 border border-border">
           <div className="flex items-center justify-between">
             <div>

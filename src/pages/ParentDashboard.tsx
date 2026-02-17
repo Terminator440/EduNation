@@ -119,11 +119,11 @@ const ParentDashboard = () => {
   const activeChild = children.find(c => c.id === effectiveChildId) ?? null;
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen w-full bg-background">
       <Sidebar isCollapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(!sidebarCollapsed)} />
 
-      <main className={cn("transition-all duration-300", sidebarCollapsed ? "ml-20" : "ml-64")}>
-        <header className="h-16 border-b border-border bg-card/50 backdrop-blur-sm flex items-center justify-between px-8 sticky top-0 z-30">
+      <main className={cn("w-full min-w-0 transition-all duration-300 pt-14 md:pt-0", sidebarCollapsed ? "ml-0 md:ml-20" : "ml-0 md:ml-64")}>
+        <header className="w-full h-16 border-b border-border bg-card/50 backdrop-blur-sm flex items-center justify-between px-4 sm:px-6 lg:px-8 sticky top-14 md:top-0 z-30">
           <div>
             <h1 className="text-xl font-semibold text-foreground">Panou Părinte</h1>
             <p className="text-sm text-muted-foreground">
@@ -140,7 +140,7 @@ const ParentDashboard = () => {
           </div>
         </header>
 
-        <div className="p-8">
+        <div className="w-full max-w-screen-xl mx-auto p-4 sm:p-6 lg:p-8">
           <StatusBanners />
           <div className="mb-6 flex flex-wrap gap-2">
             {(childrenQuery.data ?? []).map(child => (
@@ -164,7 +164,7 @@ const ParentDashboard = () => {
             <StatsCard title="Evenimente" value={String(upcomingEvents.length)} subtitle="Următoarele zile" icon={Calendar} variant="warning" />
           </div>
 
-          <div className="grid lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
             <div className="lg:col-span-2 space-y-8">
               <GradesTable grades={gradesBySubject} />
             </div>

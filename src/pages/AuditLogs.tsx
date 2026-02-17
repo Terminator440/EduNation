@@ -206,12 +206,13 @@ export default function AuditLogs() {
 
   if (!canView) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen w-full bg-background max-w-full overflow-x-hidden">
         <Sidebar isCollapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(!sidebarCollapsed)} />
         <main className={cn(
-          "transition-all duration-300 p-6",
-          sidebarCollapsed ? "ml-20" : "ml-64"
+          "w-full min-w-0 transition-all duration-300 pt-14 md:pt-0",
+          sidebarCollapsed ? "ml-0 md:ml-20" : "ml-0 md:ml-64"
         )}>
+          <div className="w-full max-w-screen-xl mx-auto px-2 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 lg:py-8 max-w-full overflow-x-hidden">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -225,19 +226,20 @@ export default function AuditLogs() {
               </p>
             </CardContent>
           </Card>
+          </div>
         </main>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen w-full bg-background max-w-full overflow-x-hidden">
       <Sidebar isCollapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(!sidebarCollapsed)} />
       <main className={cn(
-        "transition-all duration-300",
-        sidebarCollapsed ? "ml-20" : "ml-64"
+        "w-full min-w-0 max-w-full overflow-x-hidden transition-all duration-300 pt-14 md:pt-0",
+        sidebarCollapsed ? "ml-0 md:ml-20" : "ml-0 md:ml-64"
       )}>
-        <div className="p-6 space-y-6">
+        <div className="w-full max-w-screen-xl mx-auto px-2 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 lg:py-8 space-y-6">
           {/* Header */}
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div>
@@ -250,17 +252,17 @@ export default function AuditLogs() {
               </p>
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
               <Button
                 variant="outline"
                 onClick={onExport}
                 disabled={!filteredRows.length}
-                className="gap-2"
+                className="gap-2 w-full sm:w-auto"
               >
                 <Download className="w-4 h-4" />
                 Export CSV
               </Button>
-              <Button onClick={fetchRows} disabled={loading} className="gap-2">
+              <Button onClick={fetchRows} disabled={loading} className="gap-2 w-full sm:w-auto">
                 <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
                 {loading ? "Se încarcă..." : "Reîncarcă"}
               </Button>
@@ -275,7 +277,7 @@ export default function AuditLogs() {
                 Filtre
               </CardTitle>
             </CardHeader>
-            <CardContent className="grid gap-4 md:grid-cols-5">
+            <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-5">
               <div className="space-y-2">
                 <Label>Căutare</Label>
                 <div className="relative">
@@ -284,7 +286,7 @@ export default function AuditLogs() {
                     value={q}
                     onChange={(e) => setQ(e.target.value)}
                     placeholder="nume / acțiune / tip"
-                    className="pl-9"
+                    className="pl-9 w-full"
                   />
                 </div>
               </div>
@@ -294,6 +296,7 @@ export default function AuditLogs() {
                   value={entityType}
                   onChange={(e) => setEntityType(e.target.value)}
                   placeholder="grades / attendance / invitation"
+                  className="w-full"
                 />
               </div>
               <div className="space-y-2">
@@ -302,6 +305,7 @@ export default function AuditLogs() {
                   type="date"
                   value={dateFrom}
                   onChange={(e) => setDateFrom(e.target.value)}
+                  className="w-full"
                 />
               </div>
               <div className="space-y-2">
@@ -310,6 +314,7 @@ export default function AuditLogs() {
                   type="date"
                   value={dateTo}
                   onChange={(e) => setDateTo(e.target.value)}
+                  className="w-full"
                 />
               </div>
               <div className="flex items-end">
@@ -327,18 +332,18 @@ export default function AuditLogs() {
                 Evenimente ({filteredRows.length} înregistrări)
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
+            <CardContent className="p-2 sm:p-6">
+              <div className="w-full overflow-x-auto border border-border rounded-lg">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="text-left border-b">
-                      <th className="py-3 pr-4 font-medium">Data</th>
-                      <th className="py-3 pr-4 font-medium">Utilizator</th>
-                      <th className="py-3 pr-4 font-medium">Rol</th>
-                      <th className="py-3 pr-4 font-medium">Acțiune</th>
-                      <th className="py-3 pr-4 font-medium">Entitate</th>
-                      <th className="py-3 pr-4 font-medium">ID</th>
-                      <th className="py-3 font-medium w-[80px]">Detalii</th>
+                      <th className="py-3 pr-4 font-medium whitespace-nowrap">Data</th>
+                      <th className="py-3 pr-4 font-medium whitespace-nowrap">Utilizator</th>
+                      <th className="py-3 pr-4 font-medium whitespace-nowrap">Rol</th>
+                      <th className="py-3 pr-4 font-medium whitespace-nowrap">Acțiune</th>
+                      <th className="py-3 pr-4 font-medium whitespace-nowrap">Entitate</th>
+                      <th className="py-3 pr-4 font-medium whitespace-nowrap">ID</th>
+                      <th className="py-3 font-medium whitespace-nowrap">Detalii</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -406,7 +411,7 @@ export default function AuditLogs() {
               </DialogHeader>
               {selectedRow && (
                 <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div className="grid grid-cols-1 gap-4 text-sm md:grid-cols-2">
                     <div>
                       <p className="text-muted-foreground">Data</p>
                       <p className="font-medium">

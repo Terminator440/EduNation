@@ -318,7 +318,7 @@ const DirectorDashboard = () => {
             </Button>
           </div>
 
-          <div className="grid lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
             <div className="lg:col-span-2 space-y-6">
               {/* Distribuție note - analiză vizuală */}
               <Card>
@@ -371,6 +371,7 @@ const DirectorDashboard = () => {
                   {auditLogs.length === 0 ? (
                     <p className="text-center py-8 text-muted-foreground">Nu există înregistrări în jurnalul de audit.</p>
                   ) : (
+                    <div className="overflow-x-auto">
                     <Table>
                       <TableHeader>
                         <TableRow>
@@ -399,6 +400,7 @@ const DirectorDashboard = () => {
                         ))}
                       </TableBody>
                     </Table>
+                    </div>
                   )}
                 </CardContent>
               </Card>
@@ -521,9 +523,9 @@ const DirectorDashboard = () => {
           </div>
         {activeRole === "director" && (
           <Card className="mt-8">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0">
+            <CardHeader className="flex flex-col sm:flex-row items-start gap-4">
               <CardTitle>Invitații (director)</CardTitle>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2 w-full sm:w-auto">
                 <Button
                   variant="outline"
                   onClick={() => {
@@ -554,15 +556,16 @@ const DirectorDashboard = () => {
               ) : directorInvitations.length === 0 ? (
                 <p className="text-sm text-muted-foreground">Nu ai invitații create.</p>
               ) : (
+                <div className="w-full overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Rol</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Creat</TableHead>
-                      <TableHead>Expiră</TableHead>
-                      <TableHead>Contact</TableHead>
-                      <TableHead className="text-right">Acțiuni</TableHead>
+                      <TableHead className="whitespace-nowrap">Rol</TableHead>
+                      <TableHead className="whitespace-nowrap">Status</TableHead>
+                      <TableHead className="whitespace-nowrap">Creat</TableHead>
+                      <TableHead className="whitespace-nowrap">Expiră</TableHead>
+                      <TableHead className="whitespace-nowrap">Contact</TableHead>
+                      <TableHead className="text-right whitespace-nowrap">Acțiuni</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -610,6 +613,7 @@ const DirectorDashboard = () => {
                     ))}
                   </TableBody>
                 </Table>
+                </div>
               )}
             </CardContent>
           </Card>
