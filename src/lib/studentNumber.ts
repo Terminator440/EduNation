@@ -21,13 +21,15 @@ export function hasStudentNumberInput(input: string): boolean {
 }
 
 /**
- * Parses the numeric part from a stored value (EN-00123 -> 123).
+ * Parses the numeric part from a stored value (EN-00123 -> 123, EN-00001 -> 1).
  * Handles legacy integer from DB for backward compatibility.
  */
 export function parseStudentNumberNumeric(value: string | number | null | undefined): number | null {
   if (value == null) return null;
   if (typeof value === "number") return Number.isNaN(value) ? null : value;
-  const match = value.trim().toUpperCase().match(/^EN-0*([1-9]\d*|0)$/);
+  const trimmed = value.trim().toUpperCase();
+  // Match EN- followed by digits (including leading zeros)
+  const match = trimmed.match(/^EN-(\d+)$/);
   if (!match) return null;
   const n = parseInt(match[1], 10);
   return Number.isNaN(n) ? null : n;
