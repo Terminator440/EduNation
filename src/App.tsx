@@ -41,7 +41,29 @@ const Settings = lazy(() => import("./pages/Settings"));
 const Developer = lazy(() => import("./pages/Developer"));
 const DeveloperDirectorInvites = lazy(() => import("./pages/DeveloperDirectorInvites"));
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: (failureCount, error) => {
+        // Retry logic for network errors
+        if (error instanceof Error) {
+          const errorMessage = error.message.toLowerCase();
+          // Retry on network errors, but not on auth/permission errors
+          if (errorMessage.includes("network") || errorMessage.includes("fetch")) {
+            return failureCount < 2; // Retry up to 2 times
+          }
+        }
+        return false; // Don't retry on other errors
+      },
+      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000), // Exponential backoff
+      staleTime: 1000 * 60 * 5, // 5 minutes
+      refetchOnWindowFocus: false,
+    },
+    mutations: {
+      retry: false, // Don't retry mutations by default
+    },
+  },
+});
 
 const PageFallback = () => (
   <div className="min-h-screen bg-background flex items-center justify-center">

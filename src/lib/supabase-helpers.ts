@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { handleServiceError } from './error-handler';
 
 /**
  * Small helper to keep error handling consistent.
@@ -11,6 +12,7 @@ export const assertSupabaseOk = <T>(
   if (result.error) {
     // eslint-disable-next-line no-console
     console.error(`Supabase error in ${context}:`, result.error);
+    handleServiceError(result.error, context);
     throw new Error(`Eroare la comunicarea cu serverul (${context}).`);
   }
   return result.data;

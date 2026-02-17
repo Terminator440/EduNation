@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { assertSupabaseOk } from "@/lib/supabase-helpers";
+import { handleServiceError } from "@/lib/error-handler";
 
 export type AttendanceRow = {
   id: string;

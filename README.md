@@ -1,132 +1,328 @@
-EduNation
+# EduNation
 
-Catalog școlar digital modern construit cu Vite + React + Supabase.
-Proiect orientat pe arhitectură sigură, separare clară a responsabilităților și control riguros al accesului pe roluri.
+Catalog școlar digital modern construit cu **Vite + React + TypeScript + Supabase**. Proiect orientat pe arhitectură sigură, separare clară a responsabilităților și control riguros al accesului pe roluri.
 
-Scopul proiectului
+## 📋 Cuprins
+
+- [Scopul Proiectului](#scopul-proiectului)
+- [Stack Tehnic](#stack-tehnic)
+- [Arhitectură](#arhitectură)
+- [Setup](#setup)
+- [Testare](#testare)
+- [Dezvoltare](#dezvoltare)
+- [Deploy](#deploy)
+
+## 🎯 Scopul Proiectului
 
 EduNation este o aplicație web pentru gestionarea situației școlare, concepută astfel încât:
 
-să ofere acces diferențiat pe roluri (elev, părinte, profesor etc.)
+- ✅ să ofere acces diferențiat pe roluri (elev, părinte, profesor, director etc.)
+- ✅ să asigure protecția datelor prin politici la nivel de bază de date (RLS)
+- ✅ să fie scalabilă și ușor de extins
+- ✅ să respecte principiul „database-ul este sursa adevărului"
+- ✅ să ofere experiență utilizator excelentă cu feedback vizual pentru toate acțiunile
 
-să asigure protecția datelor prin politici la nivel de bază de date (RLS)
+## 🛠 Stack Tehnic
 
-să fie scalabilă și ușor de extins
+### Frontend
+- **React 18** - Biblioteca UI
+- **TypeScript** - Tipizare strictă pentru siguranță
+- **Vite** - Build tool rapid și modern
+- **Tailwind CSS** - Stilizare utilitară
+- **React Router** - Navigare și routing
+- **React Query (TanStack Query)** - Gestionare state server și caching
+- **Radix UI** - Componente UI accesibile
+- **Sonner** - Notificări toast moderne
 
-să respecte principiul „database-ul este sursa adevărului”
+### Backend & Bază de Date
+- **Supabase** - PostgreSQL + Authentication + Row Level Security (RLS)
+- **Supabase JS Client** - Client oficial pentru integrare
 
-Structura și logica aplicației sunt controlate manual.
+### Testare
+- **Vitest** - Framework de testare rapid
+- **React Testing Library** - Testare componentă React
+- **jsdom** - Environment DOM pentru teste
 
-Stack Tehnologic
+### Tooling
+- **ESLint** - Linting cu reguli stricte
+- **TypeScript Strict Mode** - Verificare tipuri strictă
+- **GitHub Actions** - CI/CD automat
 
-Frontend:
+## 🏗 Arhitectură
 
-React
+Proiectul folosește o **arhitectură bazată pe Features** care separă clar logica de business de interfața utilizatorului.
 
-Vite
+### Structura Directoarelor
 
-TypeScript
+```
+src/
+├── features/              # Module de business organizate pe funcționalități
+│   ├── auth/
+│   │   └── services/     # Servicii de autentificare
+│   ├── grades/
+│   │   └── services/     # Servicii pentru note
+│   ├── attendance/
+│   │   └── services/     # Servicii pentru prezență
+│   ├── academics/
+│   │   └── queries.ts    # React Query hooks pentru date academice
+│   ├── secretariat/
+│   │   └── queries.ts    # React Query hooks pentru secretariat
+│   └── calendar/
+│       └── queries.ts    # React Query hooks pentru calendar
+│
+├── components/            # Componente UI reutilizabile
+│   ├── ui/               # Componente UI de bază (Button, Card, etc.)
+│   ├── layouts/          # Layout-uri (DashboardLayout)
+│   └── dashboard/        # Componente specifice dashboard
+│
+├── pages/                 # Pagini/rute ale aplicației
+├── hooks/                 # Custom React hooks
+├── lib/                   # Utilitare și helpers
+│   ├── error-handler.ts   # Gestionare erori globală cu toast
+│   └── supabase-helpers.ts # Helpers pentru Supabase
+│
+└── integrations/          # Integrări externe (Supabase client)
+```
 
-Backend & Bază de date:
+### Principii de Design
 
-Supabase (PostgreSQL + Auth + RLS)
+1. **Feature-Based Organization**: Fiecare feature are propriul director cu servicii și queries
+2. **Separation of Concerns**: Logica de business este separată de UI
+3. **Service Layer**: Toate apelurile Supabase trec prin servicii, nu direct din componente
+4. **React Query**: Gestionarea datelor server se face prin hooks React Query
+5. **Error Handling**: Sistem centralizat de gestionare erori cu notificări toast
+6. **Type Safety**: TypeScript strict mode pentru siguranță maximă
 
-CI:
-
-GitHub Actions (lint + build automat la push/PR)
-
-Arhitectură și securitate
+### Securitate
 
 Controlul accesului este implementat pe două niveluri:
 
-UI (routing și interfață) – ascunde funcționalități în funcție de rol
+1. **UI (routing și interfață)** – ascunde funcționalități în funcție de rol
+2. **Database (Row Level Security)** – restricționează efectiv accesul la date
 
-Database (Row Level Security) – restricționează efectiv accesul la date
+**Roluri implementate:**
+- `student` - Elev
+- `parent` - Părinte
+- `teacher` - Profesor
+- `homeroom_teacher` - Diriginte
+- `secretariat` - Secretariat
+- `director` - Director
+- `uat_admin` - Administrator UAT
+- `developer` - Dezvoltator
 
-Roluri implementate:
+**În producție, RLS este autoritatea finală. UI-ul doar reflectă permisiunile.**
 
-student
+## 🚀 Setup
 
-parent
+### Cerințe
 
-teacher
+- **Node.js 18+** sau Bun
+- **Proiect Supabase** (URL + anon key)
 
-homeroom_teacher
+### Instalare
 
-secretariat
+1. **Clonează repository-ul**
+   ```bash
+   git clone <repository-url>
+   cd eduro
+   ```
 
-director
+2. **Instalează dependențele**
+   ```bash
+   npm install
+   # sau
+   bun install
+   ```
 
-uat_admin
+3. **Configurează variabilele de mediu**
+   ```bash
+   cp .env.example .env
+   ```
 
-În producție, RLS este autoritatea finală. UI-ul doar reflectă permisiunile.
+   Editează `.env` și adaugă valorile tale:
+   ```env
+   VITE_SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
+   VITE_SUPABASE_PUBLISHABLE_KEY=YOUR_SUPABASE_ANON_KEY
+   
+   # Opțional: cod pentru înregistrare staff
+   VITE_STAFF_SIGNUP_CODE=CHANGE_ME_TO_A_LONG_RANDOM_STRING
+   
+   # Opțional: bootstrap admin accounts
+   VITE_BOOTSTRAP_ADMIN_EMAILS=admin@example.com
+   ```
 
-Rulare locală
-1) Cerințe
+4. **Pornește serverul de dezvoltare**
+   ```bash
+   npm run dev
+   # sau
+   bun run dev
+   ```
 
-Node.js 18+ sau Bun
+   Aplicația va fi disponibilă la `http://localhost:8080`
 
-Proiect Supabase (URL + anon key)
+### Supabase Setup
 
-2) Configurare mediu
-cp .env.example .env
+Migrațiile se află în `supabase/migrations/`
 
+**Aplicare migrații:**
+```bash
+supabase db push
+```
 
-Variabile necesare:
+Sau din Supabase Dashboard → SQL Editor
 
-VITE_SUPABASE_URL
+**Notă:** Dacă apare eroarea „Could not find the function public.create_invitation(...)", rulează conținutul fișierului `supabase/migrations/20260214100000_ensure_create_invitation_rpc.sql` în SQL Editor.
 
-VITE_SUPABASE_PUBLISHABLE_KEY
+**Pentru producție:**
+- Verifică că RLS este activ pe toate tabelele
+- Validează politicile pentru fiecare rol
+- Confirmă că permisiunile din DB corespund exact logicii aplicației
 
-Fișierul .env este ignorat de Git. Cheile reale nu trebuie comise.
+## 🧪 Testare
 
-3) Instalare și pornire
+Proiectul folosește **Vitest** și **React Testing Library** pentru testare.
 
-Cu Bun:
+### Rulare Teste
 
-bun install
-bun run dev
+```bash
+# Rulează testele în mod watch (recomandat pentru dezvoltare)
+npm test
 
+# Rulează testele o singură dată
+npm test -- --run
 
-Cu npm:
+# Deschide UI interactiv pentru testare
+npm run test:ui
 
-npm install
-npm run dev
+# Generează raport de coverage
+npm run test:coverage
+```
 
-Supabase
+### Structura Testelor
 
-Migrațiile se află în:
+Testele sunt organizate alături de codul sursă:
 
-supabase/migrations/
+```
+src/
+├── features/
+│   └── auth/
+│       └── services/
+│           ├── auth.service.ts
+│           └── auth.service.test.ts    # Teste pentru serviciu
+│
+└── components/
+    └── ui/
+        ├── button.tsx
+        └── button.test.tsx             # Teste pentru componentă
+```
 
-Aplicare migrații: `supabase db push` (sau din Dashboard → SQL Editor). Dacă apare eroarea „Could not find the function public.create_invitation(...)”, rulează conținutul fișierului `supabase/migrations/20260214100000_ensure_create_invitation_rpc.sql` în SQL Editor, apoi reîncarcă aplicația.
+### Exemple de Teste
 
-Pentru producție:
+- **Teste pentru servicii**: Mock Supabase client și verifică logica de business
+- **Teste pentru componente**: Render și interacțiuni utilizator
+- **Coverage**: Target 100% pentru servicii critice
 
-verificați că RLS este activ pe toate tabelele
+## 💻 Dezvoltare
 
-validați politicile pentru fiecare rol
+### Adăugare Feature Nou
 
-confirmați că permisiunile din DB corespund exact logicii aplicației
+1. **Creează structura feature-ului**
+   ```
+   src/features/nou-feature/
+   ├── services/
+   │   └── nou-feature.service.ts
+   └── queries.ts
+   ```
 
-Deploy
+2. **Implementează serviciul**
+   - Folosește `handleServiceError()` pentru erori
+   - Folosește `showSuccessMessage()` pentru confirmări
+   - Returnează tipuri TypeScript clare
 
-Alte platforme (Vercel, Netlify etc.)
+3. **Creează React Query hooks**
+   - Folosește `useQuery` pentru date readonly
+   - Folosește `useMutation` pentru modificări
 
-bun run build sau npm run build
+4. **Adaugă teste**
+   - Teste pentru serviciu
+   - Teste pentru componente (dacă e cazul)
 
-setați variabilele de mediu:
+### Error Handling
 
-VITE_SUPABASE_URL
+Toate serviciile folosesc sistemul centralizat de gestionare erori:
 
-VITE_SUPABASE_PUBLISHABLE_KEY
+```typescript
+import { handleServiceError, showSuccessMessage } from "@/lib/error-handler";
 
-Considerații pentru producție
+try {
+  // Operatiune Supabase
+  if (error) {
+    handleServiceError(error, "Context acțiune");
+    throw error;
+  }
+  showSuccessMessage("Succes", "Descriere acțiune");
+} catch (error) {
+  handleServiceError(error, "Context acțiune");
+  throw error;
+}
+```
 
-Variabilele de mediu sunt validate la startup
+### React Query Configuration
 
-Orice lipsă produce eroare explicită
+QueryClient este configurat cu:
+- **Retry logic**: Reîncearcă automat la erori de rețea (max 2 încercări)
+- **Exponential backoff**: Delay progresiv între încercări
+- **Stale time**: 5 minute pentru date cached
+- **No retry pentru mutations**: Mutările nu se reîncearcă automat
 
-Separarea clară între control UI și securitate DB
+## 📦 Deploy
 
-Model de roluri extensibil pentru scenarii administrative complexe
+### Build pentru Producție
+
+```bash
+npm run build
+# sau
+bun run build
+```
+
+Build-ul va fi generat în directorul `dist/`
+
+### Variabile de Mediu
+
+Setează următoarele variabile în platforma de hosting:
+
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_PUBLISHABLE_KEY`
+- `VITE_STAFF_SIGNUP_CODE` (opțional)
+- `VITE_BOOTSTRAP_ADMIN_EMAILS` (opțional)
+
+### Platforme Recomandate
+
+- **Vercel** - Deploy automat din Git
+- **Netlify** - Deploy automat din Git
+- **Supabase Hosting** - Integrare nativă
+
+### Considerații pentru Producție
+
+- ✅ Variabilele de mediu sunt validate la startup
+- ✅ Orice lipsă produce eroare explicită
+- ✅ Separarea clară între control UI și securitate DB
+- ✅ Model de roluri extensibil pentru scenarii administrative complexe
+- ✅ Error handling global cu notificări utilizator
+- ✅ Retry logic pentru erori temporare de rețea
+
+## 📚 Resurse
+
+- [Documentație Vite](https://vitejs.dev/)
+- [Documentație React](https://react.dev/)
+- [Documentație Supabase](https://supabase.com/docs)
+- [Documentație React Query](https://tanstack.com/query/latest)
+- [Documentație Vitest](https://vitest.dev/)
+
+## 📝 Licență
+
+Proiect privat - toate drepturile rezervate.
+
+---
+
+**Notă:** Acest README este menit să ofere o înțelegere rapidă a proiectului. Pentru detalii tehnice specifice, consultă codul sursă și comentariile inline.
