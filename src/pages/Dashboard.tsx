@@ -7,7 +7,12 @@ import UpcomingEvents from "@/components/dashboard/UpcomingEvents";
 import QuickActions from "@/components/dashboard/QuickActions";
 import StatusBanners from "@/components/dashboard/StatusBanners";
 import { useAuth } from "@/hooks/useAuth";
-import { useGradesForScope, useStudentScope, useAttendanceForScope } from "@/features/academics/queries";
+import {
+  useGradesForScope,
+  useStudentScope,
+  useAttendanceForScope,
+  useStudentSummary,
+} from "@/features/academics/queries";
 import { useQuery } from "@tanstack/react-query";
 
 const Dashboard = () => {
@@ -15,8 +20,12 @@ const Dashboard = () => {
   const displayName = profile?.full_name || user?.email?.split("@")[0] || "Utilizator";
 
   const scopeQuery = useStudentScope(activeRole, user?.id ?? null);
-  const gradesQuery = useGradesForScope(scopeQuery.data?.studentIds ?? []);
-  const attendanceQuery = useAttendanceForScope(scopeQuery.data?.studentIds ?? []);
+  const studentIds = scopeQuery.data?.studentIds ?? [];
+  const primaryStudentId = studentIds[0] ?? null;
+
+  const gradesQuery = useGradesForScope(studentIds);
+  const attendanceQuery = useAttendanceForScope(studentIds);
+  const summaryQuery = useStudentSummary(primaryStudentId);
 
   type SchoolEvent = {
     id: string;
@@ -31,6 +40,16 @@ const Dashboard = () => {
     queryFn: async (): Promise<SchoolEvent[]> => [],
   });
 
+  const summaryBySubjectName = useMemo(() => {
+    const rows = summaryQuery.data ?? [];
+    const map = new Map<string, (typeof rows)[number]>();
+    for (const r of rows) {
+      if (!r.subject_name) continue;
+      map.set(r.subject_name, r);
+    }
+    return map;
+  }, [summaryQuery.data]);
+
   const gradesBySubject = useMemo(() => {
     const rows = gradesQuery.data ?? [];
     const map = new Map<string, { subject: string; grades: number[]; average: number; teacher: string }>();
@@ -41,25 +60,31 @@ const Dashboard = () => {
       map.set(subjectName, entry);
     }
     return Array.from(map.values())
-      .map((s) => ({ ...s, average: s.grades.length ? s.grades.reduce((a, b) => a + b, 0) / s.grades.length : 0 }))
+      .map((s) => {
+        const summary = summaryBySubjectName.get(s.subject);
+        const avg = summary?.subject_average ?? (s.grades.length ? s.grades.reduce((a, b) => a + b, 0) / s.grades.length : 0);
+        return { ...s, average: avg };
+      })
       .sort((a, b) => a.subject.localeCompare(b.subject, "ro"));
-  }, [gradesQuery.data]);
+  }, [gradesQuery.data, summaryBySubjectName]);
 
   const generalAverage = useMemo(() => {
-    if (gradesBySubject.length === 0) return 0;
-    return gradesBySubject.reduce((sum, g) => sum + g.average, 0) / gradesBySubject.length;
-  }, [gradesBySubject]);
+    const first = summaryQuery.data?.[0];
+    return first?.general_average ?? 0;
+  }, [summaryQuery.data]);
 
   const totalGrades = useMemo(() => (gradesQuery.data ?? []).length, [gradesQuery.data]);
 
   const absenceStats = useMemo(() => {
+    const summary = summaryQuery.data?.[0];
+    const absences = summary?.total_absences ?? 0;
+    // păstrăm procentul de prezență pe baza datelor existente, dar numărul de absențe vine din RPC
     const rows = attendanceQuery.data ?? [];
-    const abs = rows.filter((r) => ["unexcused", "pending"].includes(r.status)).length;
     const total = rows.length;
     const present = rows.filter((r) => r.status === "present").length;
     const pct = total > 0 ? Math.round((present / total) * 100) : 0;
-    return { absences: abs, pct };
-  }, [attendanceQuery.data]);
+    return { absences, pct };
+  }, [summaryQuery.data, attendanceQuery.data]);
 
   const upcomingEvents = useMemo(() => {
     return (eventsQuery.data ?? []).map((r) => ({

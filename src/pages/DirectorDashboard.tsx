@@ -2,15 +2,20 @@ import { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense } fro
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useNavigate } from "react-router-dom";
 /* Lucide: import doar iconițele folosite (tree-shaking) — nu importa întreaga librărie */
-import { Users, GraduationCap, TrendingUp, FileText, Shield, Bell, BarChart3, Building, Megaphone, Search } from "lucide-react";
+import { Users, GraduationCap, TrendingUp, FileText, Shield, Bell, BarChart3, Building, Megaphone, Search, Lock, FileDown } from "lucide-react";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
 import StatsCard from "@/components/dashboard/StatsCard";
 import { useAuth } from "@/hooks/useAuth";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { usePagination } from "@/hooks/usePagination";
 import { supabase } from "@/integrations/supabase/client";
+import { getCurrentUserSchoolId } from "@/lib/supabase-helpers";
+import { exportClassRegisterPdf } from "@/utils/exportClassRegisterPdf";
+import { getCurrentAcademicYear, getCurrentSemester } from "@/features/academics/services/semester.service";
 import { CreateInvitationDialog } from "@/components/invitations/CreateInvitationDialog";
 import { CreateAnnouncementDialog } from "@/components/announcements/CreateAnnouncementDialog";
+import { CloseSemesterDialog } from "@/components/semester/CloseSemesterDialog";
+import { ExportClassRegisterDialog } from "@/components/reports/ExportClassRegisterDialog";
 import {
   listInvitations,
   revokeInvitation,
@@ -114,6 +119,8 @@ const DirectorDashboard = () => {
   const [directorInvLoading, setDirectorInvLoading] = useState(false);
 
   const [announcementDialogOpen, setAnnouncementDialogOpen] = useState(false);
+  const [closeSemesterDialogOpen, setCloseSemesterDialogOpen] = useState(false);
+  const [exportRegisterDialogOpen, setExportRegisterDialogOpen] = useState(false);
   const [recentAnnouncements, setRecentAnnouncements] = useState<AnnouncementRow[]>([]);
 
   const [gradesDistributionRaw, setGradesDistributionRaw] = useState<{ grade: number; cnt: number }[]>([]);
@@ -221,9 +228,15 @@ const DirectorDashboard = () => {
 
   const fetchAnnouncements = useCallback(async () => {
     try {
+      const schoolId = await getCurrentUserSchoolId();
+      if (!schoolId) {
+        setRecentAnnouncements([]);
+        return;
+      }
       const { data, error } = await supabase
         .from('announcements')
         .select('id, title, content, created_at, target_role')
+        .eq('school_id', schoolId)
         .order('created_at', { ascending: false })
         .limit(5);
       if (error) throw error;
@@ -236,6 +249,12 @@ const DirectorDashboard = () => {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
+      const schoolId = await getCurrentUserSchoolId();
+      if (!schoolId) {
+        setLoading(false);
+        return;
+      }
+
       const [
         { count: studentsCount },
         { count: classesCount },
@@ -246,8 +265,8 @@ const DirectorDashboard = () => {
         { count: activeUsersCount },
         { data: logsData },
       ] = await Promise.all([
-        supabase.from('students').select('*', { count: 'exact', head: true }),
-        supabase.from('classes').select('*', { count: 'exact', head: true }),
+        supabase.from('students').select('*', { count: 'exact', head: true }).eq('school_id', schoolId),
+        supabase.from('classes').select('*', { count: 'exact', head: true }).eq('school_id', schoolId),
         supabase
           .from('user_roles')
           .select('*', { count: 'exact', head: true })
@@ -257,11 +276,13 @@ const DirectorDashboard = () => {
         supabase
           .from('attendance')
           .select('*', { count: 'exact', head: true })
+          .eq('school_id', schoolId)
           .in('status', ['unexcused', 'pending']),
-        supabase.from('profiles').select('*', { count: 'exact', head: true }),
+        supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('school_id', schoolId),
         supabase
           .from('audit_logs')
           .select('id, user_name, active_role, action, entity_type, created_at')
+          .eq('school_id', schoolId)
           .order('created_at', { ascending: false })
           .limit(100),
       ]);
@@ -346,6 +367,8 @@ const DirectorDashboard = () => {
   }, [directorSchoolId]);
 
   const openAnnouncementDialog = useCallback(() => setAnnouncementDialogOpen(true), []);
+  const openCloseSemesterDialog = useCallback(() => setCloseSemesterDialogOpen(true), []);
+  const openExportRegisterDialog = useCallback(() => setExportRegisterDialogOpen(true), []);
   const openInviteDialogTeacher = useCallback(() => {
     setInvRole("teacher");
     setInvDialogOpen(true);
@@ -406,13 +429,17 @@ const DirectorDashboard = () => {
               <Bell className="h-4 w-4" />
               Publică Anunț
             </Button>
-            <Button variant="outline" className="gap-2">
+            <Button variant="outline" className="gap-2" onClick={openExportRegisterDialog}>
               <FileText className="h-4 w-4" />
               Generează Raport
             </Button>
             <Button variant="outline" className="gap-2">
               <Shield className="h-4 w-4" />
               Gestionare Roluri
+            </Button>
+            <Button variant="outline" className="gap-2" onClick={openCloseSemesterDialog}>
+              <Lock className="h-4 w-4" />
+              Închidere Semestru
             </Button>
           </div>
 
@@ -751,6 +778,18 @@ const DirectorDashboard = () => {
           authorId={user?.id ?? ""}
           schoolId={directorSchoolId}
           onCreated={fetchAnnouncements}
+        />
+        <CloseSemesterDialog
+          open={closeSemesterDialogOpen}
+          onOpenChange={setCloseSemesterDialogOpen}
+          onSuccess={() => {
+            // Refresh data after closing semester
+            void fetchData();
+          }}
+        />
+        <ExportClassRegisterDialog
+          open={exportRegisterDialogOpen}
+          onOpenChange={setExportRegisterDialogOpen}
         />
     </DashboardLayout>
   );

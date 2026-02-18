@@ -9,10 +9,14 @@ import RoleSwitcher from "@/components/RoleSwitcher";
 import ThemeToggle from "@/components/ThemeToggle";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
-import { useGradesForScope, useAttendanceForScope } from "@/features/academics/queries";
+import {
+  useGradesForScope,
+  useAttendanceForScope,
+  useStudentSummary,
+} from "@/features/academics/queries";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { assertSupabaseOk } from "@/lib/supabase-helpers";
+import { assertSupabaseOk, getCurrentUserSchoolId } from "@/lib/supabase-helpers";
 
 type Child = {
   id: string;
@@ -29,14 +33,19 @@ const ParentDashboard = () => {
     queryKey: ['parent-children', user?.id],
     enabled: Boolean(user?.id),
     queryFn: async (): Promise<Child[]> => {
+      const schoolId = await getCurrentUserSchoolId();
+      if (!schoolId) return [];
+      
       const res = await supabase
         .from('parent_student_relations')
-        .select('student:students(id,full_name, class:classes(id,name,year,section))')
-        .eq('parent_user_id', user!.id);
+        .select('student:students!inner(id,full_name,school_id, class:classes(id,name,year,section))')
+        .eq('parent_user_id', user!.id)
+        .eq('students.school_id', schoolId);
       type ParentStudentRelationRow = {
         student: {
           id: string;
           full_name: string | null;
+          school_id: string | null;
           class: {
             id: string;
             name: string;
@@ -57,8 +66,19 @@ const ParentDashboard = () => {
 
   const gradesQuery = useGradesForScope(effectiveChildId ? [effectiveChildId] : []);
   const attendanceQuery = useAttendanceForScope(effectiveChildId ? [effectiveChildId] : []);
+  const summaryQuery = useStudentSummary(effectiveChildId);
 
   const displayName = profile?.full_name || user?.email?.split('@')[0] || 'Utilizator';
+
+  const summaryBySubjectName = useMemo(() => {
+    const rows = summaryQuery.data ?? [];
+    const map = new Map<string, (typeof rows)[number]>();
+    for (const r of rows) {
+      if (!r.subject_name) continue;
+      map.set(r.subject_name, r);
+    }
+    return map;
+  }, [summaryQuery.data]);
 
   const gradesBySubject = useMemo(() => {
     const rows = gradesQuery.data ?? [];
@@ -71,24 +91,29 @@ const ParentDashboard = () => {
     }
     const out = Array.from(map.values()).map(s => ({
       ...s,
-      average: s.grades.length ? s.grades.reduce((a, b) => a + b, 0) / s.grades.length : 0,
+      average: (() => {
+        const summary = summaryBySubjectName.get(s.subject);
+        if (summary) return summary.subject_average;
+        return s.grades.length ? s.grades.reduce((a, b) => a + b, 0) / s.grades.length : 0;
+      })(),
     }));
     return out.sort((a, b) => a.subject.localeCompare(b.subject, 'ro'));
-  }, [gradesQuery.data]);
+  }, [gradesQuery.data, summaryBySubjectName]);
 
   const generalAverage = useMemo(() => {
-    if (gradesBySubject.length === 0) return 0;
-    return gradesBySubject.reduce((sum, g) => sum + g.average, 0) / gradesBySubject.length;
-  }, [gradesBySubject]);
+    const first = summaryQuery.data?.[0];
+    return first?.general_average ?? 0;
+  }, [summaryQuery.data]);
 
   const absenceStats = useMemo(() => {
+    const summary = summaryQuery.data?.[0];
+    const absences = summary?.total_absences ?? 0;
     const rows = attendanceQuery.data ?? [];
-    const abs = rows.filter(r => ['unexcused', 'pending'].includes(r.status)).length;
     const total = rows.length;
     const present = rows.filter(r => r.status === 'present').length;
     const pct = total > 0 ? Math.round((present / total) * 100) : 0;
-    return { absences: abs, pct };
-  }, [attendanceQuery.data]);
+    return { absences, pct };
+  }, [summaryQuery.data, attendanceQuery.data]);
 
   // Stub: school_events table doesn't exist yet
   type SchoolEvent = {

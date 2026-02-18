@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { addDays } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
-import { assertSupabaseOk } from '@/lib/supabase-helpers';
+import { assertSupabaseOk, getCurrentUserSchoolId } from '@/lib/supabase-helpers';
 
 export type ClassRow = {
   id: string;
@@ -22,7 +22,13 @@ export const useClasses = () =>
   useQuery({
     queryKey: ['classes'],
     queryFn: async (): Promise<ClassRow[]> => {
-      const res = await supabase.from('classes').select('id,name,year,section,teacher_id').order('year', { ascending: true });
+      const schoolId = await getCurrentUserSchoolId();
+      if (!schoolId) return [];
+      const res = await supabase
+        .from('classes')
+        .select('id,name,year,section,teacher_id')
+        .eq('school_id', schoolId)
+        .order('year', { ascending: true });
       return assertSupabaseOk(res, 'classes.select');
     },
   });
@@ -31,9 +37,12 @@ export const useStudentsForSecretariat = (search: string) =>
   useQuery({
     queryKey: ['students', 'secretariat', search],
     queryFn: async (): Promise<StudentListRow[]> => {
+      const schoolId = await getCurrentUserSchoolId();
+      if (!schoolId) return [];
       const res = await supabase
         .from('students')
         .select('id,full_name,is_active, class:classes(id,name,year,section)')
+        .eq('school_id', schoolId)
         .order('created_at', { ascending: false });
 
       const rows = assertSupabaseOk(res, 'students.select(secretariat)');

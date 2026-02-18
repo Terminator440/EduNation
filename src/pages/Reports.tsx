@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, useCallback, useTransition } from "react";
 import { useNavigate } from "react-router-dom";
-import { Download, FileText, Printer, RefreshCw } from "lucide-react";
+import { Download, FileText, Printer, RefreshCw, FileDown } from "lucide-react";
 
 import Sidebar from "@/components/dashboard/Sidebar";
 import RoleSwitcher from "@/components/RoleSwitcher";
@@ -18,7 +18,10 @@ import { cn } from "@/lib/utils";
 import { Spinner } from "@/components/ui/spinner";
 import { supabase } from "@/integrations/supabase/client";
 import { exportToCsv } from "@/utils/exportCsv";
+import { exportClassRegisterPdf } from "@/utils/exportClassRegisterPdf";
 import { fetchClassStatsForDisplay, fetchClassTotalsForDisplay } from "@/lib/reports-rpc";
+import { getCurrentUserSchoolId } from "@/lib/supabase-helpers";
+import { getCurrentAcademicYear, getCurrentSemester } from "@/features/academics/services/semester.service";
 import type { Database } from "@/integrations/supabase/types";
 
 type RoleScope = "teacher" | "homeroom_teacher" | "secretariat" | "director" | "uat_admin";
@@ -119,11 +122,18 @@ const Reports = () => {
   const fetchClasses = async () => {
     if (!user || !roleOk(activeRole)) return;
     try {
+      const schoolId = await getCurrentUserSchoolId();
+      if (!schoolId) {
+        toast({ title: "Eroare", description: "Nu aveți o școală asociată", variant: "destructive" });
+        return;
+      }
+
       if (activeRole === "teacher" || activeRole === "homeroom_teacher") {
         const { data: cls, error } = await supabase
           .from("classes")
           .select("id, name, year, section")
           .eq("teacher_id", user.id)
+          .eq("school_id", schoolId)
           .maybeSingle();
         if (error) throw error;
         const arr: ClassRow[] = cls ? [cls as ClassRow] : [];
@@ -133,6 +143,7 @@ const Reports = () => {
         const { data: cls, error } = await supabase
           .from("classes")
           .select("id, name, year, section")
+          .eq("school_id", schoolId)
           .order("year", { ascending: true })
           .order("section", { ascending: true });
         if (error) throw error;
@@ -159,12 +170,20 @@ const Reports = () => {
     }
     setLoading(true);
     try {
+      const schoolId = await getCurrentUserSchoolId();
+      if (!schoolId) {
+        toast({ title: "Eroare", description: "Nu aveți o școală asociată", variant: "destructive" });
+        setLoading(false);
+        return;
+      }
+
       // Use '*' to avoid runtime failures if a deployment is missing some
       // optional columns (e.g., contact_email/contact_phone).
       const { data: st, error: stErr } = await supabase
         .from("students")
         .select("*")
         .eq("class_id", classId)
+        .eq("school_id", schoolId)
         .order("student_number", { ascending: true });
       if (stErr) throw stErr;
       type StudentDbRow = Database["public"]["Tables"]["students"]["Row"];
@@ -184,11 +203,13 @@ const Reports = () => {
         .from("grades")
         .select("id, date, grade, description, student_id, subjects(name)")
         .in("student_id", studentIds)
+        .eq("school_id", schoolId)
         .order("date", { ascending: false });
       let attQ = supabase
         .from("attendance")
         .select("id, date, status, student_id, subjects(name)")
         .in("student_id", studentIds)
+        .eq("school_id", schoolId)
         .order("date", { ascending: false });
 
       if (dateFrom) {
@@ -400,6 +421,36 @@ const Reports = () => {
     window.print();
   };
 
+  const handleExportPdf = async () => {
+    if (!classId) {
+      toast({
+        title: "Eroare",
+        description: "Vă rugăm să selectați o clasă mai întâi.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const academicYear = getCurrentAcademicYear();
+      const semester = getCurrentSemester();
+      
+      await exportClassRegisterPdf(classId, academicYear, semester);
+      
+      toast({
+        title: "PDF generat cu succes",
+        description: "Foaia Matricolă a fost exportată în PDF.",
+      });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Eroare la generarea PDF-ului";
+      toast({
+        title: "Eroare",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    }
+  };
+
   if (authLoading || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -502,6 +553,19 @@ const Reports = () => {
                 </CardHeader>
                 <CardContent className="text-sm text-muted-foreground">
                   Exportul se bazează pe clasa selectată și intervalul de date.
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <CardTitle>Export PDF - Foaia Matricolă</CardTitle>
+                  <Button variant="default" className="gap-2 w-full sm:w-auto justify-center" onClick={handleExportPdf}>
+                    <FileDown className="w-4 h-4" /> Generează PDF
+                  </Button>
+                </CardHeader>
+                <CardContent className="text-sm text-muted-foreground">
+                  Generează Foaia Matricolă în format PDF cu notele finale ale elevilor pentru semestrul curent.
+                  Documentul include numele școlii, clasa, elevi pe rânduri și materii pe coloane.
                 </CardContent>
               </Card>
 

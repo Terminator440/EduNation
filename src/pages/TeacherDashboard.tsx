@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { Spinner } from "@/components/ui/spinner";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { getCurrentUserSchoolId } from "@/lib/supabase-helpers";
 import { fetchGradesForStudents } from "@/features/grades/services/grades.service";
 import { fetchAttendanceForStudents } from "@/features/attendance/services/attendance.service";
 import type { GradeRow } from "@/features/grades/services/grades.service";
@@ -311,10 +312,17 @@ const TeacherDashboard = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
+      const schoolId = await getCurrentUserSchoolId();
+      if (!schoolId) {
+        setLoading(false);
+        return;
+      }
+
       const { data: classData } = await supabase
         .from('classes')
         .select('id')
         .eq('teacher_id', user?.id)
+        .eq('school_id', schoolId)
         .maybeSingle();
 
       if (classData) {
@@ -326,7 +334,8 @@ const TeacherDashboard = () => {
             student_number,
             full_name
           `)
-          .eq('class_id', classData.id);
+          .eq('class_id', classData.id)
+          .eq('school_id', schoolId);
 
         if (studentsData) {
           // Fetch related data in bulk to avoid N+1 queries (production performance)
@@ -348,7 +357,8 @@ const TeacherDashboard = () => {
             const { data: profilesData, error: profilesErr } = await supabase
               .from('profiles')
               .select('id, full_name, email')
-              .in('id', userIds);
+              .in('id', userIds)
+              .eq('school_id', schoolId);
 
             if (profilesErr) throw profilesErr;
             ((profilesData ?? []) as ProfileLite[]).forEach((p) => profilesById.set(p.id, p));
@@ -400,7 +410,8 @@ const TeacherDashboard = () => {
         const { data: subjectsData } = await supabase
           .from('subjects')
           .select('id, name')
-          .eq('class_id', classData.id);
+          .eq('class_id', classData.id)
+          .eq('school_id', schoolId);
 
         setSubjects(subjectsData || []);
       }

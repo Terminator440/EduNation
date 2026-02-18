@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getCurrentUserSchoolId } from "@/lib/supabase-helpers";
 
 const WEEKDAYS = ["Luni", "Marți", "Miercuri", "Joi", "Vineri", "Sâmbătă", "Duminică"];
 
@@ -43,9 +44,12 @@ export default function Schedule() {
   const classesQuery = useQuery({
     queryKey: ["classes-for-schedule"],
     queryFn: async () => {
+      const schoolId = await getCurrentUserSchoolId();
+      if (!schoolId) return [];
       const { data, error } = await supabase
         .from("classes")
         .select("id, name, year, section")
+        .eq("school_id", schoolId)
         .order("year")
         .order("section");
       if (error) throw error;

@@ -16,9 +16,29 @@ import {
   fetchAttendanceForStudents,
   type AttendanceRow,
 } from "@/features/attendance/services/attendance.service";
+import { supabase } from "@/integrations/supabase/client";
+import { assertSupabaseOk } from "@/lib/supabase-helpers";
+
+export type StudentSummaryRow = {
+  subject_id: string;
+  subject_name: string;
+  subject_average: number;
+  subject_grade_count: number;
+  total_absences: number;
+  total_motivated_absences: number;
+  total_unmotivated_absences: number;
+  general_average: number;
+};
 
 // Re-export types for consumers
-export type { StudentScope, StudentNameRow, GradeRow, SubjectAverageRow, AttendanceRow };
+export type {
+  StudentScope,
+  StudentNameRow,
+  GradeRow,
+  SubjectAverageRow,
+  AttendanceRow,
+  StudentSummaryRow,
+};
 
 export const useStudentScope = (activeRole: string | null, userId: string | null) =>
   useQuery({
@@ -61,3 +81,22 @@ export const useAttendanceForScope = (studentIds: string[]) =>
     enabled: studentIds.length > 0,
     queryFn: () => fetchAttendanceForStudents(studentIds),
   });
+
+// Fetch summary (per-subject averages + global stats) for a single student
+export async function fetchStudentSummary(
+  studentId: string
+): Promise<StudentSummaryRow[]> {
+  if (!studentId) return [];
+  const res = await supabase.rpc("get_student_summary", {
+    p_student_id: studentId,
+  });
+  return assertSupabaseOk(res, "get_student_summary");
+}
+
+export const useStudentSummary = (studentId: string | null) =>
+  useQuery({
+    queryKey: ["student-summary", studentId],
+    enabled: Boolean(studentId),
+    queryFn: () => fetchStudentSummary(studentId!),
+  });
+

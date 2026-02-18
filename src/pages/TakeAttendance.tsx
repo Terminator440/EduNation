@@ -18,6 +18,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 import { Spinner } from "@/components/ui/spinner";
 import { supabase } from "@/integrations/supabase/client";
+import { getCurrentUserSchoolId } from "@/lib/supabase-helpers";
 import type { Database } from "@/integrations/supabase/types";
 
 // DB status values: present, unexcused, pending, motivated
@@ -118,12 +119,18 @@ const TakeAttendance = () => {
       const classIds = [...new Set(entries.map(e => e.class_id).filter(Boolean))] as string[];
       const subjectIds = [...new Set(entries.map(e => e.subject_id).filter(Boolean))] as string[];
 
+      const schoolId = await getCurrentUserSchoolId();
+      if (!schoolId) {
+        setLoading(false);
+        return;
+      }
+
       const [classesRes, subjectsRes, registerRes] = await Promise.all([
         classIds.length > 0
-          ? supabase.from("classes").select("id, name").in("id", classIds)
+          ? supabase.from("classes").select("id, name").in("id", classIds).eq("school_id", schoolId)
           : { data: [], error: null },
         subjectIds.length > 0
-          ? supabase.from("subjects").select("id, name").in("id", subjectIds)
+          ? supabase.from("subjects").select("id, name").in("id", subjectIds).eq("school_id", schoolId)
           : { data: [], error: null },
         supabase
           .from("teacher_register")
@@ -185,10 +192,17 @@ const TakeAttendance = () => {
     }
 
     try {
+      const schoolId = await getCurrentUserSchoolId();
+      if (!schoolId) {
+        setLoading(false);
+        return;
+      }
+
       const { data: studentsData, error } = await supabase
         .from("students")
         .select("id, student_number, full_name")
         .eq("class_id", slot.class_id)
+        .eq("school_id", schoolId)
         .order("student_number", { ascending: true });
 
       if (error) throw error;
@@ -205,6 +219,7 @@ const TakeAttendance = () => {
             .select("student_id, status")
             .eq("subject_id", slot.subject_id)
             .eq("date", dateKey)
+            .eq("school_id", schoolId)
             .in("student_id", studentIds);
 
           const existingMap: Record<string, AttendanceStatus> = {};

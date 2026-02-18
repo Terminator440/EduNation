@@ -24,6 +24,7 @@ import { cn } from "@/lib/utils";
 import { Spinner } from "@/components/ui/spinner";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { getCurrentUserSchoolId } from "@/lib/supabase-helpers";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -163,10 +164,17 @@ const HomeroomDashboard = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
+      const schoolId = await getCurrentUserSchoolId();
+      if (!schoolId) {
+        setLoading(false);
+        return;
+      }
+
       const { data: classData } = await supabase
         .from("classes")
         .select("id, name, section, year, school_id")
         .eq("teacher_id", user?.id)
+        .eq("school_id", schoolId)
         .maybeSingle();
 
       if (!classData) return;
@@ -177,6 +185,7 @@ const HomeroomDashboard = () => {
         .from("students")
         .select("id, student_number, full_name, is_active, user_id")
         .eq("class_id", classData.id)
+        .eq("school_id", schoolId)
         .order("student_number", { ascending: true });
 
       if (studentsData) {
@@ -201,6 +210,7 @@ const HomeroomDashboard = () => {
                 .from("profiles")
                 .select("email")
                 .eq("id", student.user_id)
+                .eq("school_id", schoolId)
                 .maybeSingle();
 
               profileData = prof ?? null;
@@ -220,7 +230,8 @@ const HomeroomDashboard = () => {
       const { data: allStudentIds } = await supabase
         .from("students")
         .select("id")
-        .eq("class_id", classData.id);
+        .eq("class_id", classData.id)
+        .eq("school_id", schoolId);
 
       if (!allStudentIds || allStudentIds.length === 0) return;
 
@@ -229,12 +240,14 @@ const HomeroomDashboard = () => {
       const { data: grades } = await supabase
         .from("grades")
         .select("grade, student_id")
-        .in("student_id", studentIds);
+        .in("student_id", studentIds)
+        .eq("school_id", schoolId);
 
       const { data: attendance } = await supabase
         .from("attendance")
         .select("status, student_id")
-        .in("student_id", studentIds);
+        .in("student_id", studentIds)
+        .eq("school_id", schoolId);
 
       const totalGrades = grades?.length || 0;
 
