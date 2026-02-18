@@ -45,6 +45,13 @@ interface DataTableProps<T> {
   className?: string;
   /** Row click handler */
   onRowClick?: (row: T) => void;
+  /** Server-side pagination */
+  serverSidePagination?: {
+    total: number;
+    page: number;
+    pageSize: number;
+    onPageChange: (page: number) => void;
+  };
 }
 
 type SortDir = "asc" | "desc" | null;
@@ -92,10 +99,18 @@ export function DataTable<T>({
     });
   }, [filtered, sortKey, sortDir, columns]);
 
-  const totalPages =
-    pageSize > 0 ? Math.max(1, Math.ceil(sorted.length / pageSize)) : 1;
-  const paginated =
-    pageSize > 0 ? sorted.slice(page * pageSize, (page + 1) * pageSize) : sorted;
+  // Use server-side pagination if provided, otherwise client-side
+  const totalPages = serverSidePagination
+    ? Math.max(1, Math.ceil(serverSidePagination.total / serverSidePagination.pageSize))
+    : pageSize > 0
+    ? Math.max(1, Math.ceil(sorted.length / pageSize))
+    : 1;
+  
+  const paginated = serverSidePagination
+    ? data // Server-side: data is already paginated
+    : pageSize > 0
+    ? sorted.slice(page * pageSize, (page + 1) * pageSize)
+    : sorted;
 
   const handleSort = (key: string) => {
     if (sortKey === key) {
@@ -108,7 +123,18 @@ export function DataTable<T>({
       setSortKey(key);
       setSortDir("asc");
     }
-    setPage(0);
+    const newPage = 0;
+    setPage(newPage);
+    if (serverSidePagination) {
+      serverSidePagination.onPageChange(newPage);
+    }
+  };
+
+  const handlePageChange = (newPage: number) => {
+    setPage(newPage);
+    if (serverSidePagination) {
+      serverSidePagination.onPageChange(newPage);
+    }
   };
 
   if (loading) {
@@ -219,17 +245,20 @@ export function DataTable<T>({
         </Table>
       </div>
 
-      {pageSize > 0 && totalPages > 1 && (
+      {(pageSize > 0 || serverSidePagination) && totalPages > 1 && (
         <div className="flex items-center justify-between px-4 py-3 border-t border-border">
           <p className="text-sm text-muted-foreground">
-            {sorted.length} rezultate • Pagina {page + 1} din {totalPages}
+            {serverSidePagination
+              ? `${serverSidePagination.total} rezultate`
+              : `${sorted.length} rezultate`}{" "}
+            • Pagina {page + 1} din {totalPages}
           </p>
           <div className="flex gap-2">
             <Button
               variant="outline"
               size="sm"
               disabled={page === 0}
-              onClick={() => setPage(page - 1)}
+              onClick={() => handlePageChange(page - 1)}
             >
               Anterior
             </Button>
@@ -237,7 +266,7 @@ export function DataTable<T>({
               variant="outline"
               size="sm"
               disabled={page >= totalPages - 1}
-              onClick={() => setPage(page + 1)}
+              onClick={() => handlePageChange(page + 1)}
             >
               Următor
             </Button>
