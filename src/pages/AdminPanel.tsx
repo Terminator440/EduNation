@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useTransition, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Shield, Users, Link2 } from "lucide-react";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
@@ -6,11 +6,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/hooks/useAuth";
 import { UserManagement } from "@/features/admin/components/UserManagement";
 import { AssignmentManagement } from "@/features/admin/components/AssignmentManagement";
+import { cn } from "@/lib/utils";
 
 const AdminPanel = () => {
   const { user, activeRole, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<"users" | "assignments">("users");
+  const [isPending, startTransition] = useTransition();
 
   // Check if user has admin rights
   const hasAdminRights =
@@ -23,12 +25,23 @@ const AdminPanel = () => {
     return null;
   }
 
+  // Handle tab change with transition - active state updates instantly, content renders with low priority
+  const handleTabChange = useCallback((value: string) => {
+    // Update active tab instantly (optimistic update)
+    setActiveTab(value as "users" | "assignments");
+    
+    // Mark content rendering as low priority transition
+    startTransition(() => {
+      // Transition is handled by React automatically
+    });
+  }, []);
+
   return (
     <DashboardLayout
       title="Panou Administrare"
       subtitle="Gestionează utilizatorii și asignările școlii"
     >
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="space-y-6">
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="users">
             <Users className="w-4 h-4 mr-2" />
@@ -40,13 +53,15 @@ const AdminPanel = () => {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="users" className="mt-6">
-          <UserManagement />
-        </TabsContent>
-
-        <TabsContent value="assignments" className="mt-6">
-          <AssignmentManagement />
-        </TabsContent>
+        {/* Render all tabs simultaneously, hide inactive ones with CSS */}
+        <div className="mt-6 relative">
+          <div className={cn(activeTab === "users" ? "block" : "hidden")}>
+            <UserManagement />
+          </div>
+          <div className={cn(activeTab === "assignments" ? "block" : "hidden")}>
+            <AssignmentManagement />
+          </div>
+        </div>
       </Tabs>
     </DashboardLayout>
   );

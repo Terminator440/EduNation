@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, memo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Users, Plus, Mail, Trash2, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -25,7 +25,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuditLog, AUDIT_ACTIONS } from "@/hooks/useAuditLog";
 
-export function UserManagement() {
+const UserManagementBase = () => {
   const { user: currentUser, profile } = useAuth();
   const queryClient = useQueryClient();
   const { logAction } = useAuditLog();
@@ -404,4 +404,6 @@ export function UserManagement() {
 
     </div>
   );
-}
+};
+
+export const UserManagement = memo(UserManagementBase);

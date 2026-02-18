@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, memo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Users, Link2, BookOpen, GraduationCap } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -56,7 +56,7 @@ type ParentStudentRelation = {
   student_name: string;
 };
 
-export function AssignmentManagement() {
+const AssignmentManagementBase = () => {
   const { profile } = useAuth();
   const queryClient = useQueryClient();
   const { logAction } = useAuditLog();
@@ -510,4 +510,6 @@ export function AssignmentManagement() {
       </Tabs>
     </div>
   );
-}
+};
+
+export const AssignmentManagement = memo(AssignmentManagementBase);

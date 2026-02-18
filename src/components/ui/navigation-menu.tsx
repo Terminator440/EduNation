@@ -5,7 +5,9 @@ import { ChevronDown } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
-const NavigationMenu = React.forwardRef<
+// Base component for the navigation menu; wrapped in React.memo below to avoid
+// unnecessary re-renders when surrounding layout/content changes.
+const NavigationMenuBase = React.forwardRef<
   React.ElementRef<typeof NavigationMenuPrimitive.Root>,
   React.ComponentPropsWithoutRef<typeof NavigationMenuPrimitive.Root>
 >(({ className, children, ...props }, ref) => (
@@ -18,7 +20,9 @@ const NavigationMenu = React.forwardRef<
     <NavigationMenuViewport />
   </NavigationMenuPrimitive.Root>
 ));
-NavigationMenu.displayName = NavigationMenuPrimitive.Root.displayName;
+NavigationMenuBase.displayName = NavigationMenuPrimitive.Root.displayName;
+
+const NavigationMenu = React.memo(NavigationMenuBase);
 
 const NavigationMenuList = React.forwardRef<
   React.ElementRef<typeof NavigationMenuPrimitive.List>,
