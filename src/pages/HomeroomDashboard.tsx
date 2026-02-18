@@ -741,16 +741,28 @@ const HomeroomDashboard = () => {
                 />
                 <StatsCard
                   title="Media Clasei"
-                  value={classStats.averageGrade > 0 ? classStats.averageGrade.toFixed(2) : "—"}
-                  subtitle={classStats.averageGrade > 0 ? `Din ${classStats.totalGrades} note` : "Fără note"}
+                  value={
+                    classStats.averageGrade > 0 ? (
+                      <span className={cn(
+                        "font-semibold",
+                        classStats.averageGrade < 5 ? "text-destructive" :
+                        classStats.averageGrade >= 9 ? "text-success" :
+                        classStats.averageGrade >= 7 ? "text-primary" :
+                        "text-warning"
+                      )}>
+                        {classStats.averageGrade.toFixed(2)}
+                      </span>
+                    ) : "—"
+                  }
+                  subtitle={classStats.averageGrade > 0 ? `Din ${classStats.totalGrades ?? 0} note` : "Fără note"}
                   icon={TrendingUp}
                   variant="accent"
                   showIcon={classStats.averageGrade > 0}
                 />
                 <StatsCard
                   title="Absențe"
-                  value={classStats.totalAbsences.toString()}
-                  subtitle={`${classStats.motivatedAbsences} motivate`}
+                  value={(classStats.totalAbsences ?? 0).toString()}
+                  subtitle={`${classStats.motivatedAbsences ?? 0} motivate`}
                   icon={XCircle}
                   variant="warning"
                 />

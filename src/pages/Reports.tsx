@@ -606,7 +606,17 @@ const Reports = () => {
                                 <TableRow key={g.id}>
                                   <TableCell>{g.date}</TableCell>
                                   <TableCell>{g.subjects?.name ?? "—"}</TableCell>
-                                  <TableCell>{g.grade}</TableCell>
+                                  <TableCell>
+                                    <span className={cn(
+                                      "font-semibold",
+                                      g.grade < 5 ? "text-destructive" :
+                                      g.grade >= 9 ? "text-success" :
+                                      g.grade >= 7 ? "text-primary" :
+                                      "text-warning"
+                                    )}>
+                                      {g.grade}
+                                    </span>
+                                  </TableCell>
                                 </TableRow>
                               ))}
                               {selectedGrades.length === 0 && (
@@ -630,8 +640,22 @@ const Reports = () => {
                     {/* Class report */}
                     <div className="border border-border rounded-xl p-4">
                       <h3 className="font-semibold">Situație clasă</h3>
-                      <p className="text-sm text-muted-foreground">Medie (interval): {classStats.avg == null ? "—" : classStats.avg.toFixed(2)}</p>
-                      <p className="text-sm text-muted-foreground">Absențe: {classStats.absences} • Motivate: {classStats.motivated}</p>
+                      <p className="text-sm text-muted-foreground">
+                        Medie (interval): {classStats.avg == null ? "—" : (
+                          <span className={cn(
+                            "font-semibold",
+                            classStats.avg < 5 ? "text-destructive" :
+                            classStats.avg >= 9 ? "text-success" :
+                            classStats.avg >= 7 ? "text-primary" :
+                            "text-warning"
+                          )}>
+                            {classStats.avg.toFixed(2)}
+                          </span>
+                        )}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        Absențe: {classStats.absences ?? 0} • Motivate: {classStats.motivated ?? 0}
+                      </p>
 
                       <div className="rounded-lg border border-border overflow-x-auto mt-3">
                         <Table>

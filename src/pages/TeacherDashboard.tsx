@@ -14,6 +14,8 @@ import { fetchGradesForStudents } from "@/features/grades/services/grades.servic
 import { fetchAttendanceForStudents } from "@/features/attendance/services/attendance.service";
 import type { GradeRow } from "@/features/grades/services/grades.service";
 import type { AttendanceRow } from "@/features/attendance/services/attendance.service";
+import { useAddGrade, useUpdateGrade, useDeleteGrade } from "@/features/grades/queries";
+import { useAddAttendance, useUpdateAttendance } from "@/features/attendance/queries";
 import { CreateInvitationDialog } from "@/components/invitations/CreateInvitationDialog";
 import {
   listInvitations,
@@ -127,6 +129,11 @@ const TeacherDashboard = () => {
   const { user, activeRole, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const addGradeMutation = useAddGrade();
+  const updateGradeMutation = useUpdateGrade();
+  const deleteGradeMutation = useDeleteGrade();
+  const addAttendanceMutation = useAddAttendance();
+  const updateAttendanceMutation = useUpdateAttendance();
 
   useEffect(() => {
     if (!authLoading && (!user || (activeRole !== 'teacher' && activeRole !== 'homeroom_teacher'))) {
@@ -417,43 +424,31 @@ const TeacherDashboard = () => {
       return;
     }
 
-    const gradeValue = parseFloat(newGrade.grade);
-    if (gradeValue < 1 || gradeValue > 10) {
+    const gradeValue = Math.round(parseFloat(newGrade.grade));
+    if (gradeValue < 1 || gradeValue > 10 || !Number.isInteger(gradeValue)) {
       toast({
         title: "Eroare",
-        description: "Nota trebuie să fie între 1 și 10",
+        description: "Nota trebuie să fie un număr întreg între 1 și 10",
         variant: "destructive",
       });
       return;
     }
 
     try {
-      const { error } = await supabase.from('grades').insert({
+      await addGradeMutation.mutateAsync({
         student_id: selectedStudent.id,
         subject_id: newGrade.subjectId,
         grade: gradeValue,
         description: newGrade.description || null,
-        teacher_id: user?.id,
         date: new Date().toISOString().split('T')[0],
-      });
-
-      if (error) throw error;
-
-      toast({
-        title: "Notă adăugată",
-        description: `Nota ${gradeValue} a fost adăugată pentru ${selectedStudent.full_name || selectedStudent.profile?.full_name}`,
       });
 
       setIsAddGradeOpen(false);
       setNewGrade({ grade: "", subjectId: "", description: "" });
       fetchData();
     } catch (error) {
+      // Error is already handled by the mutation hook with toast
       console.error('Error adding grade:', error);
-      toast({
-        title: "Eroare",
-        description: "Nu s-a putut adăuga nota",
-        variant: "destructive",
-      });
     }
   };
 
@@ -468,25 +463,19 @@ const TeacherDashboard = () => {
     }
 
     try {
-      const { error } = await supabase.from('attendance').insert({
+      await addAttendanceMutation.mutateAsync({
         student_id: selectedStudent.id,
         subject_id: newAttendance.subjectId,
         status: newAttendance.status,
-        teacher_id: user?.id,
+        is_excused: newAttendance.status === 'motivat' || newAttendance.status === 'motivated',
         date: new Date().toISOString().split('T')[0],
-      });
-
-      if (error) throw error;
-
-      toast({
-        title: "Prezență înregistrată",
-        description: `Statusul "${newAttendance.status}" a fost înregistrat pentru ${selectedStudent.full_name || selectedStudent.profile?.full_name}`,
       });
 
       setIsAddAttendanceOpen(false);
       setNewAttendance({ status: "present", subjectId: "" });
       fetchData();
     } catch (error: unknown) {
+      // Error is already handled by the mutation hook with toast
       const code = typeof error === "object" && error !== null && "code" in error ? (error as { code?: string }).code : undefined;
       if (code === '23505') {
         toast({
@@ -494,13 +483,8 @@ const TeacherDashboard = () => {
           description: "Prezența pentru această dată și materie a fost deja înregistrată",
           variant: "destructive",
         });
-      } else {
-        toast({
-          title: "Eroare",
-          description: "Nu s-a putut înregistra prezența",
-          variant: "destructive",
-        });
       }
+      console.error('Error adding attendance:', error);
     }
   };
 
@@ -803,10 +787,11 @@ const TeacherDashboard = () => {
                                     type="number"
                                     min="1"
                                     max="10"
-                                    step="0.01"
+                                    step="1"
                                     value={newGrade.grade}
                                     onChange={(e) => setNewGrade(p => ({ ...p, grade: e.target.value }))}
                                     className="mt-1"
+                                    placeholder="1-10 (număr întreg)"
                                   />
                                 </div>
                                 <div>
@@ -818,8 +803,12 @@ const TeacherDashboard = () => {
                                     className="mt-1"
                                   />
                                 </div>
-                                <Button onClick={handleAddGrade} className="w-full">
-                                  Salvează nota
+                                <Button 
+                                  onClick={handleAddGrade} 
+                                  className="w-full"
+                                  disabled={addGradeMutation.isPending}
+                                >
+                                  {addGradeMutation.isPending ? "Se salvează..." : "Salvează nota"}
                                 </Button>
                               </div>
                             </DialogContent>

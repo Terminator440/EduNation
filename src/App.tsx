@@ -23,6 +23,7 @@ const TeacherDashboard = lazy(() => import("./pages/TeacherDashboard"));
 const SecretariatDashboard = lazy(() => import("./pages/SecretariatDashboard"));
 const DirectorDashboard = lazy(() => import("./pages/DirectorDashboard"));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
+const AdminPanel = lazy(() => import("./pages/AdminPanel"));
 const HomeroomDashboard = lazy(() => import("./pages/HomeroomDashboard"));
 const ParentDashboard = lazy(() => import("./pages/ParentDashboard"));
 const Grades = lazy(() => import("./pages/Grades"));
@@ -128,6 +129,7 @@ const App = () => (
               <Route path="/secretariat" element={<PR roles={["secretariat", "director"]}><SecretariatDashboard /></PR>} />
               <Route path="/director" element={<PR roles={["director"]}><DirectorDashboard /></PR>} />
               <Route path="/admin" element={<PR roles={["uat_admin"]}><AdminDashboard /></PR>} />
+              <Route path="/admin-panel" element={<PR roles={["director", "secretariat"]}><AdminPanel /></PR>} />
 
               {/* Developer */}
               <Route path="/developer" element={<PR roles={["developer"]}><Developer /></PR>} />
