@@ -41,8 +41,11 @@ const TabsContent = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <TabsPrimitive.Content
     ref={ref}
+    forceMount // Keep all tabs rendered in DOM, hide inactive ones with CSS for better mobile performance
     className={cn(
       "mt-2 ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+      // Hide inactive tabs with CSS instead of unmounting
+      "data-[state=inactive]:hidden",
       className,
     )}
     {...props}
