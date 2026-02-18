@@ -56,7 +56,11 @@ type ParentStudentRelation = {
   student_name: string;
 };
 
-const AssignmentManagementBase = () => {
+interface AssignmentManagementProps {
+  isActive?: boolean;
+}
+
+const AssignmentManagementBase = ({ isActive = true }: AssignmentManagementProps) => {
   const { profile } = useAuth();
   const queryClient = useQueryClient();
   const { logAction } = useAuditLog();
@@ -78,79 +82,84 @@ const AssignmentManagementBase = () => {
   const [students, setStudents] = useState<Student[]>([]);
   const [parents, setParents] = useState<UserWithRoles[]>([]);
 
-  // Fetch teachers
+  // Fetch teachers - only when tab is active
   useEffect(() => {
+    if (!isActive) return;
+    
     fetchUsers(0, 1000).then(({ users }) => {
       setTeachers(users.filter((u) => u.roles.includes("teacher") || u.roles.includes("homeroom_teacher")));
     });
-  }, []);
+  }, [isActive]);
 
-  // Fetch parents
+  // Fetch parents - only when tab is active
   useEffect(() => {
+    if (!isActive) return;
+    
     fetchUsers(0, 1000).then(({ users }) => {
       setParents(users.filter((u) => u.roles.includes("parent")));
     });
-  }, []);
+  }, [isActive]);
 
-  // Fetch subjects
+  // Fetch subjects - only when tab is active
   useEffect(() => {
-    if (profile?.school_id) {
-      supabase
-        .from("subjects")
-        .select(`
-          id,
-          name,
-          class_id,
-          teacher_id,
-          classes(name, year, section),
-          profiles:teacher_id(full_name)
-        `)
-        .eq("school_id", profile.school_id)
-        .then(({ data }) => {
-          setSubjects(
-            (data || []).map((s: any) => ({
-              id: s.id,
-              name: s.name,
-              class_id: s.class_id,
-              teacher_id: s.teacher_id,
-              teacher_name: s.profiles?.full_name || null,
-              class_name: s.classes ? `${s.classes.name} (${s.classes.year}${s.classes.section})` : null,
-            }))
-          );
-        });
-    }
-  }, [profile?.school_id]);
+    if (!isActive || !profile?.school_id) return;
+    
+    supabase
+      .from("subjects")
+      .select(`
+        id,
+        name,
+        class_id,
+        teacher_id,
+        classes(name, year, section),
+        profiles:teacher_id(full_name)
+      `)
+      .eq("school_id", profile.school_id)
+      .then(({ data }) => {
+        setSubjects(
+          (data || []).map((s: any) => ({
+            id: s.id,
+            name: s.name,
+            class_id: s.class_id,
+            teacher_id: s.teacher_id,
+            teacher_name: s.profiles?.full_name || null,
+            class_name: s.classes ? `${s.classes.name} (${s.classes.year}${s.classes.section})` : null,
+          }))
+        );
+      });
+  }, [profile?.school_id, isActive]);
 
-  // Fetch students
+  // Fetch students - only when tab is active
   useEffect(() => {
-    if (profile?.school_id) {
-      supabase
-        .from("students")
-        .select(`
-          id,
-          full_name,
-          student_number,
-          class_id,
-          classes(name, year, section)
-        `)
-        .eq("school_id", profile.school_id)
-        .then(({ data }) => {
-          setStudents(
-            (data || []).map((s: any) => ({
-              id: s.id,
-              full_name: s.full_name,
-              student_number: s.student_number,
-              class_id: s.class_id,
-              class_name: s.classes ? `${s.classes.name} (${s.classes.year}${s.classes.section})` : null,
-            }))
-          );
-        });
-    }
-  }, [profile?.school_id]);
+    if (!isActive || !profile?.school_id) return;
+    
+    supabase
+      .from("students")
+      .select(`
+        id,
+        full_name,
+        student_number,
+        class_id,
+        classes(name, year, section)
+      `)
+      .eq("school_id", profile.school_id)
+      .then(({ data }) => {
+        setStudents(
+          (data || []).map((s: any) => ({
+            id: s.id,
+            full_name: s.full_name,
+            student_number: s.student_number,
+            class_id: s.class_id,
+            class_name: s.classes ? `${s.classes.name} (${s.classes.year}${s.classes.section})` : null,
+          }))
+        );
+      });
+  }, [profile?.school_id, isActive]);
 
-  // Fetch parent-student relations
+  // Fetch parent-student relations - only when tab is active
   const relationsQuery = useQuery({
     queryKey: ["parent-student-relations"],
+    enabled: isActive && !!profile?.school_id, // Only fetch when tab is active
     queryFn: async (): Promise<ParentStudentRelation[]> => {
       if (!profile?.school_id) return [];
 

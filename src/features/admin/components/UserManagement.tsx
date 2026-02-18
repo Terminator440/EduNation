@@ -25,7 +25,11 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuditLog, AUDIT_ACTIONS } from "@/hooks/useAuditLog";
 
-const UserManagementBase = () => {
+interface UserManagementProps {
+  isActive?: boolean;
+}
+
+const UserManagementBase = ({ isActive = true }: UserManagementProps) => {
   const { user: currentUser, profile } = useAuth();
   const queryClient = useQueryClient();
   const { logAction } = useAuditLog();
@@ -46,26 +50,28 @@ const UserManagementBase = () => {
   const [classes, setClasses] = useState<{ id: string; name: string }[]>([]);
   const [students, setStudents] = useState<{ id: string; full_name: string }[]>([]);
 
-  // Fetch classes for student/parent invitations
+  // Fetch classes for student/parent invitations - only when tab is active
   useEffect(() => {
-    if (profile?.school_id) {
-      supabase
-        .from("classes")
-        .select("id, name, year, section")
-        .eq("school_id", profile.school_id)
-        .then(({ data }) => {
-          setClasses(
-            (data || []).map((c) => ({
-              id: c.id,
-              name: `${c.name} (${c.year}${c.section})`,
-            }))
-          );
-        });
-    }
-  }, [profile?.school_id]);
+    if (!isActive || !profile?.school_id) return;
+    
+    supabase
+      .from("classes")
+      .select("id, name, year, section")
+      .eq("school_id", profile.school_id)
+      .then(({ data }) => {
+        setClasses(
+          (data || []).map((c) => ({
+            id: c.id,
+            name: `${c.name} (${c.year}${c.section})`,
+          }))
+        );
+      });
+  }, [profile?.school_id, isActive]);
 
-  // Fetch students when class is selected for parent invitation
+  // Fetch students when class is selected for parent invitation - only when tab is active
   useEffect(() => {
+    if (!isActive) return;
+    
     if (newUser.class_id && newUser.role === "parent") {
       supabase
         .from("students")
@@ -77,11 +83,12 @@ const UserManagementBase = () => {
     } else {
       setStudents([]);
     }
-  }, [newUser.class_id, newUser.role]);
+  }, [newUser.class_id, newUser.role, isActive]);
 
   const usersQuery = useQuery({
     queryKey: ["admin-users", page, pageSize, search],
     queryFn: () => fetchUsers(page, pageSize, search),
+    enabled: isActive, // Only fetch when tab is active
   });
 
   const inviteMutation = useMutation({

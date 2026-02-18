@@ -52,15 +52,10 @@ const Attendance = () => {
 
   const filteredAttendance = filter === "all" ? uiRows : uiRows.filter(a => a.status === filter);
 
+  const isLoading = scopeQuery.isLoading || attendanceQuery.isLoading;
+
   return (
     <DashboardLayout title="Prezența mea" subtitle="Înregistrarea prezenței la cursuri">
-      {(scopeQuery.isLoading || attendanceQuery.isLoading) && (
-        <div className="space-y-4 mb-8">
-          <Skeleton className="h-24 w-full rounded-2xl" />
-          <Skeleton className="h-64 w-full rounded-2xl" />
-        </div>
-      )}
-
       {(scopeQuery.isError || attendanceQuery.isError) && (
         <Alert variant="destructive" className="mb-8">
           <AlertTitle>Eroare</AlertTitle>
@@ -70,26 +65,38 @@ const Attendance = () => {
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
-        <div className="bg-card rounded-2xl p-5 border border-border">
-          <p className="text-sm text-muted-foreground">Rata prezență</p>
-          <p className="text-2xl font-bold text-success mt-1">{attendanceRate}%</p>
-        </div>
-        <div className="bg-card rounded-2xl p-5 border border-border">
-          <p className="text-sm text-muted-foreground">Prezențe</p>
-          <p className="text-2xl font-bold text-foreground mt-1">{presentCount}</p>
-        </div>
-        <div className="bg-card rounded-2xl p-5 border border-border">
-          <p className="text-sm text-muted-foreground">Absențe</p>
-          <p className="text-2xl font-bold text-destructive mt-1">{absentCount}</p>
-        </div>
-        <div className="bg-card rounded-2xl p-5 border border-border">
-          <p className="text-sm text-muted-foreground">Întârzieri</p>
-          <p className="text-2xl font-bold text-warning mt-1">{lateCount}</p>
-        </div>
-        <div className="bg-card rounded-2xl p-5 border border-border">
-          <p className="text-sm text-muted-foreground">Motivate</p>
-          <p className="text-2xl font-bold text-primary mt-1">{excusedCount}</p>
-        </div>
+        {isLoading ? (
+          // Skeleton for stats cards
+          Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="bg-card rounded-2xl p-5 border border-border">
+              <Skeleton className="h-4 w-24 mb-3" />
+              <Skeleton className="h-8 w-16" />
+            </div>
+          ))
+        ) : (
+          <>
+            <div className="bg-card rounded-2xl p-5 border border-border">
+              <p className="text-sm text-muted-foreground">Rata prezență</p>
+              <p className="text-2xl font-bold text-success mt-1">{attendanceRate}%</p>
+            </div>
+            <div className="bg-card rounded-2xl p-5 border border-border">
+              <p className="text-sm text-muted-foreground">Prezențe</p>
+              <p className="text-2xl font-bold text-foreground mt-1">{presentCount}</p>
+            </div>
+            <div className="bg-card rounded-2xl p-5 border border-border">
+              <p className="text-sm text-muted-foreground">Absențe</p>
+              <p className="text-2xl font-bold text-destructive mt-1">{absentCount}</p>
+            </div>
+            <div className="bg-card rounded-2xl p-5 border border-border">
+              <p className="text-sm text-muted-foreground">Întârzieri</p>
+              <p className="text-2xl font-bold text-warning mt-1">{lateCount}</p>
+            </div>
+            <div className="bg-card rounded-2xl p-5 border border-border">
+              <p className="text-sm text-muted-foreground">Motivate</p>
+              <p className="text-2xl font-bold text-primary mt-1">{excusedCount}</p>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Filter */}
@@ -120,27 +127,45 @@ const Attendance = () => {
           <h3 className="text-lg font-semibold text-foreground">Istoric prezență</h3>
         </div>
         <div className="divide-y divide-border">
-          {filteredAttendance.map((record) => {
-            const config = statusConfig[record.status];
-            const Icon = config.icon;
-            return (
-              <div key={record.id} className="p-4 hover:bg-secondary/30 transition-colors flex items-center gap-4">
-                <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center", config.color)}>
-                  <Icon className="w-5 h-5" />
+          {isLoading ? (
+            // Skeleton for attendance list items
+            Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="p-4 flex items-center gap-4">
+                <Skeleton className="w-10 h-10 rounded-xl" />
+                <div className="flex-1 space-y-2">
+                  <Skeleton className="h-4 w-48" />
+                  <Skeleton className="h-3 w-32" />
                 </div>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium text-foreground">{record.subject}</span>
-                    <span className={cn("w-2 h-2 rounded-full", config.dot)} />
-                    <span className={cn("text-sm", config.color.split(" ")[1])}>{config.label}</span>
+                <Skeleton className="h-4 w-24" />
+              </div>
+            ))
+          ) : filteredAttendance.length === 0 ? (
+            <div className="p-8 text-center text-muted-foreground text-sm">
+              Nu există înregistrări de prezență pentru filtrele selectate.
+            </div>
+          ) : (
+            filteredAttendance.map((record) => {
+              const config = statusConfig[record.status];
+              const Icon = config.icon;
+              return (
+                <div key={record.id} className="p-4 hover:bg-secondary/30 transition-colors flex items-center gap-4">
+                  <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center", config.color)}>
+                    <Icon className="w-5 h-5" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-foreground">{record.subject}</span>
+                      <span className={cn("w-2 h-2 rounded-full", config.dot)} />
+                      <span className={cn("text-sm", config.color.split(" ")[1])}>{config.label}</span>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm text-muted-foreground">{record.date}</p>
                   </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-sm text-muted-foreground">{record.date}</p>
-                </div>
-              </div>
-            );
-          })}
+              );
+            })
+          )}
         </div>
       </div>
     </DashboardLayout>

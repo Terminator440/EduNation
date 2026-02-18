@@ -56,10 +56,10 @@ const AdminPanel = () => {
         {/* Render all tabs simultaneously, hide inactive ones with CSS */}
         <div className="mt-6 relative">
           <div className={cn(activeTab === "users" ? "block" : "hidden")}>
-            <UserManagement />
+            <UserManagement isActive={activeTab === "users"} />
           </div>
           <div className={cn(activeTab === "assignments" ? "block" : "hidden")}>
-            <AssignmentManagement />
+            <AssignmentManagement isActive={activeTab === "assignments"} />
           </div>
         </div>
       </Tabs>

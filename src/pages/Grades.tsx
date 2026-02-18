@@ -126,13 +126,6 @@ const Grades = () => {
 
   return (
     <DashboardLayout title="Notele mele" subtitle="Situația școlară completă">
-      {isLoading && (
-        <div className="space-y-4 mb-8">
-          <Skeleton className="h-24 w-full rounded-2xl" />
-          <Skeleton className="h-64 w-full rounded-2xl" />
-        </div>
-      )}
-
       {isError && (
         <div className="mb-8 rounded-xl border border-destructive/50 bg-destructive/10 p-4 text-destructive">
           Nu am putut încărca notele. Verifică dacă ești autentificat.
@@ -141,59 +134,79 @@ const Grades = () => {
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <div className="bg-card rounded-2xl p-6 border border-border">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">Media Generală</p>
-              <div className="flex items-baseline gap-2">
-                <p className={cn("text-3xl font-bold mt-1", getAverageColor(generalAverage))}>
-                  {generalAverage.toFixed(2)}
-                </p>
-                <span className={cn("text-xs font-medium flex items-center", trend === "up" ? "text-success" : "text-destructive")}>
-                  {trend === "up" ? <TrendingUp className="w-3 h-3 mr-0.5" /> : <TrendingDown className="w-3 h-3 mr-0.5" />}
-                  +0.2
-                </span>
+        {isLoading ? (
+          // Skeleton for stats cards
+          <>
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="bg-card rounded-2xl p-6 border border-border">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <Skeleton className="h-4 w-24 mb-3" />
+                    <Skeleton className="h-8 w-16 mb-2" />
+                    <Skeleton className="h-3 w-12" />
+                  </div>
+                  <Skeleton className="w-12 h-12 rounded-xl" />
+                </div>
+              </div>
+            ))}
+          </>
+        ) : (
+          <>
+            <div className="bg-card rounded-2xl p-6 border border-border">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Media Generală</p>
+                  <div className="flex items-baseline gap-2">
+                    <p className={cn("text-3xl font-bold mt-1", getAverageColor(generalAverage))}>
+                      {generalAverage.toFixed(2)}
+                    </p>
+                    <span className={cn("text-xs font-medium flex items-center", trend === "up" ? "text-success" : "text-destructive")}>
+                      {trend === "up" ? <TrendingUp className="w-3 h-3 mr-0.5" /> : <TrendingDown className="w-3 h-3 mr-0.5" />}
+                      +0.2
+                    </span>
+                  </div>
+                </div>
+                <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center", generalAverage >= 5 ? "bg-primary/10" : "bg-destructive/10")}>
+                  <Award className={cn("w-6 h-6", generalAverage >= 5 ? "text-primary" : "text-destructive")} />
+                </div>
               </div>
             </div>
-            <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center", generalAverage >= 5 ? "bg-primary/10" : "bg-destructive/10")}>
-              <Award className={cn("w-6 h-6", generalAverage >= 5 ? "text-primary" : "text-destructive")} />
+            <div className="bg-card rounded-2xl p-6 border border-border">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Total Note</p>
+                  <p className="text-3xl font-bold text-foreground mt-1">{totalGrades}</p>
+                </div>
+                <div className="w-12 h-12 rounded-xl bg-accent/10 flex items-center justify-center">
+                  <BookOpen className="w-6 h-6 text-accent" />
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-        <div className="bg-card rounded-2xl p-6 border border-border">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">Total Note</p>
-              <p className="text-3xl font-bold text-foreground mt-1">{totalGrades}</p>
+            <div className="bg-card rounded-2xl p-6 border border-border">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Cea mai bună materie</p>
+                  <p className="text-xl font-bold text-foreground mt-1">{bestSubject.subject}</p>
+                  <p className="text-sm text-success">{bestSubject.average.toFixed(2)}</p>
+                </div>
+                <div className="w-12 h-12 rounded-xl bg-success/10 flex items-center justify-center">
+                  <Award className="w-6 h-6 text-success" />
+                </div>
+              </div>
             </div>
-            <div className="w-12 h-12 rounded-xl bg-accent/10 flex items-center justify-center">
-              <BookOpen className="w-6 h-6 text-accent" />
+            <div className="bg-card rounded-2xl p-6 border border-border">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Materii</p>
+                  <p className="text-3xl font-bold text-foreground mt-1">{gradesBySubject.length}</p>
+                </div>
+                <div className="w-12 h-12 rounded-xl bg-warning/10 flex items-center justify-center">
+                  <TrendingDown className="w-6 h-6 text-warning" />
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-        <div className="bg-card rounded-2xl p-6 border border-border">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">Cea mai bună materie</p>
-              <p className="text-xl font-bold text-foreground mt-1">{bestSubject.subject}</p>
-              <p className="text-sm text-success">{bestSubject.average.toFixed(2)}</p>
-            </div>
-            <div className="w-12 h-12 rounded-xl bg-success/10 flex items-center justify-center">
-              <Award className="w-6 h-6 text-success" />
-            </div>
-          </div>
-        </div>
-        <div className="bg-card rounded-2xl p-6 border border-border">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">Materii</p>
-              <p className="text-3xl font-bold text-foreground mt-1">{gradesBySubject.length}</p>
-            </div>
-            <div className="w-12 h-12 rounded-xl bg-warning/10 flex items-center justify-center">
-              <TrendingDown className="w-6 h-6 text-warning" />
-            </div>
-          </div>
-        </div>
+          </>
+        )}
       </div>
 
       {/* Table */}
