@@ -1,9 +1,21 @@
 # CI: lint, build, și teste de integrare de securitate (RLS).
-# Pentru a bloca merge-uri când securitatea DB e compromisă, adaugă în GitHub:
+#
+# OBLIGATORIU pentru merge: Configurați în GitHub:
 #   Settings → Secrets and variables → Actions → Secrets:
-#   - VITE_SUPABASE_URL, VITE_SUPABASE_PUBLISHABLE_KEY (obligatorii pentru rularea testelor de integrare)
-#   - opțional: VITE_TEST_* (elev, profesor, părinte, director, profesor școala B)
-# Fără VITE_SUPABASE_*, testele de integrare sunt skip; cu ele, trebuie să treacă.
+#   - VITE_SUPABASE_URL        (URL-ul proiectului Supabase, ex: https://xxx.supabase.co)
+#   - VITE_SUPABASE_PUBLISHABLE_KEY (anon/public key din Supabase Dashboard)
+#
+# Opțional (pentru acoperire completă a testelor):
+#   - VITE_TEST_STUDENT_EMAIL / VITE_TEST_STUDENT_PASSWORD
+#   - VITE_TEST_TEACHER_EMAIL / VITE_TEST_TEACHER_PASSWORD
+#   - VITE_TEST_PARENT_EMAIL / VITE_TEST_PARENT_PASSWORD
+#   - VITE_TEST_TEACHER_SCHOOL_B_EMAIL / VITE_TEST_TEACHER_SCHOOL_B_PASSWORD
+#   - VITE_TEST_DIRECTOR_EMAIL / VITE_TEST_DIRECTOR_PASSWORD
+#
+# Protecție branch: Settings → Branches → Add rule for main:
+#   - Require status checks: build-and-lint, security-integration-tests
+#   - Fără aceste verificări trecute, niciun PR nu poate fi îmbinat.
+#
 name: CI
 
 on:
@@ -35,7 +47,7 @@ jobs:
 
       - name: Build
         env:
-          # Dummy values for CI build (client validates presence)
+          # Dummy values for CI build (client validates presence only)
           VITE_SUPABASE_URL: https://example.supabase.co
           VITE_SUPABASE_PUBLISHABLE_KEY: dummy
         run: bun run build
@@ -43,8 +55,10 @@ jobs:
   security-integration-tests:
     runs-on: ubuntu-latest
     env:
+      # Secrete injectate – fără ele job-ul eșuează; nicio modificare nu poate fi îmbinată
       VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
       VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+      # Opțional: credențiale pentru teste complete
       VITE_TEST_STUDENT_EMAIL: ${{ secrets.VITE_TEST_STUDENT_EMAIL }}
       VITE_TEST_STUDENT_PASSWORD: ${{ secrets.VITE_TEST_STUDENT_PASSWORD }}
       VITE_TEST_TEACHER_EMAIL: ${{ secrets.VITE_TEST_TEACHER_EMAIL }}
@@ -59,6 +73,16 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Verify Supabase secrets are configured
+        run: |
+          if [ -z "$VITE_SUPABASE_URL" ] || [ -z "$VITE_SUPABASE_PUBLISHABLE_KEY" ]; then
+            echo "::error::VITE_SUPABASE_URL și VITE_SUPABASE_PUBLISHABLE_KEY trebuie configurate ca repository secrets."
+            echo "Adăugați-le în: Settings → Secrets and variables → Actions → New repository secret"
+            echo "Fără aceste secrete, testele de securitate nu pot rula și niciun PR nu poate fi îmbinat."
+            exit 1
+          fi
+          echo "✓ Secrete Supabase configurate"
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
