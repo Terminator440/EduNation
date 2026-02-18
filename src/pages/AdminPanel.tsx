@@ -1,8 +1,8 @@
 import { useState, useTransition, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Shield, Users, Link2 } from "lucide-react";
+import { Users, Link2 } from "lucide-react";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/hooks/useAuth";
 import { UserManagement } from "@/features/admin/components/UserManagement";
 import { AssignmentManagement } from "@/features/admin/components/AssignmentManagement";
@@ -12,18 +12,7 @@ const AdminPanel = () => {
   const { user, activeRole, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<"users" | "assignments">("users");
-  const [isPending, startTransition] = useTransition();
-
-  // Check if user has admin rights
-  const hasAdminRights =
-    activeRole === "director" ||
-    activeRole === "secretariat" ||
-    activeRole === "uat_admin";
-
-  if (!authLoading && (!user || !hasAdminRights)) {
-    navigate("/auth");
-    return null;
-  }
+  const [, startTransition] = useTransition();
 
   // Handle tab change with transition - active state updates instantly, content renders with low priority
   const handleTabChange = useCallback((value: string) => {
@@ -35,6 +24,17 @@ const AdminPanel = () => {
       // Transition is handled by React automatically
     });
   }, []);
+
+  // Check if user has admin rights
+  const hasAdminRights =
+    activeRole === "director" ||
+    activeRole === "secretariat" ||
+    activeRole === "uat_admin";
+
+  if (!authLoading && (!user || !hasAdminRights)) {
+    navigate("/auth");
+    return null;
+  }
 
   return (
     <DashboardLayout

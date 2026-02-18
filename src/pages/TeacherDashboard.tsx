@@ -14,8 +14,8 @@ import { fetchGradesForStudents } from "@/features/grades/services/grades.servic
 import { fetchAttendanceForStudents } from "@/features/attendance/services/attendance.service";
 import type { GradeRow } from "@/features/grades/services/grades.service";
 import type { AttendanceRow } from "@/features/attendance/services/attendance.service";
-import { useAddGrade, useUpdateGrade, useDeleteGrade } from "@/features/grades/queries";
-import { useAddAttendance, useUpdateAttendance } from "@/features/attendance/queries";
+import { useAddGrade } from "@/features/grades/queries";
+import { useAddAttendance } from "@/features/attendance/queries";
 import { CreateInvitationDialog } from "@/components/invitations/CreateInvitationDialog";
 import {
   listInvitations,
@@ -130,10 +130,7 @@ const TeacherDashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const addGradeMutation = useAddGrade();
-  const updateGradeMutation = useUpdateGrade();
-  const deleteGradeMutation = useDeleteGrade();
   const addAttendanceMutation = useAddAttendance();
-  const updateAttendanceMutation = useUpdateAttendance();
 
   useEffect(() => {
     if (!authLoading && (!user || (activeRole !== 'teacher' && activeRole !== 'homeroom_teacher'))) {

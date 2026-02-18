@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import { assertSupabaseOk, getCurrentUserSchoolId } from "@/lib/supabase-helpers";
+import { getCurrentUserSchoolId } from "@/lib/supabase-helpers";
 import { handleServiceError } from "@/lib/error-handler";
 
 export type UserWithRoles = {
@@ -102,7 +102,7 @@ export async function inviteUser(input: CreateUserInput): Promise<{ invitation_i
 
   // Use existing create_invitation RPC
   const { data, error } = await supabase.rpc("create_invitation", {
-    p_role: input.role as any,
+    p_role: input.role as "teacher" | "student" | "parent",
     p_school_id: schoolId,
     p_class_id: input.class_id || null,
     p_student_id: input.student_id || null,
@@ -120,8 +120,14 @@ export async function inviteUser(input: CreateUserInput): Promise<{ invitation_i
     throw error;
   }
 
-  const result = data as any[];
-  if (!result || result.length === 0 || result[0].error_message) {
+  type InvitationRpcResult = {
+    invitation_id: string;
+    plain_code: string;
+    error_message?: string;
+  };
+
+  const result = data as InvitationRpcResult[] | null;
+  if (!result || result.length === 0 || result[0]?.error_message) {
     throw new Error(result?.[0]?.error_message || "Eroare la crearea invitației");
   }
 
@@ -239,7 +245,7 @@ export async function removeUserRole(userId: string, role: string): Promise<void
 export async function addUserRole(userId: string, role: string): Promise<void> {
   const { error } = await supabase
     .from("user_roles")
-    .insert({ user_id: userId, role: role as any })
+    .insert({ user_id: userId, role: role as "student" | "parent" | "teacher" | "homeroom_teacher" | "secretariat" | "director" | "uat_admin" })
     .select();
 
   if (error) {

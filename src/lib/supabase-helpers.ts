@@ -43,18 +43,21 @@ export async function getCurrentUserSchoolId(): Promise<string | null> {
 /**
  * Helper to add school_id filter to a Supabase query builder.
  * Automatically filters by the current user's school_id.
+ * @deprecated This function is not used and may be removed in the future.
  */
-export async function withSchoolIdFilter<T>(
-  queryBuilder: any,
+export async function withSchoolIdFilter(
+  queryBuilder: unknown,
   schoolId: string | null | undefined
-): Promise<any> {
-  if (schoolId) {
-    return queryBuilder.eq('school_id', schoolId);
+): Promise<unknown> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const builder = queryBuilder as any;
+  if (schoolId && builder?.eq) {
+    return builder.eq('school_id', schoolId);
   }
   // If schoolId not provided, try to get it from current user
   const currentSchoolId = await getCurrentUserSchoolId();
-  if (currentSchoolId) {
-    return queryBuilder.eq('school_id', currentSchoolId);
+  if (currentSchoolId && builder?.eq) {
+    return builder.eq('school_id', currentSchoolId);
   }
   // If still no school_id, return query as-is (will be filtered by RLS)
   return queryBuilder;

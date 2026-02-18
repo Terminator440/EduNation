@@ -87,7 +87,7 @@ const Reports = () => {
   const onToggleSidebar = useCallback(() => setSidebarCollapsed((prev) => !prev), []);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"export" | "print" | "overview">("export");
-  const [isPending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
 
   const [classes, setClasses] = useState<ClassRow[]>([]);
   const [classId, setClassId] = useState<string>("");

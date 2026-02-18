@@ -1,6 +1,6 @@
 import { useState, useEffect, memo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Users, Link2, BookOpen, GraduationCap } from "lucide-react";
+import { Users, Link2, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
@@ -54,6 +54,32 @@ type ParentStudentRelation = {
   is_primary: boolean;
   parent_name: string;
   student_name: string;
+};
+
+type SubjectDbRow = {
+  id: string;
+  name: string;
+  class_id: string;
+  teacher_id: string | null;
+  classes: { name: string; year: number; section: string } | null;
+  profiles: { full_name: string | null } | null;
+};
+
+type StudentDbRow = {
+  id: string;
+  full_name: string | null;
+  student_number: number | null;
+  class_id: string;
+  classes: { name: string; year: number; section: string } | null;
+};
+
+type ParentStudentRelationDbRow = {
+  id: string;
+  parent_user_id: string;
+  student_id: string;
+  is_primary: boolean;
+  profiles: { full_name: string | null } | null;
+  students: { full_name: string | null } | null;
 };
 
 interface AssignmentManagementProps {
@@ -117,7 +143,7 @@ const AssignmentManagementBase = ({ isActive = true }: AssignmentManagementProps
       .eq("school_id", profile.school_id)
       .then(({ data }) => {
         setSubjects(
-          (data || []).map((s: any) => ({
+          (data || []).map((s: SubjectDbRow) => ({
             id: s.id,
             name: s.name,
             class_id: s.class_id,
@@ -145,7 +171,7 @@ const AssignmentManagementBase = ({ isActive = true }: AssignmentManagementProps
       .eq("school_id", profile.school_id)
       .then(({ data }) => {
         setStudents(
-          (data || []).map((s: any) => ({
+          (data || []).map((s: StudentDbRow) => ({
             id: s.id,
             full_name: s.full_name,
             student_number: s.student_number,
@@ -183,7 +209,7 @@ const AssignmentManagementBase = ({ isActive = true }: AssignmentManagementProps
         `)
         .in("student_id", studentIds);
 
-      return (relations || []).map((r: any) => ({
+      return (relations || []).map((r: ParentStudentRelationDbRow) => ({
         id: r.id,
         parent_user_id: r.parent_user_id,
         student_id: r.student_id,
@@ -221,7 +247,7 @@ const AssignmentManagementBase = ({ isActive = true }: AssignmentManagementProps
           .eq("school_id", profile.school_id)
           .then(({ data }) => {
             setSubjects(
-              (data || []).map((s: any) => ({
+              (data || []).map((s: SubjectDbRow) => ({
                 id: s.id,
                 name: s.name,
                 class_id: s.class_id,
@@ -364,7 +390,7 @@ const AssignmentManagementBase = ({ isActive = true }: AssignmentManagementProps
         </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "teacher-subject" | "student-parent")}>
         <TabsList>
           <TabsTrigger value="teacher-subject">
             <BookOpen className="w-4 h-4 mr-2" />
