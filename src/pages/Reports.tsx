@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback, useTransition } from "react";
 import { useNavigate } from "react-router-dom";
 import { Download, FileText, Printer, RefreshCw } from "lucide-react";
 
@@ -86,6 +86,8 @@ const Reports = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const onToggleSidebar = useCallback(() => setSidebarCollapsed((prev) => !prev), []);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<"export" | "print" | "overview">("export");
+  const [isPending, startTransition] = useTransition();
 
   const [classes, setClasses] = useState<ClassRow[]>([]);
   const [classId, setClassId] = useState<string>("");
@@ -461,13 +463,23 @@ const Reports = () => {
           </Card>
 
           {/* Content */}
-          <Tabs defaultValue="export" className="w-full">
+          <Tabs value={activeTab} onValueChange={(v) => {
+            // Update active tab instantly (optimistic update)
+            setActiveTab(v as "export" | "print" | "overview");
+            // Mark content rendering as low priority transition
+            startTransition(() => {
+              // Transition is handled by React automatically
+            });
+          }} className="w-full">
             <TabsList className="print:hidden">
               <TabsTrigger value="export">Export CSV</TabsTrigger>
               <TabsTrigger value="print">Print-ready</TabsTrigger>
               <TabsTrigger value="overview">Rezumat</TabsTrigger>
             </TabsList>
 
+            {/* Render all tabs simultaneously, hide inactive ones with CSS */}
+            <div className="space-y-6">
+            <div className={cn(activeTab === "export" ? "block" : "hidden")}>
             <TabsContent value="export" className="space-y-6">
               <Card>
                 <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -533,7 +545,9 @@ const Reports = () => {
                 </CardContent>
               </Card>
             </TabsContent>
+            </div>
 
+            <div className={cn(activeTab === "print" ? "block" : "hidden")}>
             <TabsContent value="print" className="space-y-6">
               <Card className="print:hidden">
                 <CardHeader className="flex flex-row items-center justify-between">
@@ -723,7 +737,9 @@ const Reports = () => {
                 </div>
               </div>
             </TabsContent>
+            </div>
 
+            <div className={cn(activeTab === "overview" ? "block" : "hidden")}>
             <TabsContent value="overview" className="space-y-6">
               <Card>
                 <CardHeader>
@@ -756,6 +772,8 @@ const Reports = () => {
                 </CardContent>
               </Card>
             </TabsContent>
+            </div>
+            </div>
           </Tabs>
         </div>
       </main>

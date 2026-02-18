@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
+import { NavigationTransitionProvider } from "@/hooks/useNavigationTransition";
 import ProtectedRoute from "./components/ProtectedRoute";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -112,9 +113,10 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
-          <ErrorBoundary>
-            <div className="min-h-screen w-full max-w-full overflow-x-hidden">
-            <Routes>
+          <NavigationTransitionProvider>
+            <ErrorBoundary>
+              <div className="min-h-screen w-full max-w-full overflow-x-hidden">
+              <Routes>
               {/* Public */}
               <Route path="/" element={<Index />} />
               <Route path="/auth" element={<Auth />} />
@@ -161,7 +163,8 @@ const App = () => (
               <Route path="*" element={<NotFound />} />
             </Routes>
             </div>
-          </ErrorBoundary>
+            </ErrorBoundary>
+          </NavigationTransitionProvider>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>

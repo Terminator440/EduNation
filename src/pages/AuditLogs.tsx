@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback, useRef } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef, memo } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -90,7 +90,7 @@ function getActionBadgeVariant(action: string): "default" | "secondary" | "destr
   return "outline";
 }
 
-export default function AuditLogs() {
+const AuditLogsBase = () => {
   const { activeRole } = useAuth();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const { toast } = useToast();
@@ -509,4 +509,7 @@ export default function AuditLogs() {
       </main>
     </div>
   );
-}
+};
+
+const AuditLogs = memo(AuditLogsBase);
+export default AuditLogs;

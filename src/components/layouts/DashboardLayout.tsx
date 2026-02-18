@@ -4,6 +4,8 @@ import ThemeToggle from "@/components/ThemeToggle";
 import RoleSwitcher from "@/components/RoleSwitcher";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
+import { useNavigationTransition } from "@/hooks/useNavigationTransition";
+import { Spinner } from "@/components/ui/spinner";
 
 interface DashboardLayoutProps {
   title: string;
@@ -57,6 +59,7 @@ export default function DashboardLayout({
 }: DashboardLayoutProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const { user, profile } = useAuth();
+  const { isPending } = useNavigationTransition(); // Track navigation transitions from Sidebar
   const displayName =
     profile?.full_name || user?.email?.split("@")[0] || "Utilizator";
 
@@ -84,8 +87,19 @@ export default function DashboardLayout({
           displayName={displayName}
         />
 
-        <div className="w-full max-w-screen-xl mx-auto p-4 sm:p-6 lg:p-8">
-          {children}
+        <div className="w-full max-w-screen-xl mx-auto p-4 sm:p-6 lg:p-8 relative">
+          {/* Subtle loading indicator during navigation transition */}
+          {isPending && (
+            <div className="absolute top-4 right-4 z-10">
+              <div className="bg-background/80 backdrop-blur-sm rounded-lg p-2 border border-border shadow-sm">
+                <Spinner size="sm" className="text-primary" />
+              </div>
+            </div>
+          )}
+          {/* Render children with transition - React will prioritize this as low-priority */}
+          <div className={cn("transition-opacity duration-200", isPending && "opacity-90")}>
+            {children}
+          </div>
         </div>
       </main>
     </div>

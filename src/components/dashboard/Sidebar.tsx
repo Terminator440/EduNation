@@ -1,5 +1,6 @@
 import { useState, useCallback, memo } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useLocation } from "react-router-dom";
+import { useNavigationTransition } from "@/hooks/useNavigationTransition";
 import { 
   LayoutDashboard, 
   GraduationCap, 
@@ -34,8 +35,10 @@ interface SidebarProps {
   onToggle: () => void;
 }
 
-/** Renders the sidebar navigation content (shared between desktop sidebar and mobile sheet) */
-function SidebarContent({
+/** Renders the sidebar navigation content (shared between desktop sidebar and mobile sheet).
+ *  Wrapped in React.memo to avoid re-renders when dashboard content changes.
+ */
+const SidebarContent = memo(function SidebarContent({
   menuItems,
   homeHref,
   location,
@@ -44,6 +47,8 @@ function SidebarContent({
   isCollapsed,
   onToggle,
   showToggle,
+  activePath,
+  onNavigate,
 }: {
   menuItems: MenuItem[];
   homeHref: string;
@@ -53,16 +58,35 @@ function SidebarContent({
   isCollapsed: boolean;
   onToggle: () => void;
   showToggle: boolean;
+  activePath,
+  onNavigate,
+}: {
+  menuItems: MenuItem[];
+  homeHref: string;
+  location: ReturnType<typeof useLocation>;
+  onLinkClick: () => void;
+  onSignOut: () => void;
+  isCollapsed: boolean;
+  onToggle: () => void;
+  showToggle: boolean;
+  activePath: string;
+  onNavigate: (href: string) => void;
 }) {
   return (
     <>
       <div className="h-16 flex items-center justify-between px-4 border-b border-sidebar-border gap-2 shrink-0">
-        <Link to={homeHref} onClick={onLinkClick} className="flex items-center gap-3 min-w-0">
+        <button
+          onClick={() => {
+            onNavigate(homeHref);
+            onLinkClick();
+          }}
+          className="flex items-center gap-3 min-w-0"
+        >
           <img src="/logo.png" alt="EduNation" className={cn("h-10 w-auto flex-shrink-0 object-contain", isCollapsed ? "mx-auto" : "")} />
           {!isCollapsed && (
             <span className="text-lg font-bold text-sidebar-foreground">EduNation</span>
           )}
-        </Link>
+        </button>
         <div className="flex items-center gap-1 shrink-0">
           <NotificationsPopover />
           {showToggle ? (
@@ -90,27 +114,30 @@ function SidebarContent({
       <nav className="flex-1 min-h-0 overflow-y-auto py-4 px-3 sidebar-nav-scroll">
         <ul className="space-y-1">
           {menuItems.map((item) => {
-            const isActive = location.pathname === item.href;
+            // Use optimistic activePath for instant UI update, fallback to location.pathname
+            const isActive = activePath === item.href || location.pathname === item.href;
             return (
               <li key={item.href + item.label}>
-                <Link
-                  to={item.href}
-                  onClick={onLinkClick}
+                <button
+                  onClick={() => {
+                    onNavigate(item.href);
+                    onLinkClick();
+                  }}
                   className={cn(
-                    "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 group",
+                    "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 group text-left relative",
                     isActive 
                       ? "bg-sidebar-primary text-sidebar-primary-foreground" 
                       : "text-sidebar-foreground hover:bg-sidebar-accent"
                   )}
                 >
                   <item.icon className={cn(
-                    "w-5 h-5 flex-shrink-0",
+                    "w-5 h-5 flex-shrink-0 transition-opacity",
                     isActive ? "text-sidebar-primary-foreground" : "text-muted-foreground group-hover:text-sidebar-foreground"
                   )} />
                   {!isCollapsed && (
                     <span className="font-medium">{item.label}</span>
                   )}
-                </Link>
+                </button>
               </li>
             );
           })}
@@ -118,14 +145,16 @@ function SidebarContent({
       </nav>
 
       <div className="p-3 border-t border-sidebar-border shrink-0">
-        <Link
-          to="/dashboard/settings"
-          onClick={onLinkClick}
-          className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
+        <button
+          onClick={() => {
+            onNavigate("/dashboard/settings");
+            onLinkClick();
+          }}
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
         >
           <Settings className="w-5 h-5 text-muted-foreground" />
           {!isCollapsed && <span className="font-medium">Setări</span>}
-        </Link>
+        </button>
         <button
           onClick={() => {
             onLinkClick();
@@ -139,7 +168,7 @@ function SidebarContent({
       </div>
     </>
   );
-}
+});
 
 interface MenuItem {
   icon: LucideIcon;
@@ -273,8 +302,8 @@ const noop = () => {};
 
 const SidebarInner = ({ isCollapsed, onToggle }: SidebarProps) => {
   const location = useLocation();
-  const navigate = useNavigate();
   const { signOut, activeRole } = useAuth();
+  const { navigate: navigateWithTransition, activePath } = useNavigationTransition();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const menuItems = activeRole ? menuItemsByRole[activeRole] : menuItemsByRole.student;
@@ -282,8 +311,8 @@ const SidebarInner = ({ isCollapsed, onToggle }: SidebarProps) => {
 
   const handleSignOut = useCallback(async () => {
     await signOut();
-    navigate('/');
-  }, [signOut, navigate]);
+    navigateWithTransition('/');
+  }, [signOut, navigateWithTransition]);
 
   const closeMobile = useCallback(() => setMobileOpen(false), []);
   const openMobile = useCallback(() => setMobileOpen(true), []);
@@ -295,6 +324,8 @@ const SidebarInner = ({ isCollapsed, onToggle }: SidebarProps) => {
     isCollapsed,
     onToggle,
     onSignOut: handleSignOut,
+    activePath,
+    onNavigate: navigateWithTransition,
   };
 
   return (
