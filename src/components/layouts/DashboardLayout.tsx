@@ -4,6 +4,7 @@ import ThemeToggle from "@/components/ThemeToggle";
 import RoleSwitcher from "@/components/RoleSwitcher";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
+import { useSchoolName } from "@/hooks/useSchoolName";
 import { useNavigationTransition } from "@/hooks/useNavigationTransition";
 import { Spinner } from "@/components/ui/spinner";
 
@@ -60,8 +61,12 @@ export default function DashboardLayout({
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const { user, profile } = useAuth();
   const { isPending } = useNavigationTransition(); // Track navigation transitions from Sidebar
+  const schoolName = useSchoolName(); // Fetch school name from database
   const displayName =
     profile?.full_name || user?.email?.split("@")[0] || "Utilizator";
+
+  // Use explicit subtitle if provided, otherwise use school name
+  const effectiveSubtitle = subtitle ?? schoolName ?? undefined;
 
   const onToggleSidebar = useCallback(() => {
     setSidebarCollapsed((prev) => !prev);
@@ -82,7 +87,7 @@ export default function DashboardLayout({
       >
         <DashboardHeader
           title={title}
-          subtitle={subtitle}
+          subtitle={effectiveSubtitle}
           headerActions={headerActions}
           displayName={displayName}
         />

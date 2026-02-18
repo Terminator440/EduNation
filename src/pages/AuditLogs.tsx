@@ -19,6 +19,7 @@ import {
 import Sidebar from "@/components/dashboard/Sidebar";
 import { cn } from "@/lib/utils";
 import { Spinner } from "@/components/ui/spinner";
+import { Skeleton } from "@/components/ui/skeleton";
 
 type AuditRow = {
   id: string;
@@ -342,7 +343,11 @@ const AuditLogsBase = () => {
           <Card className="content-visibility-auto">
             <CardHeader>
               <CardTitle className="text-base">
-                Evenimente ({filteredRows.length} înregistrări)
+                {loading ? (
+                  <Skeleton className="h-5 w-48" />
+                ) : (
+                  `Evenimente (${filteredRows.length} înregistrări)`
+                )}
               </CardTitle>
             </CardHeader>
             <CardContent className="p-2 sm:p-6">
@@ -372,7 +377,42 @@ const AuditLogsBase = () => {
                   role="table"
                   aria-rowcount={filteredRows.length}
                 >
-                  {filteredRows.length === 0 ? (
+                  {loading ? (
+                    // Skeleton rows that mimic the table structure
+                    <div className="space-y-0">
+                      {Array.from({ length: 8 }).map((_, i) => (
+                        <div
+                          key={i}
+                          className="grid border-b last:border-b-0 items-center py-3"
+                          style={{
+                            gridTemplateColumns: "5rem 1fr 4.5rem 1fr 4.5rem 3.5rem 3rem",
+                          }}
+                        >
+                          <div className="px-2 sm:px-4">
+                            <Skeleton className="h-4 w-20" />
+                          </div>
+                          <div className="px-2 sm:px-4">
+                            <Skeleton className="h-4 w-32" />
+                          </div>
+                          <div className="hidden sm:block px-4">
+                            <Skeleton className="h-5 w-16 rounded-full" />
+                          </div>
+                          <div className="px-2 sm:px-4">
+                            <Skeleton className="h-5 w-24 rounded-full" />
+                          </div>
+                          <div className="hidden md:block px-4">
+                            <Skeleton className="h-4 w-20" />
+                          </div>
+                          <div className="hidden lg:block px-4">
+                            <Skeleton className="h-4 w-16" />
+                          </div>
+                          <div className="px-3">
+                            <Skeleton className="h-8 w-8 rounded" />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : filteredRows.length === 0 ? (
                     <div className="py-8 text-center text-muted-foreground text-sm">
                       Nu există înregistrări pentru filtrele curente.
                     </div>

@@ -277,12 +277,13 @@ const Reports = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, activeRole]);
 
+  // Fetch data only when a tab is active (all tabs use the same data)
   useEffect(() => {
-    if (user && roleOk(activeRole)) {
+    if (user && roleOk(activeRole) && activeTab) {
       fetchData();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [classId, dateFrom, dateTo]);
+  }, [classId, dateFrom, dateTo, activeTab]);
 
   const classLabel = useMemo(() => {
     const c = classes.find((x) => x.id === classId);
