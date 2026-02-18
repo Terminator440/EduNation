@@ -1107,7 +1107,6 @@ const TeacherDashboard = () => {
               )}
             </CardContent>
           </Card>
-        )}
 
         <CreateInvitationDialog
           open={invitationDialogOpen}

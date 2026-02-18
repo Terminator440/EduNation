@@ -58,17 +58,6 @@ const SidebarContent = memo(function SidebarContent({
   isCollapsed: boolean;
   onToggle: () => void;
   showToggle: boolean;
-  activePath,
-  onNavigate,
-}: {
-  menuItems: MenuItem[];
-  homeHref: string;
-  location: ReturnType<typeof useLocation>;
-  onLinkClick: () => void;
-  onSignOut: () => void;
-  isCollapsed: boolean;
-  onToggle: () => void;
-  showToggle: boolean;
   activePath: string;
   onNavigate: (href: string) => void;
 }) {
