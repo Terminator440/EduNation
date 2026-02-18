@@ -220,6 +220,7 @@ const TakeAttendance = () => {
             .eq("subject_id", slot.subject_id)
             .eq("date", dateKey)
             .eq("school_id", schoolId)
+            .is("deleted_at", null)
             .in("student_id", studentIds);
 
           const existingMap: Record<string, AttendanceStatus> = {};

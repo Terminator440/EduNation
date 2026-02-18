@@ -44,6 +44,27 @@ const safeStorageSet = (key: string, value: string): void => {
   }
 };
 
+const PROFILE_CACHE_KEY = "edunation.profile";
+
+function getCachedProfile(userId: string): Profile | null {
+  const raw = safeStorageGet(PROFILE_CACHE_KEY);
+  if (!raw) return null;
+  try {
+    const { userId: cachedUserId, profile: cached } = JSON.parse(raw) as {
+      userId: string;
+      profile: Profile;
+    };
+    return cachedUserId === userId && cached ? cached : null;
+  } catch {
+    return null;
+  }
+}
+
+function setCachedProfile(userId: string, profileData: Profile | null): void {
+  if (!profileData) return;
+  safeStorageSet(PROFILE_CACHE_KEY, JSON.stringify({ userId, profile: profileData }));
+}
+
 const BOOTSTRAP_ADMIN_EMAILS =
   (import.meta.env.VITE_BOOTSTRAP_ADMIN_EMAILS as string | undefined)
     ?.split(",")
@@ -57,6 +78,7 @@ export interface Profile {
   phone?: string | null;
   active_role: AppRole | null;
   school_id?: string | null;
+  onboarding_tour_completed?: boolean;
 }
 
 interface AuthContextType {
@@ -123,6 +145,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const fetchUserData = async (userId: string) => {
+    const cachedProfile = getCachedProfile(userId);
+    if (cachedProfile) setProfile(cachedProfile);
+
     try {
       const { data: authUserRes } = await supabase.auth.getUser();
       const authUser = authUserRes.user;
@@ -150,7 +175,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (createdProfile) profileData = createdProfile;
       }
 
-      setProfile(profileData as Profile | null);
+      const profileToSet = profileData as Profile | null;
+      setProfile(profileToSet);
+      if (profileToSet) setCachedProfile(userId, profileToSet);
 
       if (profileData?.active_role) {
         setActiveRole(profileData.active_role as AppRole);
@@ -207,6 +234,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     } catch (error) {
       console.error("Error fetching user data:", error);
+      if (!cachedProfile) setProfile(null);
     } finally {
       setLoading(false);
     }
@@ -254,6 +282,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signOut = async () => {
     await supabase.auth.signOut();
+    try {
+      window.localStorage.removeItem(PROFILE_CACHE_KEY);
+    } catch {
+      /* ignore */
+    }
     setUser(null);
     setSession(null);
     setProfile(null);

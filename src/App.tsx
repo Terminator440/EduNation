@@ -3,12 +3,13 @@ import type { AppRole } from "@/hooks/useAuth";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { NavigationTransitionProvider } from "@/hooks/useNavigationTransition";
 import ProtectedRoute from "./components/ProtectedRoute";
 import ErrorBoundary from "./components/ErrorBoundary";
+import { OfflineBanner } from "./components/OfflineBanner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 
@@ -41,33 +42,14 @@ const Reports = lazy(() => import("./pages/Reports"));
 const AuditLogs = lazy(() => import("./pages/AuditLogs"));
 const Announcements = lazy(() => import("./pages/Announcements"));
 const Notifications = lazy(() => import("./pages/Notifications"));
+const Tickets = lazy(() => import("./pages/Tickets"));
+const TeacherTickets = lazy(() => import("./pages/TeacherTickets"));
 const Settings = lazy(() => import("./pages/Settings"));
 const Developer = lazy(() => import("./pages/Developer"));
 const DeveloperDirectorInvites = lazy(() => import("./pages/DeveloperDirectorInvites"));
+const SystemHealth = lazy(() => import("./pages/SystemHealth"));
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: (failureCount, error) => {
-        // Retry logic for network errors
-        if (error instanceof Error) {
-          const errorMessage = error.message.toLowerCase();
-          // Retry on network errors, but not on auth/permission errors
-          if (errorMessage.includes("network") || errorMessage.includes("fetch")) {
-            return failureCount < 2; // Retry up to 2 times
-          }
-        }
-        return false; // Don't retry on other errors
-      },
-      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000), // Exponential backoff
-      staleTime: 1000 * 60 * 5, // 5 minutes
-      refetchOnWindowFocus: false,
-    },
-    mutations: {
-      retry: false, // Don't retry mutations by default
-    },
-  },
-});
+import { queryClient, persistOptions } from "@/lib/query-client";
 
 const PageFallback = () => (
   <div className="min-h-screen bg-background flex items-center justify-center">
@@ -107,7 +89,7 @@ const allRoles: AppRole[] = ["student", "parent", "teacher", "homeroom_teacher",
 const allPlusDev: AppRole[] = [...allRoles, "developer"];
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
+  <PersistQueryClientProvider client={queryClient} persistOptions={persistOptions}>
     <TooltipProvider>
       <Toaster />
       <Sonner />
@@ -116,6 +98,7 @@ const App = () => (
           <NavigationTransitionProvider>
             <ErrorBoundary>
               <div className="min-h-screen w-full max-w-full overflow-x-hidden">
+              <OfflineBanner />
               <Routes>
               {/* Public */}
               <Route path="/" element={<Index />} />
@@ -136,10 +119,14 @@ const App = () => (
               {/* Developer */}
               <Route path="/developer" element={<PR roles={["developer"]}><Developer /></PR>} />
               <Route path="/developer/invitations" element={<PR roles={["developer"]}><DeveloperDirectorInvites /></PR>} />
+              {/* System Health – hidden, admin + developer only */}
+              <Route path="/system-health" element={<PR roles={["uat_admin", "developer"]}><SystemHealth /></PR>} />
 
               {/* Feature pages */}
               <Route path="/dashboard/grades" element={<PR roles={["student", "parent"]}><Grades /></PR>} />
               <Route path="/dashboard/attendance" element={<PR roles={["student", "parent"]}><Attendance /></PR>} />
+              <Route path="/dashboard/tickets" element={<PR roles={["parent"]}><Tickets /></PR>} />
+              <Route path="/teacher/tickets" element={<PR roles={["teacher", "homeroom_teacher", "director", "secretariat"]}><TeacherTickets /></PR>} />
               {/* Calendar, Audit, Rapoarte: lazy + Suspense cu fallback minimal – chunk-ul se încarcă doar la acces, mai puțin RAM pe dispozitive slabe (ex. A30s) */}
               <Route path="/dashboard/calendar" element={<PR roles={allRoles} fallback={<HeavySectionFallback />}><SchoolCalendar /></PR>} />
               <Route path="/dashboard/schedule" element={<PR roles={allRoles}><Schedule /></PR>} />
@@ -168,7 +155,7 @@ const App = () => (
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
-  </QueryClientProvider>
+  </PersistQueryClientProvider>
 );
 
 export default App;

@@ -116,6 +116,7 @@ export const useDeleteGrade = () => {
         .from("grades")
         .select("*")
         .eq("id", gradeId)
+        .is("deleted_at", null)
         .single();
       
       await deleteGrade(gradeId);

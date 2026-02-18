@@ -37,8 +37,8 @@ const AdminDashboard = () => {
         supabase.from('profiles').select('id', { count: 'exact', head: true }),
         supabase.from('classes').select('id', { count: 'exact', head: true }),
         supabase.from('students').select('id', { count: 'exact', head: true }),
-        supabase.from('grades').select('id', { count: 'exact', head: true }),
-        supabase.from('attendance').select('id', { count: 'exact', head: true }),
+        supabase.from('grades').select('id', { count: 'exact', head: true }).is('deleted_at', null),
+        supabase.from('attendance').select('id', { count: 'exact', head: true }).is('deleted_at', null),
       ]);
       return {
         profiles: profiles.count ?? 0,

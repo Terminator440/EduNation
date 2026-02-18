@@ -26,6 +26,7 @@ const getTypeLabel = (type: string | null) => {
     grade: "Notă",
     attendance: "Prezență",
     announcement: "Anunț",
+    ticket: "Mesaj părinte",
     system: "Sistem",
   };
   return type ? map[type] ?? type : "General";

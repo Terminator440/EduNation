@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Lock, Calendar, GraduationCap } from "lucide-react";
+import { Lock, GraduationCap } from "lucide-react";
 import {
   Dialog,
   DialogContent,

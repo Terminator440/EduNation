@@ -151,7 +151,6 @@ export async function exportClassRegisterPdf(
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
     const margin = 10;
-    const contentWidth = pageWidth - 2 * margin;
 
     // Header: School name and logo area
     let yPos = margin;
@@ -268,7 +267,7 @@ export async function exportClassRegisterPdf(
         overflow: "linebreak",
         cellPadding: 2,
       },
-      didDrawPage: (data) => {
+      didDrawPage: (_data) => {
         // Add page number
         doc.setFontSize(9);
         doc.setFont("helvetica", "normal");
@@ -283,7 +282,8 @@ export async function exportClassRegisterPdf(
     });
 
     // Footer: School address and contact info (if available)
-    const finalY = (doc as any).lastAutoTable.finalY || yPos + 50;
+    const docWithTable = doc as { lastAutoTable?: { finalY?: number } };
+    const finalY = docWithTable.lastAutoTable?.finalY ?? yPos + 50;
     if (finalY < pageHeight - 20) {
       doc.setFontSize(8);
       doc.setFont("helvetica", "normal");

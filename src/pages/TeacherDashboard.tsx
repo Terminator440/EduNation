@@ -17,6 +17,8 @@ import type { GradeRow } from "@/features/grades/services/grades.service";
 import type { AttendanceRow } from "@/features/attendance/services/attendance.service";
 import { useAddGrade } from "@/features/grades/queries";
 import { useAddAttendance } from "@/features/attendance/queries";
+import { useUnreadTicketsCount } from "@/features/tickets/queries";
+import { Link } from "react-router-dom";
 import { CreateInvitationDialog } from "@/components/invitations/CreateInvitationDialog";
 import {
   listInvitations,
@@ -30,6 +32,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 import { useToast } from "@/hooks/use-toast";
+import { TeacherOnboardingTour } from "@/components/onboarding/TeacherOnboardingTour";
 import {
   Table,
   TableBody,
@@ -127,11 +130,12 @@ const TeacherDashboard = () => {
   const [invitesLoading, setInvitesLoading] = useState(false);
 
 
-  const { user, activeRole, loading: authLoading } = useAuth();
+  const { user, profile, activeRole, refetchProfile, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   const addGradeMutation = useAddGrade();
   const addAttendanceMutation = useAddAttendance();
+  const unreadTickets = useUnreadTicketsCount();
 
   useEffect(() => {
     if (!authLoading && (!user || (activeRole !== 'teacher' && activeRole !== 'homeroom_teacher'))) {
@@ -586,6 +590,19 @@ const TeacherDashboard = () => {
   const totalGrades = students.reduce((acc, s) => acc + s.grades.length, 0);
   const totalAbsences = students.reduce((acc, s) => acc + countAbsences(s.attendance), 0);
 
+  const runOnboardingTour =
+    Boolean(profile !== null && !profile.onboarding_tour_completed && user && (activeRole === "teacher" || activeRole === "homeroom_teacher"));
+
+  const handleOnboardingComplete = async () => {
+    if (!user?.id) return;
+    try {
+      await supabase.from("profiles").update({ onboarding_tour_completed: true }).eq("id", user.id);
+      await refetchProfile();
+    } catch (e) {
+      console.error("Failed to save onboarding tour completed:", e);
+    }
+  };
+
   if (authLoading || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -594,11 +611,32 @@ const TeacherDashboard = () => {
     );
   }
 
+  const unreadTicketsCount = unreadTickets.data ?? 0;
+
   return (
     <DashboardLayout
       title="Panou Profesor"
       subtitle="Gestionează elevii clasei tale"
     >
+          {/* Mesaje noi de la părinți */}
+          {unreadTicketsCount > 0 && (
+            <Link to="/teacher/tickets" className="block mb-6">
+              <Card className="border-primary/50 bg-primary/5 hover:bg-primary/10 transition-colors">
+                <CardContent className="flex items-center gap-4 py-4">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/20">
+                    <MessageSquare className="h-5 w-5 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-foreground">
+                      Ai {unreadTicketsCount} mesaj{unreadTicketsCount === 1 ? "" : "e"} necitit{unreadTicketsCount === 1 ? "" : "e"} de la părinți
+                    </p>
+                    <p className="text-sm text-muted-foreground">Apasă aici pentru a le citi</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+          )}
+
           {/* Stats */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <StatsCard
@@ -680,7 +718,7 @@ const TeacherDashboard = () => {
           </div>
 
           {/* Students table */}
-          <div className="bg-card rounded-xl border border-border p-6">
+          <div className="bg-card rounded-xl border border-border p-6" data-tour="add-grade">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-semibold text-foreground">Elevii Clasei</h2>
               <div className="relative w-64">
@@ -1130,6 +1168,8 @@ const TeacherDashboard = () => {
             }
           }}
         />
+
+        <TeacherOnboardingTour run={runOnboardingTour} onComplete={handleOnboardingComplete} />
     </DashboardLayout>
   );
 };

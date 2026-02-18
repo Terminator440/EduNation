@@ -20,12 +20,15 @@ import { useToast } from "@/hooks/use-toast";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { parseEmailOrPhone } from "@/lib/contact";
+import { validateCNP, parseCNP, formatBirthDateRO } from "@/lib/cnp";
 
 const SecretariatDashboard = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [newStudentName, setNewStudentName] = useState("");
   const [newStudentClassId, setNewStudentClassId] = useState<string>("");
   const [newStudentContact, setNewStudentContact] = useState<string>("");
+  const [newStudentCnp, setNewStudentCnp] = useState("");
+  const [cnpParsed, setCnpParsed] = useState<{ birthDate: Date; gender: "M" | "F" } | null>(null);
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -72,6 +75,9 @@ const SecretariatDashboard = () => {
           return;
         }
       }
+      const cnpTrimmed = newStudentCnp.trim();
+      const cnpValid = cnpTrimmed.length === 13 && validateCNP(cnpTrimmed);
+      const parsed = cnpValid ? parseCNP(cnpTrimmed) : null;
       const res = await createStudent.mutateAsync({
         full_name: newStudentName.trim(),
         class_id: newStudentClassId,
@@ -79,9 +85,14 @@ const SecretariatDashboard = () => {
         expires_in_days: 14,
         contact_email: contactEmail,
         contact_phone: contactPhone,
+        cnp: parsed ? parsed.cnp : null,
+        birth_date: parsed ? parsed.birthDate.toISOString().slice(0, 10) : null,
+        gender: parsed ? parsed.gender : null,
       });
       setNewStudentName("");
       setNewStudentContact("");
+      setNewStudentCnp("");
+      setCnpParsed(null);
       toast({
         title: "Elev creat + cod generat",
         description: `Cod activare: ${res.activation_code} (expiră: ${new Date(res.expires_at).toLocaleString('ro-RO')})`,
@@ -164,6 +175,35 @@ const SecretariatDashboard = () => {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+              <div className="md:col-span-1">
+                <Label>CNP (opțional – completează data nașterii și genul automat)</Label>
+                <Input
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={13}
+                  placeholder="13 cifre"
+                  value={newStudentCnp}
+                  onChange={(e) => {
+                    const v = e.target.value.replace(/\D/g, "").slice(0, 13);
+                    setNewStudentCnp(v);
+                    if (v.length === 13) {
+                      const p = parseCNP(v);
+                      setCnpParsed(p ? { birthDate: p.birthDate, gender: p.gender } : null);
+                    } else {
+                      setCnpParsed(null);
+                    }
+                  }}
+                  className="font-mono"
+                />
+                {cnpParsed && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Data nașterii: {formatBirthDateRO(cnpParsed.birthDate)} • Gen: {cnpParsed.gender === "M" ? "Bărbat" : "Femeie"}
+                  </p>
+                )}
+                {newStudentCnp.length > 0 && newStudentCnp.length === 13 && !cnpParsed && (
+                  <p className="text-xs text-destructive mt-1">CNP invalid</p>
+                )}
               </div>
               <div className="md:col-span-1">
                 <Label>Email sau telefon (opțional)</Label>

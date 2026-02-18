@@ -22,6 +22,7 @@ import {
   Mail,
   Key,
   ClipboardCheck,
+  MessageSquare,
   type LucideIcon
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -118,6 +119,7 @@ const SidebarContent = memo(function SidebarContent({
                       ? "bg-sidebar-primary text-sidebar-primary-foreground" 
                       : "text-sidebar-foreground hover:bg-sidebar-accent"
                   )}
+                  {...(item.dataTour && { "data-tour": item.dataTour })}
                 >
                   <item.icon className={cn(
                     "w-5 h-5 flex-shrink-0 transition-opacity",
@@ -163,6 +165,8 @@ interface MenuItem {
   icon: LucideIcon;
   label: string;
   href: string;
+  /** Used by onboarding tour to target this item (e.g. "schedule", "reports"). */
+  dataTour?: string;
 }
 
 const menuItemsByRole: Record<AppRole, MenuItem[]> = {
@@ -183,6 +187,7 @@ const menuItemsByRole: Record<AppRole, MenuItem[]> = {
   parent: [
     { icon: LayoutDashboard, label: "Panou principal", href: "/parent" },
     { icon: Users, label: "Copiii mei", href: "/parent" },
+    { icon: MessageSquare, label: "Mesaje", href: "/dashboard/tickets" },
     { icon: Clock, label: "Orar", href: "/dashboard/schedule" },
     { icon: GraduationCap, label: "Note", href: "/dashboard/grades" },
     { icon: UserCircle, label: "Prezență", href: "/dashboard/attendance" },
@@ -197,10 +202,11 @@ const menuItemsByRole: Record<AppRole, MenuItem[]> = {
   teacher: [
     { icon: LayoutDashboard, label: "Panou principal", href: "/teacher" },
     { icon: Users, label: "Elevii mei", href: "/teacher" },
+    { icon: MessageSquare, label: "Mesaje părinți", href: "/teacher/tickets" },
     { icon: GraduationCap, label: "Catalog", href: "/teacher" },
     { icon: ClipboardCheck, label: "Fă prezența", href: "/teacher/attendance" },
-    { icon: Clock, label: "Orar", href: "/dashboard/schedule" },
-    { icon: FileText, label: "Rapoarte", href: "/reports" },
+    { icon: Clock, label: "Orar", href: "/dashboard/schedule", dataTour: "schedule" },
+    { icon: FileText, label: "Rapoarte", href: "/reports", dataTour: "reports" },
     { icon: Bell, label: "Anunțuri", href: "/announcements" },
     { icon: Mail, label: "Notificări", href: "/notifications" },
     { icon: BookText, label: "Lecții", href: "/dashboard/lessons" },
@@ -212,10 +218,11 @@ const menuItemsByRole: Record<AppRole, MenuItem[]> = {
   ],
   homeroom_teacher: [
     { icon: Key, label: "Clasa mea", href: "/homeroom" },
+    { icon: MessageSquare, label: "Mesaje părinți", href: "/teacher/tickets" },
     { icon: GraduationCap, label: "Catalog Profesor", href: "/teacher" },
     { icon: ClipboardCheck, label: "Fă prezența", href: "/teacher/attendance" },
-    { icon: Clock, label: "Orar", href: "/dashboard/schedule" },
-    { icon: FileText, label: "Rapoarte", href: "/reports" },
+    { icon: Clock, label: "Orar", href: "/dashboard/schedule", dataTour: "schedule" },
+    { icon: FileText, label: "Rapoarte", href: "/reports", dataTour: "reports" },
     { icon: Bell, label: "Anunțuri", href: "/announcements" },
     { icon: Mail, label: "Notificări", href: "/notifications" },
     { icon: Calendar, label: "Calendar școlar", href: "/dashboard/calendar" },

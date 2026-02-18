@@ -119,6 +119,7 @@ export const useDeleteAttendance = () => {
         .from("attendance")
         .select("*")
         .eq("id", attendanceId)
+        .is("deleted_at", null)
         .single();
       
       await deleteAttendance(attendanceId);

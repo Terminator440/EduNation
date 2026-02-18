@@ -55,6 +55,7 @@ import {
   getNextStudentNumber,
   parseStudentNumberNumeric,
 } from "@/lib/studentNumber";
+import { validateCNP, parseCNP, formatBirthDateRO } from "@/lib/cnp";
 
 interface Student {
   id: string;
@@ -110,6 +111,9 @@ const HomeroomDashboard = () => {
     studentNumber: "",
     email: "",
     phone: "",
+    cnp: "",
+    birthDate: null as Date | null,
+    gender: null as "M" | "F" | null,
   });
   const [newClass, setNewClass] = useState({ year: "", section: "", name: "" });
   const [absences, setAbsences] = useState<Absence[]>([]);
@@ -241,13 +245,15 @@ const HomeroomDashboard = () => {
         .from("grades")
         .select("grade, student_id")
         .in("student_id", studentIds)
-        .eq("school_id", schoolId);
+        .eq("school_id", schoolId)
+        .is("deleted_at", null);
 
       const { data: attendance } = await supabase
         .from("attendance")
         .select("status, student_id")
         .in("student_id", studentIds)
-        .eq("school_id", schoolId);
+        .eq("school_id", schoolId)
+        .is("deleted_at", null);
 
       const totalGrades = grades?.length || 0;
 
@@ -436,6 +442,9 @@ const HomeroomDashboard = () => {
         full_name: string;
         student_number: number;
         is_active: boolean;
+        cnp?: string | null;
+        birth_date?: string | null;
+        gender?: string | null;
       };
       const payload: StudentInsert = {
         class_id: classInfo.id,
@@ -443,6 +452,14 @@ const HomeroomDashboard = () => {
         student_number: finalNumberNumeric,
         is_active: false,
       };
+      if (newStudent.cnp.trim() && validateCNP(newStudent.cnp.trim())) {
+        const parsed = parseCNP(newStudent.cnp.trim());
+        if (parsed) {
+          payload.cnp = parsed.cnp;
+          payload.birth_date = parsed.birthDate.toISOString().slice(0, 10);
+          payload.gender = parsed.gender;
+        }
+      }
 
       const { error: insertError } = await supabase.from("students").insert(payload);
 
@@ -454,7 +471,7 @@ const HomeroomDashboard = () => {
       });
 
       setIsAddStudentOpen(false);
-      setNewStudent({ fullName: "", studentNumber: "", email: "", phone: "" });
+      setNewStudent({ fullName: "", studentNumber: "", email: "", phone: "", cnp: "", birthDate: null, gender: null });
       await fetchData();
     } catch (err: unknown) {
       const errObj = err as { message?: string };
@@ -489,6 +506,7 @@ const HomeroomDashboard = () => {
         .select("id, date, status, student_id, subject_id")
         .in("student_id", ids)
         .in("status", ["unexcused", "pending"])
+        .is("deleted_at", null)
         .order("date", { ascending: false });
 
       if (!absenceData) return;
@@ -865,6 +883,51 @@ const HomeroomDashboard = () => {
                           placeholder="ex: Popescu Ion Alexandru"
                           className="mt-1"
                         />
+                      </div>
+                      <div>
+                        <Label>CNP (opțional – completează data nașterii și genul automat)</Label>
+                        <Input
+                          type="text"
+                          inputMode="numeric"
+                          maxLength={13}
+                          value={newStudent.cnp}
+                          onChange={(e) => {
+                            const v = e.target.value.replace(/\D/g, "").slice(0, 13);
+                            setNewStudent((p) => {
+                              const next = { ...p, cnp: v, birthDate: null as Date | null, gender: null as "M" | "F" | null };
+                              if (v.length === 13) {
+                                const parsed = parseCNP(v);
+                                if (parsed) {
+                                  next.birthDate = parsed.birthDate;
+                                  next.gender = parsed.gender;
+                                }
+                              }
+                              return next;
+                            });
+                          }}
+                          onBlur={() => {
+                            const v = newStudent.cnp.trim();
+                            if (v.length === 13 && !newStudent.birthDate) {
+                              const parsed = parseCNP(v);
+                              if (parsed)
+                                setNewStudent((p) => ({ ...p, birthDate: parsed.birthDate, gender: parsed.gender }));
+                            }
+                          }}
+                          placeholder="13 cifre"
+                          className="mt-1 font-mono"
+                        />
+                        {newStudent.cnp.length > 0 && newStudent.cnp.length !== 13 && (
+                          <p className="text-xs text-muted-foreground mt-1">CNP-ul are 13 cifre</p>
+                        )}
+                        {newStudent.cnp.length === 13 && !newStudent.birthDate && (
+                          <p className="text-xs text-destructive mt-1">CNP invalid (verifică cifra de control)</p>
+                        )}
+                        {newStudent.birthDate && (
+                          <div className="mt-2 flex gap-4 text-sm text-muted-foreground">
+                            <span>Data nașterii: <strong className="text-foreground">{formatBirthDateRO(newStudent.birthDate)}</strong></span>
+                            <span>Gen: <strong className="text-foreground">{newStudent.gender === "M" ? "Bărbat" : "Femeie"}</strong></span>
+                          </div>
+                        )}
                       </div>
                       <div>
                         <Label>Număr Matricol (lasă gol pentru generare automată)</Label>

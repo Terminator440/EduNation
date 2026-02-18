@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense } fro
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useNavigate } from "react-router-dom";
 /* Lucide: import doar iconițele folosite (tree-shaking) — nu importa întreaga librărie */
-import { Users, GraduationCap, TrendingUp, FileText, Shield, Bell, BarChart3, Building, Megaphone, Search, Lock, FileDown } from "lucide-react";
+import { Users, GraduationCap, TrendingUp, FileText, Shield, Bell, BarChart3, Building, Megaphone, Search, Lock } from "lucide-react";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
 import StatsCard from "@/components/dashboard/StatsCard";
 import { useAuth } from "@/hooks/useAuth";
@@ -10,8 +10,6 @@ import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { usePagination } from "@/hooks/usePagination";
 import { supabase } from "@/integrations/supabase/client";
 import { getCurrentUserSchoolId } from "@/lib/supabase-helpers";
-import { exportClassRegisterPdf } from "@/utils/exportClassRegisterPdf";
-import { getCurrentAcademicYear, getCurrentSemester } from "@/features/academics/services/semester.service";
 import { CreateInvitationDialog } from "@/components/invitations/CreateInvitationDialog";
 import { CreateAnnouncementDialog } from "@/components/announcements/CreateAnnouncementDialog";
 import { CloseSemesterDialog } from "@/components/semester/CloseSemesterDialog";
@@ -277,6 +275,7 @@ const DirectorDashboard = () => {
           .from('attendance')
           .select('*', { count: 'exact', head: true })
           .eq('school_id', schoolId)
+          .is('deleted_at', null)
           .in('status', ['unexcused', 'pending']),
         supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('school_id', schoolId),
         supabase

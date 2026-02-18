@@ -531,6 +531,7 @@ export type Database = {
           email: string
           full_name: string
           id: string
+          onboarding_tour_completed: boolean
           school_id: string | null
           updated_at: string | null
         }
@@ -540,6 +541,7 @@ export type Database = {
           email: string
           full_name: string
           id: string
+          onboarding_tour_completed?: boolean
           school_id?: string | null
           updated_at?: string | null
         }
@@ -549,6 +551,7 @@ export type Database = {
           email?: string
           full_name?: string
           id?: string
+          onboarding_tour_completed?: boolean
           school_id?: string | null
           updated_at?: string | null
         }
@@ -1128,6 +1131,17 @@ export type Database = {
       finalize_expired_absences: { Args: never; Returns: number }
       generate_activation_code: { Args: never; Returns: string }
       generate_invitation_code: { Args: never; Returns: string }
+      get_maintenance_mode: { Args: never; Returns: boolean }
+      get_system_recent_errors: {
+        Args: never;
+        Returns: {
+          id: string;
+          created_at: string | null;
+          user_name: string | null;
+          message: string | null;
+          details: Json | null;
+        }[];
+      }
       get_class_stats_for_display: {
         Args: { p_class_id: string; p_date_from?: string; p_date_to?: string }
         Returns: {
@@ -1183,6 +1197,7 @@ export type Database = {
         Returns: string
       }
       revoke_invitation: { Args: { p_invitation_id: string }; Returns: boolean }
+      set_maintenance_mode: { Args: { enabled: boolean }; Returns: undefined }
     }
     Enums: {
       app_role:

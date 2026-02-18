@@ -11,7 +11,6 @@ import { useToast } from "@/hooks/use-toast";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { getCurrentUserSchoolId } from "@/lib/supabase-helpers";
 
 /** Roles that can edit their own Name, Surname, Phone. Students/Parents are read-only. */
 const CAN_EDIT_PERSONAL_INFO: string[] = [
@@ -131,9 +130,8 @@ const Settings = () => {
         const { data: school } = await supabase.from("schools").select("name").eq("id", schoolId).maybeSingle();
         setSchoolLabel(school?.name ?? "");
       }
-      const schoolId = profile.school_id;
       if (!schoolId) return;
-      
+
       const { data: student } = await supabase
         .from("students")
         .select("class_id, classes(name, year, section)")

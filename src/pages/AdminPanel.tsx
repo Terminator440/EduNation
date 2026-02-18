@@ -1,17 +1,18 @@
 import { useState, useTransition, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Users, Link2 } from "lucide-react";
+import { Users, Link2, Upload } from "lucide-react";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/hooks/useAuth";
 import { UserManagement } from "@/features/admin/components/UserManagement";
 import { AssignmentManagement } from "@/features/admin/components/AssignmentManagement";
+import { BulkImport } from "@/features/admin/components/BulkImport";
 import { cn } from "@/lib/utils";
 
 const AdminPanel = () => {
   const { user, activeRole, loading: authLoading } = useAuth();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<"users" | "assignments">("users");
+  const [activeTab, setActiveTab] = useState<"users" | "assignments" | "bulk-import">("users");
   const [, startTransition] = useTransition();
 
   // Handle tab change with transition - active state updates instantly, content renders with low priority
@@ -42,10 +43,14 @@ const AdminPanel = () => {
       subtitle="Gestionează utilizatorii și asignările școlii"
     >
       <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="users">
             <Users className="w-4 h-4 mr-2" />
             Utilizatori
+          </TabsTrigger>
+          <TabsTrigger value="bulk-import">
+            <Upload className="w-4 h-4 mr-2" />
+            Import în masă
           </TabsTrigger>
           <TabsTrigger value="assignments">
             <Link2 className="w-4 h-4 mr-2" />
@@ -57,6 +62,9 @@ const AdminPanel = () => {
         <div className="mt-6 relative">
           <div className={cn(activeTab === "users" ? "block" : "hidden")}>
             <UserManagement isActive={activeTab === "users"} />
+          </div>
+          <div className={cn(activeTab === "bulk-import" ? "block" : "hidden")}>
+            <BulkImport isActive={activeTab === "bulk-import"} />
           </div>
           <div className={cn(activeTab === "assignments" ? "block" : "hidden")}>
             <AssignmentManagement isActive={activeTab === "assignments"} />

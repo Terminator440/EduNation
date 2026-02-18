@@ -204,12 +204,14 @@ const Reports = () => {
         .select("id, date, grade, description, student_id, subjects(name)")
         .in("student_id", studentIds)
         .eq("school_id", schoolId)
+        .is("deleted_at", null)
         .order("date", { ascending: false });
       let attQ = supabase
         .from("attendance")
         .select("id, date, status, student_id, subjects(name)")
         .in("student_id", studentIds)
         .eq("school_id", schoolId)
+        .is("deleted_at", null)
         .order("date", { ascending: false });
 
       if (dateFrom) {
