@@ -865,75 +865,75 @@ const TeacherDashboard = () => {
                           </Dialog>
 
                           {/* Motivate Absences Dialog */}
-                          {activeRole === 'homeroom_teacher' && (
-<Dialog open={isMotivateOpen && selectedStudent?.id === student.id} onOpenChange={(open) => {
-                            setIsMotivateOpen(open);
-                            if (open) {
-                              setSelectedStudent(student);
-                              setSelectedAbsences([]);
-                            }
-                          }}>
-                            <DialogTrigger asChild>
-                              <Button size="sm" variant="outline" className="gap-1" disabled={countAbsences(student.attendance) === 0}>
-                                <CheckCircle className="w-3 h-3" />
-                                Motivează
-                              </Button>
-                            </DialogTrigger>
-                            <DialogContent>
-                              <DialogHeader>
-                                <DialogTitle>Motivează absențe pentru {student.full_name || student.profile?.full_name}</DialogTitle>
-                              </DialogHeader>
-                              <div className="space-y-4 mt-4">
-                                {getUnmotivatedAbsences(student.attendance).length === 0 ? (
-                                  <p className="text-muted-foreground text-center py-4">Nu există absențe de motivat.</p>
-                                ) : (
-                                  <>
-                                    <div className="space-y-2 max-h-64 overflow-y-auto">
-                                      {getUnmotivatedAbsences(student.attendance).map((absence) => (
-                                        <label
-                                          key={absence.id}
-                                          className={cn(
-                                            "flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors",
-                                            selectedAbsences.includes(absence.id) ? "border-primary bg-primary/5" : "border-border hover:bg-muted/50"
-                                          )}
-                                        >
-                                          <input
-                                            type="checkbox"
-                                            checked={selectedAbsences.includes(absence.id)}
-                                            onChange={(e) => {
-                                              if (e.target.checked) {
-                                                setSelectedAbsences([...selectedAbsences, absence.id]);
-                                              } else {
-                                                setSelectedAbsences(selectedAbsences.filter(id => id !== absence.id));
-                                              }
-                                            }}
-                                            className="rounded border-border"
-                                          />
-                                          <div>
-                                            <p className="font-medium">{absence.subject?.name}</p>
-                                            <p className="text-sm text-muted-foreground">{absence.date}</p>
-                                          </div>
-                                        </label>
-                                      ))}
-                                    </div>
-                                    <div>
-                                      <Label>Motiv (opțional)</Label>
-                                      <Textarea
-                                        value={motivateReason}
-                                        onChange={(e) => setMotivateReason(e.target.value)}
-                                        placeholder="ex: Adeverință medicală / motivare părinte"
-                                        className="mt-1"
-                                      />
-                                    </div>
-                                    <Button onClick={handleMotivateAbsences} className="w-full" disabled={selectedAbsences.length === 0}>
-                                      Motivează ({selectedAbsences.length}) absențe
-                                    </Button>
-                                  </>
-                                )}
-                              </div>
-                            </DialogContent>
-                          </Dialog>
-                          )}
+                          <div className={cn(activeRole !== 'homeroom_teacher' && "hidden")}>
+                            <Dialog open={isMotivateOpen && selectedStudent?.id === student.id} onOpenChange={(open) => {
+                              setIsMotivateOpen(open);
+                              if (open) {
+                                setSelectedStudent(student);
+                                setSelectedAbsences([]);
+                              }
+                            }}>
+                              <DialogTrigger asChild>
+                                <Button size="sm" variant="outline" className="gap-1" disabled={countAbsences(student.attendance) === 0}>
+                                  <CheckCircle className="w-3 h-3" />
+                                  Motivează
+                                </Button>
+                              </DialogTrigger>
+                              <DialogContent>
+                                <DialogHeader>
+                                  <DialogTitle>Motivează absențe pentru {student.full_name || student.profile?.full_name}</DialogTitle>
+                                </DialogHeader>
+                                <div className="space-y-4 mt-4">
+                                  {getUnmotivatedAbsences(student.attendance).length === 0 ? (
+                                    <p className="text-muted-foreground text-center py-4">Nu există absențe de motivat.</p>
+                                  ) : (
+                                    <>
+                                      <div className="space-y-2 max-h-64 overflow-y-auto">
+                                        {getUnmotivatedAbsences(student.attendance).map((absence) => (
+                                          <label
+                                            key={absence.id}
+                                            className={cn(
+                                              "flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors",
+                                              selectedAbsences.includes(absence.id) ? "border-primary bg-primary/5" : "border-border hover:bg-muted/50"
+                                            )}
+                                          >
+                                            <input
+                                              type="checkbox"
+                                              checked={selectedAbsences.includes(absence.id)}
+                                              onChange={(e) => {
+                                                if (e.target.checked) {
+                                                  setSelectedAbsences([...selectedAbsences, absence.id]);
+                                                } else {
+                                                  setSelectedAbsences(selectedAbsences.filter(id => id !== absence.id));
+                                                }
+                                              }}
+                                              className="rounded border-border"
+                                            />
+                                            <div>
+                                              <p className="font-medium">{absence.subject?.name}</p>
+                                              <p className="text-sm text-muted-foreground">{absence.date}</p>
+                                            </div>
+                                          </label>
+                                        ))}
+                                      </div>
+                                      <div>
+                                        <Label>Motiv (opțional)</Label>
+                                        <Textarea
+                                          value={motivateReason}
+                                          onChange={(e) => setMotivateReason(e.target.value)}
+                                          placeholder="ex: Adeverință medicală / motivare părinte"
+                                          className="mt-1"
+                                        />
+                                      </div>
+                                      <Button onClick={handleMotivateAbsences} className="w-full" disabled={selectedAbsences.length === 0}>
+                                        Motivează ({selectedAbsences.length}) absențe
+                                      </Button>
+                                    </>
+                                  )}
+                                </div>
+                              </DialogContent>
+                            </Dialog>
+                          </div>
 
 
                           {/* Send Message Dialog */}
@@ -1011,42 +1011,42 @@ const TeacherDashboard = () => {
               </Table>
             )}
           </div>
-        {activeRole === "homeroom_teacher" && (
-          <Card className="mt-8">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0">
-              <CardTitle>Invitații (diriginte)</CardTitle>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setInvitationRole("student");
-                    setInvitationDialogOpen(true);
-                  }}
-                >
-                  Invită elev
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setInvitationRole("parent");
-                    setInvitationDialogOpen(true);
-                  }}
-                >
-                  Invită părinte
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {!schoolId || !homeroomClassId ? (
-                <p className="text-sm text-muted-foreground">
-                  Nu pot încărca invitațiile: lipsesc datele de școală/clasă pentru contul tău.
-                </p>
-              ) : invitesLoading ? (
-                <p className="text-sm text-muted-foreground">Se încarcă invitațiile...</p>
-              ) : homeroomInvitations.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Nu ai invitații create.</p>
-              ) : (
-                <Table>
+        {/* Invitații (diriginte) - rendered but hidden if not homeroom_teacher */}
+        <Card className={cn("mt-8", activeRole !== "homeroom_teacher" && "hidden")}>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0">
+            <CardTitle>Invitații (diriginte)</CardTitle>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setInvitationRole("student");
+                  setInvitationDialogOpen(true);
+                }}
+              >
+                Invită elev
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setInvitationRole("parent");
+                  setInvitationDialogOpen(true);
+                }}
+              >
+                Invită părinte
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {!schoolId || !homeroomClassId ? (
+              <p className="text-sm text-muted-foreground">
+                Nu pot încărca invitațiile: lipsesc datele de școală/clasă pentru contul tău.
+              </p>
+            ) : invitesLoading ? (
+              <p className="text-sm text-muted-foreground">Se încarcă invitațiile...</p>
+            ) : homeroomInvitations.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Nu ai invitații create.</p>
+            ) : (
+              <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead>Rol</TableHead>

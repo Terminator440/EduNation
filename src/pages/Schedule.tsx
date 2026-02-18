@@ -152,27 +152,25 @@ export default function Schedule() {
                 </div>
               )}
               
-              {viewMode === "class" && (
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground">Clasă:</span>
-                  <Select
-                    value={selectedClassId || undefined}
-                    onValueChange={setSelectedClassId}
-                    disabled={classesQuery.isLoading || (classesQuery.data?.length ?? 0) === 0}
-                  >
-                    <SelectTrigger className="w-48">
-                      <SelectValue placeholder={classesQuery.isLoading ? "Se încarcă..." : (classesQuery.data?.length ?? 0) === 0 ? "Nu există clase" : "Selectează clasa"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {classesQuery.data?.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>
-                          {c.name} {c.year && c.section ? `(${c.year}${c.section})` : ""}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
+              <div className={cn("flex items-center gap-2", viewMode !== "class" && "hidden")}>
+                <span className="text-sm text-muted-foreground">Clasă:</span>
+                <Select
+                  value={selectedClassId || undefined}
+                  onValueChange={setSelectedClassId}
+                  disabled={classesQuery.isLoading || (classesQuery.data?.length ?? 0) === 0}
+                >
+                  <SelectTrigger className="w-48">
+                    <SelectValue placeholder={classesQuery.isLoading ? "Se încarcă..." : (classesQuery.data?.length ?? 0) === 0 ? "Nu există clase" : "Selectează clasa"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {classesQuery.data?.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name} {c.year && c.section ? `(${c.year}${c.section})` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </CardContent>
           </Card>
 
