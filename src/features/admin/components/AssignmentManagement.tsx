@@ -20,6 +20,7 @@ import {
 import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
+import { toFriendlySupabaseError } from "@/utils/supabaseErrors";
 import {
   assignTeacherToSubject,
   assignStudentToParent,
@@ -268,7 +269,7 @@ const AssignmentManagementBase = ({ isActive = true }: AssignmentManagementProps
     },
     onError: (error: Error) => {
       toast.error("Eroare", {
-        description: error.message || "Nu s-a putut realiza asignarea.",
+        description: toFriendlySupabaseError(error, { entity: "assignment", action: "create" }),
       });
     },
   });
@@ -302,7 +303,7 @@ const AssignmentManagementBase = ({ isActive = true }: AssignmentManagementProps
     },
     onError: (error: Error) => {
       toast.error("Eroare", {
-        description: error.message || "Nu s-a putut realiza asignarea.",
+        description: toFriendlySupabaseError(error, { entity: "assignment", action: "create" }),
       });
     },
   });

@@ -37,7 +37,10 @@ interface ClassRegisterData {
 }
 
 /**
- * Fetch all data needed for class register PDF
+ * Încarcă datele necesare pentru generarea foii matricole (școală, clasă, elevi, materii, note finale).
+ * @param classId - ID-ul clasei
+ * @param academicYear - Anul școlar (ex: 2024)
+ * @param semester - Semestrul (1 sau 2)
  */
 export async function fetchClassRegisterData(
   classId: string,
@@ -130,183 +133,182 @@ export async function fetchClassRegisterData(
 }
 
 /**
- * Generate PDF for Class Register (Foaia Matricolă)
+ * Generează și descarcă PDF-ul foii matricole pentru o clasă.
+ * Include header (școală, clasă, an școlar), tabel cu elevi × materii × note finale, media generală per elev.
+ * @param classId - ID-ul clasei
+ * @param academicYear - Anul școlar (opțional)
+ * @param semester - Semestrul 1 sau 2 (opțional)
  */
 export async function exportClassRegisterPdf(
   classId: string,
   academicYear?: number,
   semester?: 1 | 2
 ): Promise<void> {
-  try {
-    // Fetch all data
-    const data = await fetchClassRegisterData(classId, academicYear, semester);
+  // Fetch all data
+  const data = await fetchClassRegisterData(classId, academicYear, semester);
 
-    // Create PDF document
-    const doc = new jsPDF({
-      orientation: "landscape",
-      unit: "mm",
-      format: "a4",
-    });
+  // Create PDF document
+  const doc = new jsPDF({
+    orientation: "landscape",
+    unit: "mm",
+    format: "a4",
+  });
 
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-    const margin = 10;
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const margin = 10;
 
-    // Header: School name and logo area
-    let yPos = margin;
+  // Header: School name and logo area
+  let yPos = margin;
 
-    // School name (centered, bold, larger font)
-    doc.setFontSize(16);
-    doc.setFont("helvetica", "bold");
-    const schoolName = data.school.name || "Școală";
-    const schoolNameWidth = doc.getTextWidth(schoolName);
-    doc.text(schoolName, (pageWidth - schoolNameWidth) / 2, yPos + 8);
+  // School name (centered, bold, larger font)
+  doc.setFontSize(16);
+  doc.setFont("helvetica", "bold");
+  const schoolName = data.school.name || "Școală";
+  const schoolNameWidth = doc.getTextWidth(schoolName);
+  doc.text(schoolName, (pageWidth - schoolNameWidth) / 2, yPos + 8);
 
-    // Subtitle: "FOAIA MATRICOLĂ"
-    yPos += 12;
-    doc.setFontSize(14);
-    doc.setFont("helvetica", "bold");
-    const title = "FOAIA MATRICOLĂ";
-    const titleWidth = doc.getTextWidth(title);
-    doc.text(title, (pageWidth - titleWidth) / 2, yPos);
+  // Subtitle: "FOAIA MATRICOLĂ"
+  yPos += 12;
+  doc.setFontSize(14);
+  doc.setFont("helvetica", "bold");
+  const title = "FOAIA MATRICOLĂ";
+  const titleWidth = doc.getTextWidth(title);
+  doc.text(title, (pageWidth - titleWidth) / 2, yPos);
 
-    // Class info
-    yPos += 8;
-    doc.setFontSize(11);
-    doc.setFont("helvetica", "normal");
-    const classLabel = `Clasa: ${data.class.name || ""} ${data.class.year || ""}${data.class.section || ""}`;
-    doc.text(classLabel, margin, yPos);
+  // Class info
+  yPos += 8;
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "normal");
+  const classLabel = `Clasa: ${data.class.name || ""} ${data.class.year || ""}${data.class.section || ""}`;
+  doc.text(classLabel, margin, yPos);
 
-    // Academic year and semester if provided
-    if (academicYear && semester) {
-      const semesterLabel = `An școlar: ${academicYear}-${academicYear + 1}, Semestrul ${semester}`;
-      doc.text(semesterLabel, pageWidth - margin - doc.getTextWidth(semesterLabel), yPos);
-    }
+  // Academic year and semester if provided
+  if (academicYear && semester) {
+    const semesterLabel = `An școlar: ${academicYear}-${academicYear + 1}, Semestrul ${semester}`;
+    doc.text(semesterLabel, pageWidth - margin - doc.getTextWidth(semesterLabel), yPos);
+  }
 
-    // Generation date
-    yPos += 6;
-    const generationDate = `Generat la: ${new Date().toLocaleDateString("ro-RO", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    })}`;
-    doc.setFontSize(9);
-    doc.setFont("helvetica", "italic");
-    doc.text(generationDate, pageWidth - margin - doc.getTextWidth(generationDate), yPos);
+  // Generation date
+  yPos += 6;
+  const generationDate = `Generat la: ${new Date().toLocaleDateString("ro-RO", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  })}`;
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "italic");
+  doc.text(generationDate, pageWidth - margin - doc.getTextWidth(generationDate), yPos);
 
-    // Prepare table data
-    yPos += 10;
+  // Prepare table data
+  yPos += 10;
 
-    // Table headers: Nr. crt., Nume elev, then each subject, then Media generală
-    const headers: string[] = ["Nr.", "Nume elev"];
+  // Table headers: Nr. crt., Nume elev, then each subject, then Media generală
+  const headers: string[] = ["Nr.", "Nume elev"];
+  data.subjects.forEach((subject) => {
+    headers.push(subject.name || "Materie");
+  });
+  headers.push("Medie gen.");
+
+  // Table rows
+  const rows: (string | number)[][] = [];
+  data.students.forEach((student, index) => {
+    const row: (string | number)[] = [
+      student.student_number || index + 1,
+      student.full_name || "(fără nume)",
+    ];
+
+    // Add final grade for each subject
     data.subjects.forEach((subject) => {
-      headers.push(subject.name || "Materie");
-    });
-    headers.push("Medie gen.");
-
-    // Table rows
-    const rows: (string | number)[][] = [];
-    data.students.forEach((student, index) => {
-      const row: (string | number)[] = [
-        student.student_number || index + 1,
-        student.full_name || "(fără nume)",
-      ];
-
-      // Add final grade for each subject
-      data.subjects.forEach((subject) => {
-        const finalGrade = data.finalGrades.find(
-          (fg) => fg.student_id === student.id && fg.subject_id === subject.id
-        );
-        if (finalGrade) {
-          row.push(finalGrade.final_grade);
-        } else {
-          row.push("—");
-        }
-      });
-
-      // Calculate general average (average of all final grades for this student)
-      const studentFinalGrades = data.finalGrades.filter((fg) => fg.student_id === student.id);
-      if (studentFinalGrades.length > 0) {
-        const avg =
-          studentFinalGrades.reduce((sum, fg) => sum + fg.final_grade, 0) /
-          studentFinalGrades.length;
-        row.push(avg.toFixed(2));
+      const finalGrade = data.finalGrades.find(
+        (fg) => fg.student_id === student.id && fg.subject_id === subject.id
+      );
+      if (finalGrade) {
+        row.push(finalGrade.final_grade);
       } else {
         row.push("—");
       }
-
-      rows.push(row);
     });
 
-    // Generate table using autoTable
-    autoTable(doc, {
-      startY: yPos,
-      head: [headers],
-      body: rows,
-      theme: "grid",
-      headStyles: {
-        fillColor: [41, 128, 185],
-        textColor: 255,
-        fontStyle: "bold",
-        fontSize: 10,
-      },
-      bodyStyles: {
-        fontSize: 9,
-      },
-      alternateRowStyles: {
-        fillColor: [245, 245, 245],
-      },
-      columnStyles: {
-        0: { cellWidth: 15, halign: "center" }, // Nr.
-        1: { cellWidth: 50 }, // Nume elev
-      },
-      margin: { left: margin, right: margin },
-      styles: {
-        overflow: "linebreak",
-        cellPadding: 2,
-      },
-      didDrawPage: (_data) => {
-        // Add page number
-        doc.setFontSize(9);
-        doc.setFont("helvetica", "normal");
-        const pageNum = doc.getCurrentPageInfo().pageNumber;
-        const totalPages = doc.getCurrentPageInfo().totalPages;
-        doc.text(
-          `Pagina ${pageNum} din ${totalPages}`,
-          pageWidth - margin - doc.getTextWidth(`Pagina ${pageNum} din ${totalPages}`),
-          pageHeight - margin
-        );
-      },
-    });
-
-    // Footer: School address and contact info (if available)
-    const docWithTable = doc as { lastAutoTable?: { finalY?: number } };
-    const finalY = docWithTable.lastAutoTable?.finalY ?? yPos + 50;
-    if (finalY < pageHeight - 20) {
-      doc.setFontSize(8);
-      doc.setFont("helvetica", "normal");
-      let footerY = pageHeight - 15;
-
-      if (data.school.address) {
-        doc.text(`Adresă: ${data.school.address}`, margin, footerY);
-        footerY -= 4;
-      }
-      if (data.school.phone) {
-        doc.text(`Telefon: ${data.school.phone}`, margin, footerY);
-        footerY -= 4;
-      }
-      if (data.school.email) {
-        doc.text(`Email: ${data.school.email}`, margin, footerY);
-      }
+    // Calculate general average (average of all final grades for this student)
+    const studentFinalGrades = data.finalGrades.filter((fg) => fg.student_id === student.id);
+    if (studentFinalGrades.length > 0) {
+      const avg =
+        studentFinalGrades.reduce((sum, fg) => sum + fg.final_grade, 0) /
+        studentFinalGrades.length;
+      row.push(avg.toFixed(2));
+    } else {
+      row.push("—");
     }
 
-    // Save PDF
-    const fileName = `foaia_matricola_${data.class.name || "clasa"}_${data.class.year || ""}${data.class.section || ""}_${new Date().toISOString().split("T")[0]}.pdf`;
-    doc.save(fileName);
-  } catch (error) {
-    console.error("Error generating PDF:", error);
-    throw error;
+    rows.push(row);
+  });
+
+  // Generate table using autoTable
+  autoTable(doc, {
+    startY: yPos,
+    head: [headers],
+    body: rows,
+    theme: "grid",
+    headStyles: {
+      fillColor: [41, 128, 185],
+      textColor: 255,
+      fontStyle: "bold",
+      fontSize: 10,
+    },
+    bodyStyles: {
+      fontSize: 9,
+    },
+    alternateRowStyles: {
+      fillColor: [245, 245, 245],
+    },
+    columnStyles: {
+      0: { cellWidth: 15, halign: "center" }, // Nr.
+      1: { cellWidth: 50 }, // Nume elev
+    },
+    margin: { left: margin, right: margin },
+    styles: {
+      overflow: "linebreak",
+      cellPadding: 2,
+    },
+    didDrawPage: (_data) => {
+      // Add page number
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+      const pageNum = doc.getCurrentPageInfo().pageNumber;
+      const totalPages = doc.getCurrentPageInfo().totalPages;
+      doc.text(
+        `Pagina ${pageNum} din ${totalPages}`,
+        pageWidth - margin - doc.getTextWidth(`Pagina ${pageNum} din ${totalPages}`),
+        pageHeight - margin
+      );
+    },
+  });
+
+  // Footer: School address and contact info (if available)
+  const docWithTable = doc as { lastAutoTable?: { finalY?: number } };
+  const finalY = docWithTable.lastAutoTable?.finalY ?? yPos + 50;
+  if (finalY < pageHeight - 20) {
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "normal");
+    let footerY = pageHeight - 15;
+
+    if (data.school.address) {
+      doc.text(`Adresă: ${data.school.address}`, margin, footerY);
+      footerY -= 4;
+    }
+    if (data.school.phone) {
+      doc.text(`Telefon: ${data.school.phone}`, margin, footerY);
+      footerY -= 4;
+    }
+    if (data.school.email) {
+      doc.text(`Email: ${data.school.email}`, margin, footerY);
+    }
   }
+
+  // Save PDF
+  const fileName = `foaia_matricola_${data.class.name || "clasa"}_${data.class.year || ""}${data.class.section || ""}_${new Date().toISOString().split("T")[0]}.pdf`;
+  doc.save(fileName);
 }

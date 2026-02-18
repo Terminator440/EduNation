@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { toFriendlySupabaseError } from "@/utils/supabaseErrors";
 import {
   addGrade,
   updateGrade,
@@ -53,7 +54,7 @@ export const useAddGrade = () => {
     },
     onError: (error: Error) => {
       toast.error("Eroare", {
-        description: error.message || "Nu s-a putut adăuga nota.",
+        description: toFriendlySupabaseError(error, { entity: "grade", action: "add" }),
       });
     },
   });
@@ -93,7 +94,7 @@ export const useUpdateGrade = () => {
     },
     onError: (error: Error) => {
       toast.error("Eroare", {
-        description: error.message || "Nu s-a putut actualiza nota.",
+        description: toFriendlySupabaseError(error, { entity: "grade", action: "update" }),
       });
     },
   });
@@ -143,7 +144,7 @@ export const useDeleteGrade = () => {
     },
     onError: (error: Error) => {
       toast.error("Eroare", {
-        description: error.message || "Nu s-a putut șterge nota.",
+        description: toFriendlySupabaseError(error, { entity: "grade", action: "delete" }),
       });
     },
   });

@@ -569,6 +569,7 @@ const TeacherDashboard = () => {
     setMessage({ subject: "", content: "", sendToParent: true, sendToStudent: false });
   };
 
+  /** Calculează media aritmetică a notelor unui elev. Returnează "-" dacă nu există note. */
   const calculateAverage = (grades: { grade: number }[]) => {
     if (grades.length === 0) return "-";
     const sum = grades.reduce((acc, g) => acc + Number(g.grade), 0);

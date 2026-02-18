@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/select";
 import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
 import { toast } from "sonner";
+import { toFriendlySupabaseError } from "@/utils/supabaseErrors";
 import { fetchUsers, inviteUser, removeUserRole, addUserRole, type UserWithRoles } from "../services/user-management.service";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -118,7 +119,7 @@ const UserManagementBase = ({ isActive = true }: UserManagementProps) => {
     },
     onError: (error: Error) => {
       toast.error("Eroare", {
-        description: error.message || "Nu s-a putut crea invitația.",
+        description: toFriendlySupabaseError(error, { entity: "invitation", action: "create" }),
       });
     },
   });
@@ -141,7 +142,7 @@ const UserManagementBase = ({ isActive = true }: UserManagementProps) => {
     },
     onError: (error: Error) => {
       toast.error("Eroare", {
-        description: error.message || "Nu s-a putut șterge rolul.",
+        description: toFriendlySupabaseError(error, { entity: "invitation" }),
       });
     },
   });
@@ -164,7 +165,7 @@ const UserManagementBase = ({ isActive = true }: UserManagementProps) => {
     },
     onError: (error: Error) => {
       toast.error("Eroare", {
-        description: error.message || "Nu s-a putut adăuga rolul.",
+        description: toFriendlySupabaseError(error, { entity: "invitation" }),
       });
     },
   });

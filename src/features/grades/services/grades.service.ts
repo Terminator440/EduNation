@@ -85,6 +85,10 @@ export async function fetchGradesForStudents(
   return assertSupabaseOk(res, "grades.select");
 }
 
+/**
+ * Încarcă mediile pe materii pentru elevii dați (din view-ul v_student_subject_averages).
+ * Utilizat pentru afișarea situației școlare pe materii.
+ */
 export async function fetchSubjectAverages(
   studentIds: string[]
 ): Promise<SubjectAverageRow[]> {
@@ -115,6 +119,10 @@ export async function fetchSubjectAverages(
   }
 }
 
+/**
+ * Încarcă mediile generale per elev (din view-ul v_student_general_averages).
+ * Returnează un obiect { student_id: medie_generala }.
+ */
 export async function fetchGeneralAverages(
   studentIds: string[]
 ): Promise<Record<string, number>> {

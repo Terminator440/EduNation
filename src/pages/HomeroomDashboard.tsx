@@ -47,6 +47,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
+import { toFriendlySupabaseError } from "@/utils/supabaseErrors";
 import { CreateInvitationDialog } from "@/components/invitations/CreateInvitationDialog";
 import { listInvitations, type InvitationRole, type Invitation } from "@/lib/invitations";
 import {
@@ -474,9 +475,7 @@ const HomeroomDashboard = () => {
       setNewStudent({ fullName: "", studentNumber: "", email: "", phone: "", cnp: "", birthDate: null, gender: null });
       await fetchData();
     } catch (err: unknown) {
-      const errObj = err as { message?: string };
-      const message = errObj?.message ?? "Eroare la baza de date";
-      console.error("DEBUG ERROR ADD STUDENT:", err);
+      const message = toFriendlySupabaseError(err, { entity: "student", action: "add" });
       toast({
         title: "Eroare",
         description: message,

@@ -102,7 +102,6 @@ const DeveloperDirectorInvites = () => {
       });
       setSchools([]);
     } else {
-      console.log("Schools fetched:", data);
       setSchools(data || []);
     }
     setLoadingSchools(false);

@@ -18,6 +18,7 @@ import {
   type BulkImportValidationResult,
 } from "../services/bulk-import.service";
 import { toast } from "sonner";
+import { toFriendlySupabaseError } from "@/utils/supabaseErrors";
 
 const CSV_TEMPLATE_STUDENTS = "email,full_name,cnp,phone,class\nion.popescu@email.ro,Ion Popescu,1900101123456,,10A";
 const CSV_TEMPLATE_TEACHERS = "email,full_name,cnp,phone\nmaria.ionescu@email.ro,Maria Ionescu,2850302123456,";
@@ -52,8 +53,9 @@ export function BulkImport({ isActive = true }: { isActive?: boolean }) {
       }
     },
     onError: (err: Error) => {
-      setFileError(err.message);
-      toast.error("Eroare validare", { description: err.message });
+      const msg = toFriendlySupabaseError(err, { entity: "import" });
+      setFileError(msg);
+      toast.error("Eroare validare", { description: msg });
     },
   });
 
@@ -73,7 +75,7 @@ export function BulkImport({ isActive = true }: { isActive?: boolean }) {
       }
     },
     onError: (err: Error) => {
-      toast.error("Eroare import", { description: err.message });
+      toast.error("Eroare import", { description: toFriendlySupabaseError(err, { entity: "import" }) });
     },
   });
 

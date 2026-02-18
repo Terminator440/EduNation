@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { toFriendlySupabaseError } from "@/utils/supabaseErrors";
 import {
   addAttendance,
   updateAttendance,
@@ -48,7 +49,7 @@ export const useAddAttendance = () => {
     },
     onError: (error: Error) => {
       toast.error("Eroare", {
-        description: error.message || "Nu s-a putut înregistra absența.",
+        description: toFriendlySupabaseError(error, { entity: "attendance", action: "add" }),
       });
     },
   });
@@ -96,7 +97,7 @@ export const useUpdateAttendance = () => {
     },
     onError: (error: Error) => {
       toast.error("Eroare", {
-        description: error.message || "Nu s-a putut actualiza absența.",
+        description: toFriendlySupabaseError(error, { entity: "attendance", action: "update" }),
       });
     },
   });
@@ -144,7 +145,7 @@ export const useDeleteAttendance = () => {
     },
     onError: (error: Error) => {
       toast.error("Eroare", {
-        description: error.message || "Nu s-a putut șterge absența.",
+        description: toFriendlySupabaseError(error, { entity: "attendance", action: "delete" }),
       });
     },
   });
