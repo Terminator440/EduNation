@@ -1,3 +1,9 @@
+# CI: lint, build, și teste de integrare de securitate (RLS).
+# Pentru a bloca merge-uri când securitatea DB e compromisă, adaugă în GitHub:
+#   Settings → Secrets and variables → Actions → Secrets:
+#   - VITE_SUPABASE_URL, VITE_SUPABASE_PUBLISHABLE_KEY (obligatorii pentru rularea testelor de integrare)
+#   - opțional: VITE_TEST_* (elev, profesor, părinte, director, profesor școala B)
+# Fără VITE_SUPABASE_*, testele de integrare sunt skip; cu ele, trebuie să treacă.
 name: CI
 
 on:
@@ -33,3 +39,34 @@ jobs:
           VITE_SUPABASE_URL: https://example.supabase.co
           VITE_SUPABASE_PUBLISHABLE_KEY: dummy
         run: bun run build
+
+  security-integration-tests:
+    runs-on: ubuntu-latest
+    env:
+      VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+      VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+      VITE_TEST_STUDENT_EMAIL: ${{ secrets.VITE_TEST_STUDENT_EMAIL }}
+      VITE_TEST_STUDENT_PASSWORD: ${{ secrets.VITE_TEST_STUDENT_PASSWORD }}
+      VITE_TEST_TEACHER_EMAIL: ${{ secrets.VITE_TEST_TEACHER_EMAIL }}
+      VITE_TEST_TEACHER_PASSWORD: ${{ secrets.VITE_TEST_TEACHER_PASSWORD }}
+      VITE_TEST_PARENT_EMAIL: ${{ secrets.VITE_TEST_PARENT_EMAIL }}
+      VITE_TEST_PARENT_PASSWORD: ${{ secrets.VITE_TEST_PARENT_PASSWORD }}
+      VITE_TEST_TEACHER_SCHOOL_B_EMAIL: ${{ secrets.VITE_TEST_TEACHER_SCHOOL_B_EMAIL }}
+      VITE_TEST_TEACHER_SCHOOL_B_PASSWORD: ${{ secrets.VITE_TEST_TEACHER_SCHOOL_B_PASSWORD }}
+      VITE_TEST_DIRECTOR_EMAIL: ${{ secrets.VITE_TEST_DIRECTOR_EMAIL }}
+      VITE_TEST_DIRECTOR_PASSWORD: ${{ secrets.VITE_TEST_DIRECTOR_PASSWORD }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "latest"
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Run security integration tests
+        run: bun run test -- --run src/test/integration/grades-security.integration.test.ts
