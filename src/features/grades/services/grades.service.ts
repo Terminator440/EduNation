@@ -198,188 +198,124 @@ export async function fetchGeneralAverages(
 }
 
 /**
- * Add a new grade with validation and teacher assignment check
+ * Add a new grade via RPC (server-side validation, teacher assignment, semester lock).
+ * No direct table writes from frontend.
  */
 export async function addGrade(gradeData: GradeInsert): Promise<GradeRow> {
-  // Validate grade value
   if (!validateGrade(gradeData.grade)) {
     throw new Error("Nota trebuie să fie un număr întreg între 1 și 10");
   }
 
-  const isAssigned = await verifyTeacherAssignment(
-    gradeData.subject_id,
-    gradeData.student_id
-  );
-  if (!isAssigned) {
-    throw new Error("Nu sunteți asignat la această materie pentru această clasă");
-  }
-
-  // Get current user and school_id
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    throw new Error("Utilizator neautentificat");
-  }
-
-  const schoolId = await getCurrentUserSchoolId();
-  if (!schoolId) {
-    throw new Error("Nu aveți o școală asociată");
-  }
-
-  // Get student's school_id to ensure consistency
-  const { data: student } = await supabase
-    .from("students")
-    .select("school_id")
-    .eq("id", gradeData.student_id)
-    .maybeSingle();
-
-  if (!student || student.school_id !== schoolId) {
-    throw new Error("Elevul nu aparține aceleiași școli");
-  }
-
-  const { data, error } = await supabase
-    .from("grades")
-    .insert({
-      student_id: gradeData.student_id,
-      subject_id: gradeData.subject_id,
-      grade: gradeData.grade,
-      date: gradeData.date || new Date().toISOString().split('T')[0],
-      description: gradeData.description || null,
-      teacher_id: user.id,
-      school_id: schoolId,
-    })
-    .select("id,date,grade,description,student_id, subject:subjects(id,name,teacher_id)")
-    .single();
+  const dateStr = gradeData.date ?? new Date().toISOString().split("T")[0];
+  const { data: rpcData, error } = await supabase.rpc("add_grade", {
+    p_student_id: gradeData.student_id,
+    p_subject_id: gradeData.subject_id,
+    p_value: gradeData.grade,
+    p_type: "oral",
+    p_date: dateStr,
+    p_description: gradeData.description ?? null,
+  });
 
   if (error) {
     handleServiceError(error, "Adăugare notă");
     throw error;
   }
 
-  return data as GradeRow;
+  const result = rpcData as { success: boolean; error?: string; id?: string } | null;
+  if (!result?.success) {
+    throw new Error(result?.error ?? "Adăugare notă eșuată");
+  }
+
+  const gradeId = result.id;
+  if (!gradeId) {
+    throw new Error("Adăugare notă: lipsește id");
+  }
+
+  const { data: row, error: fetchError } = await supabase
+    .from("grades")
+    .select("id,date,grade,description,student_id, subject:subjects(id,name,teacher_id)")
+    .eq("id", gradeId)
+    .single();
+
+  if (fetchError || !row) {
+    return {
+      id: gradeId,
+      date: dateStr,
+      grade: gradeData.grade,
+      description: gradeData.description ?? null,
+      student_id: gradeData.student_id,
+      subject: null,
+    } as GradeRow;
+  }
+  return row as GradeRow;
 }
 
 /**
- * Update an existing grade with validation
+ * Update an existing grade value via RPC (permission and semester lock checked server-side).
+ * Only grade value is updated; date/description require separate RPC if needed.
  */
 export async function updateGrade(
   gradeId: string,
   updates: GradeUpdate
 ): Promise<GradeRow> {
-  // Validate grade value if provided
   if (updates.grade !== undefined && !validateGrade(updates.grade)) {
     throw new Error("Nota trebuie să fie un număr întreg între 1 și 10");
   }
 
-  // Get current user
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    throw new Error("Utilizator neautentificat");
-  }
-
-  // Verify the grade exists and belongs to current user's school
-  const schoolId = await getCurrentUserSchoolId();
-  if (!schoolId) {
-    throw new Error("Nu aveți o școală asociată");
-  }
-
-  const { data: existingGrade } = await supabase
-    .from("grades")
-    .select("subject_id, school_id")
-    .eq("id", gradeId)
-    .maybeSingle();
-
-  if (!existingGrade) {
-    throw new Error("Nota nu a fost găsită");
-  }
-
-  if (existingGrade.school_id !== schoolId) {
-    throw new Error("Nota nu aparține școlii dvs.");
-  }
-
-  // Verify teacher assignment if updating grade value
-  if (updates.grade !== undefined) {
+  const newValue = updates.grade;
+  if (newValue === undefined) {
     const { data: row } = await supabase
       .from("grades")
-      .select("student_id")
+    .select("id,date,grade,description,student_id, subject:subjects(id,name,teacher_id)")
       .eq("id", gradeId)
+      .is("deleted_at", null)
       .single();
-    const isAssigned = await verifyTeacherAssignment(
-      existingGrade.subject_id,
-      row?.student_id
-    );
-    if (!isAssigned) {
-      throw new Error("Nu sunteți asignat la această materie");
-    }
+    if (!row) throw new Error("Nota nu a fost găsită");
+    return row as GradeRow;
   }
 
-  const { data, error } = await supabase
-    .from("grades")
-    .update({
-      ...updates,
-      teacher_id: user.id, // Update teacher_id to current user
-    })
-    .eq("id", gradeId)
-    .select("id,date,grade,description,student_id, subject:subjects(id,name,teacher_id)")
-    .single();
+  const { data: rpcData, error } = await supabase.rpc("update_grade", {
+    p_grade_id: gradeId,
+    p_new_value: newValue,
+  });
 
   if (error) {
     handleServiceError(error, "Actualizare notă");
     throw error;
   }
 
-  return data as GradeRow;
+  const result = rpcData as { success: boolean; error?: string } | null;
+  if (!result?.success) {
+    throw new Error(result?.error ?? "Actualizare notă eșuată");
+  }
+
+  const { data: row, error: fetchError } = await supabase
+    .from("grades")
+    .select("id,date,grade,description,student_id, subject:subjects(id,name,teacher_id)")
+    .eq("id", gradeId)
+    .single();
+
+  if (fetchError || !row) {
+    throw new Error("Actualizare notă: nu s-a putut reîncărca nota");
+  }
+  return row as GradeRow;
 }
 
 /**
- * Delete a grade (soft delete by setting deleted_at)
+ * Delete a grade (soft delete) via RPC. Permission and semester lock checked server-side.
  */
 export async function deleteGrade(gradeId: string): Promise<void> {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    throw new Error("Utilizator neautentificat");
-  }
-
-  const schoolId = await getCurrentUserSchoolId();
-  if (!schoolId) {
-    throw new Error("Nu aveți o școală asociată");
-  }
-
-  // Verify the grade exists and belongs to current user's school
-  const { data: existingGrade } = await supabase
-    .from("grades")
-    .select("subject_id, school_id")
-    .eq("id", gradeId)
-    .maybeSingle();
-
-  if (!existingGrade) {
-    throw new Error("Nota nu a fost găsită");
-  }
-
-  if (existingGrade.school_id !== schoolId) {
-    throw new Error("Nota nu aparține școlii dvs.");
-  }
-
-  // Verify teacher assignment
-  const { data: row } = await supabase
-    .from("grades")
-    .select("student_id")
-    .eq("id", gradeId)
-    .single();
-  const isAssigned = await verifyTeacherAssignment(
-    existingGrade.subject_id,
-    row?.student_id
-  );
-  if (!isAssigned) {
-    throw new Error("Nu sunteți asignat la această materie");
-  }
-
-  const { error } = await supabase
-    .from("grades")
-    .update({ deleted_at: new Date().toISOString() })
-    .eq("id", gradeId);
+  const { data: rpcData, error } = await supabase.rpc("delete_grade", {
+    p_grade_id: gradeId,
+  });
 
   if (error) {
     handleServiceError(error, "Ștergere notă");
     throw error;
+  }
+
+  const result = rpcData as { success: boolean; error?: string } | null;
+  if (!result?.success) {
+    throw new Error(result?.error ?? "Ștergere notă eșuată");
   }
 }

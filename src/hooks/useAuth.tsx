@@ -281,12 +281,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signIn = async (email: string, password: string) => {
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
-      if (error) throw error;
+      if (error) {
+        import("@/lib/logAuth").then(({ logLoginEvent }) =>
+          logLoginEvent({ email, success: false }).catch(() => {})
+        );
+        throw error;
+      }
+      import("@/lib/logAuth").then(({ logLoginEvent }) =>
+        logLoginEvent({ email, success: true, user_id: data.user?.id }).catch(() => {})
+      );
       return { error: null };
     } catch (error) {
       return { error: error as Error };

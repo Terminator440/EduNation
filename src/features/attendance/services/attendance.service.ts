@@ -69,158 +69,122 @@ export async function fetchAttendanceForStudents(
 }
 
 /**
- * Add a new attendance record with teacher assignment check
+ * Add or update attendance for a student/subject/date via RPC (mark_attendance upsert).
+ * Server validates teacher assignment and school. No direct table writes.
  */
 export async function addAttendance(attendanceData: AttendanceInsert): Promise<AttendanceRow> {
-  // Verify teacher assignment
-  const isAssigned = await verifyTeacherAssignment(attendanceData.subject_id);
-  if (!isAssigned) {
-    throw new Error("Nu sunteți asignat la această materie");
-  }
-
-  // Get current user and school_id
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    throw new Error("Utilizator neautentificat");
-  }
-
-  const schoolId = await getCurrentUserSchoolId();
-  if (!schoolId) {
-    throw new Error("Nu aveți o școală asociată");
-  }
-
-  // Get student's school_id to ensure consistency
-  const { data: student } = await supabase
-    .from("students")
-    .select("school_id")
-    .eq("id", attendanceData.student_id)
-    .maybeSingle();
-
-  if (!student || student.school_id !== schoolId) {
-    throw new Error("Elevul nu aparține aceleiași școli");
-  }
-
-  const { data, error } = await supabase
-    .from("attendance")
-    .insert({
-      student_id: attendanceData.student_id,
-      subject_id: attendanceData.subject_id,
-      date: attendanceData.date || new Date().toISOString().split('T')[0],
-      status: attendanceData.status,
-      is_excused: attendanceData.is_excused ?? false,
-      teacher_id: user.id,
-      school_id: schoolId,
-    })
-    .select("id,date,status,student_id,is_excused, subject:subjects(id,name,teacher_id)")
-    .single();
+  const dateStr = attendanceData.date ?? new Date().toISOString().split("T")[0];
+  const { data: rpcData, error } = await supabase.rpc("mark_attendance", {
+    p_student_id: attendanceData.student_id,
+    p_subject_id: attendanceData.subject_id,
+    p_date: dateStr,
+    p_status: attendanceData.status,
+    p_is_excused: attendanceData.is_excused ?? false,
+  });
 
   if (error) {
     handleServiceError(error, "Adăugare absență");
     throw error;
   }
 
-  return data as AttendanceRow;
+  const result = rpcData as { success: boolean; error?: string; id?: string } | null;
+  if (!result?.success) {
+    throw new Error(result?.error ?? "Adăugare absență eșuată");
+  }
+
+  const id = result.id;
+  if (id) {
+    const { data: row } = await supabase
+      .from("attendance")
+      .select("id,date,status,student_id,is_excused, subject:subjects(id,name,teacher_id)")
+      .eq("id", id)
+      .single();
+    if (row) return row as AttendanceRow;
+  }
+
+  return {
+    id: id ?? "",
+    date: dateStr,
+    status: attendanceData.status,
+    student_id: attendanceData.student_id,
+    is_excused: attendanceData.is_excused ?? false,
+    subject: null,
+  } as AttendanceRow;
 }
 
 /**
- * Update an existing attendance record
+ * Update attendance via RPC: load existing row (read-only), then mark_attendance for same date with new status.
  */
 export async function updateAttendance(
   attendanceId: string,
   updates: AttendanceUpdate
 ): Promise<AttendanceRow> {
-  // Get current user
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    throw new Error("Utilizator neautentificat");
-  }
-
-  const schoolId = await getCurrentUserSchoolId();
-  if (!schoolId) {
-    throw new Error("Nu aveți o școală asociată");
-  }
-
-  // Verify the attendance exists and belongs to current user's school
-  const { data: existingAttendance } = await supabase
+  const { data: existing } = await supabase
     .from("attendance")
-    .select("subject_id, school_id")
+    .select("student_id, subject_id, date, status, is_excused")
     .eq("id", attendanceId)
-    .maybeSingle();
+    .is("deleted_at", null)
+    .single();
 
-  if (!existingAttendance) {
+  if (!existing?.student_id || !existing?.subject_id || !existing?.date) {
     throw new Error("Absența nu a fost găsită");
   }
 
-  if (existingAttendance.school_id !== schoolId) {
-    throw new Error("Absența nu aparține școlii dvs.");
-  }
+  const status = updates.status ?? existing.status ?? "absent";
+  const isExcused = updates.is_excused ?? existing.is_excused ?? false;
+  const dateStr = updates.date ?? existing.date;
 
-  // Verify teacher assignment
-  const isAssigned = await verifyTeacherAssignment(existingAttendance.subject_id);
-  if (!isAssigned) {
-    throw new Error("Nu sunteți asignat la această materie");
-  }
-
-  const { data, error } = await supabase
-    .from("attendance")
-    .update({
-      ...updates,
-      teacher_id: user.id, // Update teacher_id to current user
-    })
-    .eq("id", attendanceId)
-    .select("id,date,status,student_id,is_excused, subject:subjects(id,name,teacher_id)")
-    .single();
+  const { data: rpcData, error } = await supabase.rpc("mark_attendance", {
+    p_student_id: existing.student_id,
+    p_subject_id: existing.subject_id,
+    p_date: dateStr,
+    p_status: status,
+    p_is_excused: isExcused,
+  });
 
   if (error) {
     handleServiceError(error, "Actualizare absență");
     throw error;
   }
 
-  return data as AttendanceRow;
+  const result = rpcData as { success: boolean; error?: string; id?: string } | null;
+  if (!result?.success) {
+    throw new Error(result?.error ?? "Actualizare absență eșuată");
+  }
+
+  const id = result.id ?? attendanceId;
+  const { data: row } = await supabase
+    .from("attendance")
+    .select("id,date,status,student_id,is_excused, subject:subjects(id,name,teacher_id)")
+    .eq("id", id)
+    .single();
+
+  if (row) return row as AttendanceRow;
+  return {
+    id,
+    date: dateStr,
+    status,
+    student_id: existing.student_id,
+    is_excused: isExcused,
+    subject: null,
+  } as AttendanceRow;
 }
 
 /**
- * Delete an attendance record (soft delete by setting deleted_at)
+ * Delete attendance (soft delete) via RPC. Permission checked server-side.
  */
 export async function deleteAttendance(attendanceId: string): Promise<void> {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    throw new Error("Utilizator neautentificat");
-  }
-
-  const schoolId = await getCurrentUserSchoolId();
-  if (!schoolId) {
-    throw new Error("Nu aveți o școală asociată");
-  }
-
-  // Verify the attendance exists and belongs to current user's school
-  const { data: existingAttendance } = await supabase
-    .from("attendance")
-    .select("subject_id, school_id")
-    .eq("id", attendanceId)
-    .maybeSingle();
-
-  if (!existingAttendance) {
-    throw new Error("Absența nu a fost găsită");
-  }
-
-  if (existingAttendance.school_id !== schoolId) {
-    throw new Error("Absența nu aparține școlii dvs.");
-  }
-
-  // Verify teacher assignment
-  const isAssigned = await verifyTeacherAssignment(existingAttendance.subject_id);
-  if (!isAssigned) {
-    throw new Error("Nu sunteți asignat la această materie");
-  }
-
-  const { error } = await supabase
-    .from("attendance")
-    .update({ deleted_at: new Date().toISOString() })
-    .eq("id", attendanceId);
+  const { data: rpcData, error } = await supabase.rpc("delete_attendance", {
+    p_attendance_id: attendanceId,
+  });
 
   if (error) {
     handleServiceError(error, "Ștergere absență");
     throw error;
+  }
+
+  const result = rpcData as { success: boolean; error?: string } | null;
+  if (!result?.success) {
+    throw new Error(result?.error ?? "Ștergere absență eșuată");
   }
 }

@@ -19,7 +19,10 @@ import { Spinner } from "@/components/ui/spinner";
 import { supabase } from "@/integrations/supabase/client";
 import { exportToCsv } from "@/utils/exportCsv";
 import { exportClassRegisterPdf } from "@/utils/exportClassRegisterPdf";
+import { exportStudentReportPdf } from "@/utils/exportStudentReportPdf";
+import { exportClassReportPdf } from "@/utils/exportClassReportPdf";
 import { fetchClassStatsForDisplay, fetchClassTotalsForDisplay } from "@/lib/reports-rpc";
+import { fetchStudentReport, fetchClassReport } from "@/features/reports/services/reports.service";
 import { getCurrentUserSchoolId } from "@/lib/supabase-helpers";
 import { getCurrentAcademicYear, getCurrentSemester } from "@/features/academics/services/semester.service";
 import type { Database } from "@/integrations/supabase/types";
@@ -453,6 +456,50 @@ const Reports = () => {
     }
   };
 
+  const handleExportStudentReportPdf = async () => {
+    if (!selectedStudentId) {
+      toast({
+        title: "Eroare",
+        description: "Selectați un elev pentru raport.",
+        variant: "destructive",
+      });
+      return;
+    }
+    try {
+      const payload = await fetchStudentReport(selectedStudentId);
+      exportStudentReportPdf(payload);
+      toast({
+        title: "PDF generat",
+        description: "Raportul elevului a fost descărcat.",
+      });
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : "Eroare la generarea PDF.";
+      toast({ title: "Eroare", description: msg, variant: "destructive" });
+    }
+  };
+
+  const handleExportClassReportPdf = async () => {
+    if (!classId) {
+      toast({
+        title: "Eroare",
+        description: "Selectați o clasă pentru raport.",
+        variant: "destructive",
+      });
+      return;
+    }
+    try {
+      const payload = await fetchClassReport(classId);
+      exportClassReportPdf(payload);
+      toast({
+        title: "PDF generat",
+        description: "Raportul clasei a fost descărcat.",
+      });
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : "Eroare la generarea PDF.";
+      toast({ title: "Eroare", description: msg, variant: "destructive" });
+    }
+  };
+
   if (authLoading || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -568,6 +615,44 @@ const Reports = () => {
                 <CardContent className="text-sm text-muted-foreground">
                   Generează Foaia Matricolă în format PDF cu notele finale ale elevilor pentru semestrul curent.
                   Documentul include numele școlii, clasa, elevi pe rânduri și materii pe coloane.
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <CardTitle>Raport elev (PDF)</CardTitle>
+                  <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                    <Select value={selectedStudentId || undefined} onValueChange={setSelectedStudentId} disabled={students.length === 0}>
+                      <SelectTrigger className="w-full sm:w-48">
+                        <SelectValue placeholder={students.length === 0 ? "Alege o clasă" : "Alege elev"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {students.map((s) => (
+                          <SelectItem key={s.id} value={s.id}>
+                            {(s.student_number ?? "—") + " • " + (s.full_name ?? "")}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button variant="secondary" className="gap-2 justify-center" onClick={handleExportStudentReportPdf}>
+                      <FileDown className="w-4 h-4" /> Raport elev PDF
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent className="text-sm text-muted-foreground">
+                  Note, absențe și medii pe materii pentru elevul selectat (date din RPC get_student_report).
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <CardTitle>Raport clasă (PDF)</CardTitle>
+                  <Button variant="secondary" className="gap-2 w-full sm:w-auto justify-center" onClick={handleExportClassReportPdf}>
+                    <FileDown className="w-4 h-4" /> Raport clasă PDF
+                  </Button>
+                </CardHeader>
+                <CardContent className="text-sm text-muted-foreground">
+                  Rezumat pe elevi: medie generală, absențe, medii pe materii (date din RPC get_class_report).
                 </CardContent>
               </Card>
 

@@ -66,6 +66,9 @@ export function OfflineQueueProvider({ children }: { children: ReactNode }) {
     [refreshLength]
   );
 
+  const MAX_RETRIES = 3;
+  const RETRY_DELAY_MS = 1000;
+
   const processQueue = useCallback(async () => {
     let items: OfflineQueueItem[];
     try {
@@ -79,10 +82,14 @@ export function OfflineQueueProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
     let processedCount = 0;
     for (const item of items) {
-      try {
-        switch (item.type) {
+      let lastError: unknown;
+      let succeeded = false;
+      for (let attempt = 0; attempt < MAX_RETRIES && !succeeded; attempt++) {
+        try {
+          switch (item.type) {
           case "add_grade":
             await addGrade(item.payload as Parameters<typeof addGrade>[0]);
             await queryClient.invalidateQueries({ queryKey: ["grades"] });
@@ -127,18 +134,29 @@ export function OfflineQueueProvider({ children }: { children: ReactNode }) {
           }
           default:
             await removeFromOfflineQueue(item.id);
+            succeeded = true;
             continue;
         }
-        await removeFromOfflineQueue(item.id);
-        processedCount += 1;
-      } catch (err) {
-        if (isConflictError(err)) {
           await removeFromOfflineQueue(item.id);
-          toast.warning("Conflict la sincronizare", { description: CONFLICT_MESSAGE });
-          await queryClient.invalidateQueries({ queryKey: ["grades"] });
-          await queryClient.invalidateQueries({ queryKey: ["attendance"] });
+          processedCount += 1;
+          succeeded = true;
+        } catch (err) {
+          lastError = err;
+          if (isConflictError(err)) {
+            await removeFromOfflineQueue(item.id);
+            toast.warning("Conflict la sincronizare", { description: CONFLICT_MESSAGE });
+            await queryClient.invalidateQueries({ queryKey: ["grades"] });
+            await queryClient.invalidateQueries({ queryKey: ["attendance"] });
+            succeeded = true;
+            break;
+          }
+          if (attempt < MAX_RETRIES - 1) {
+            await delay(RETRY_DELAY_MS * Math.pow(2, attempt));
+          }
         }
-        // Network or other: leave item in queue for next online
+      }
+      if (!succeeded && lastError) {
+        console.warn("Offline queue item failed after retries:", item.id, lastError);
       }
     }
 
