@@ -20,9 +20,18 @@ const roleConfig: Record<AppRole, { label: string; icon: typeof GraduationCap; c
   developer: { label: 'Developer', icon: Shield, color: 'text-emerald-500', route: '/developer' },
 };
 
+/** Only shown in development or when VITE_ENABLE_ROLE_SWITCHER=true. Hidden in production for security. */
 const RoleSwitcher = () => {
   const { userRoles, activeRole, switchRole } = useAuth();
   const navigate = useNavigate();
+
+  const allowRoleSwitch =
+    import.meta.env.DEV === true ||
+    import.meta.env.VITE_ENABLE_ROLE_SWITCHER === "true";
+
+  if (!allowRoleSwitch) {
+    return null;
+  }
 
   if (!activeRole || userRoles.length <= 1) {
     if (!activeRole) return null;

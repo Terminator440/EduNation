@@ -56,6 +56,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { QuickGrade } from "@/components/grades/QuickGrade";
 
 interface Student {
   id: string;
@@ -128,7 +129,8 @@ const TeacherDashboard = () => {
   const [schoolId, setSchoolId] = useState<string | null>(null);
   const [homeroomInvitations, setHomeroomInvitations] = useState<InvitationWithDetails[]>([]);
   const [invitesLoading, setInvitesLoading] = useState(false);
-
+  const [isQuickGradeOpen, setIsQuickGradeOpen] = useState(false);
+  const [quickGradeSubjectId, setQuickGradeSubjectId] = useState("");
 
   const { user, profile, activeRole, refetchProfile, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -138,13 +140,23 @@ const TeacherDashboard = () => {
   const unreadTickets = useUnreadTicketsCount();
 
   useEffect(() => {
-    if (!authLoading && (!user || (activeRole !== 'teacher' && activeRole !== 'homeroom_teacher'))) {
-      navigate('/auth');
+    const allowed =
+      activeRole === "teacher" ||
+      activeRole === "homeroom_teacher" ||
+      activeRole === "director" ||
+      activeRole === "secretariat";
+    if (!authLoading && (!user || !allowed)) {
+      navigate("/auth");
     }
   }, [user, activeRole, authLoading, navigate]);
 
   useEffect(() => {
-    if (user && (activeRole === 'teacher' || activeRole === 'homeroom_teacher')) {
+    const allowed =
+      activeRole === "teacher" ||
+      activeRole === "homeroom_teacher" ||
+      activeRole === "director" ||
+      activeRole === "secretariat";
+    if (user && allowed) {
       fetchData();
       fetchRegister();
     }
@@ -317,29 +329,45 @@ const TeacherDashboard = () => {
     setLoading(true);
     try {
       const schoolId = await getCurrentUserSchoolId();
-      if (!schoolId) {
+      if (!schoolId || !user?.id) {
         setLoading(false);
         return;
       }
 
-      const { data: classData } = await supabase
-        .from('classes')
-        .select('id')
-        .eq('teacher_id', user?.id)
-        .eq('school_id', schoolId)
-        .maybeSingle();
+      let classId: string | null = null;
 
-      if (classData) {
+      const { data: homeroomClass } = await supabase
+        .from("classes")
+        .select("id")
+        .eq("teacher_id", user.id)
+        .eq("school_id", schoolId)
+        .maybeSingle();
+      if (homeroomClass?.id) {
+        classId = homeroomClass.id;
+      }
+
+      if (!classId) {
+        const { data: assignments } = await supabase
+          .from("teacher_assignments")
+          .select("class_id")
+          .eq("teacher_id", user.id)
+          .eq("school_id", schoolId)
+          .limit(1);
+        const first = (assignments ?? [])[0] as { class_id: string } | undefined;
+        if (first?.class_id) classId = first.class_id;
+      }
+
+      if (classId) {
         const { data: studentsData } = await supabase
-          .from('students')
+          .from("students")
           .select(`
             id,
             user_id,
             student_number,
             full_name
           `)
-          .eq('class_id', classData.id)
-          .eq('school_id', schoolId);
+          .eq("class_id", classId)
+          .eq("school_id", schoolId);
 
         if (studentsData) {
           // Fetch related data in bulk to avoid N+1 queries (production performance)
@@ -411,13 +439,30 @@ const TeacherDashboard = () => {
           setStudents(enrichedStudents);
         }
 
-        const { data: subjectsData } = await supabase
-          .from('subjects')
-          .select('id, name')
-          .eq('class_id', classData.id)
-          .eq('school_id', schoolId);
-
-        setSubjects(subjectsData || []);
+        const { data: assignedSubjects } = await supabase
+          .from("teacher_assignments")
+          .select("subject_id")
+          .eq("teacher_id", user.id)
+          .eq("class_id", classId)
+          .eq("school_id", schoolId);
+        const subjectIds = (assignedSubjects ?? [])
+          .map((r: { subject_id: string }) => r.subject_id)
+          .filter(Boolean);
+        if (subjectIds.length > 0) {
+          const { data: subjectsData } = await supabase
+            .from("subjects")
+            .select("id, name")
+            .in("id", subjectIds)
+            .eq("school_id", schoolId);
+          setSubjects(subjectsData || []);
+        } else {
+          const { data: subjectsData } = await supabase
+            .from("subjects")
+            .select("id, name")
+            .eq("class_id", classId)
+            .eq("school_id", schoolId);
+          setSubjects(subjectsData || []);
+        }
       }
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -719,17 +764,67 @@ const TeacherDashboard = () => {
           </div>
 
           {/* Students table */}
-          <div className="bg-card rounded-xl border border-border p-6" data-tour="add-grade">
-            <div className="flex items-center justify-between mb-6">
+            <div className="bg-card rounded-xl border border-border p-4 sm:p-6 overflow-x-auto" data-tour="add-grade">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
               <h2 className="text-lg font-semibold text-foreground">Elevii Clasei</h2>
-              <div className="relative w-64">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  placeholder="Caută elev..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
+              <div className="flex flex-col xs:flex-row gap-2 sm:gap-4">
+                <Dialog open={isQuickGradeOpen} onOpenChange={setIsQuickGradeOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="default" className="gap-1 shrink-0">
+                      <ClipboardSignature className="w-4 h-4" />
+                      QuickGrade
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-md max-h-[90vh] overflow-hidden flex flex-col">
+                    <DialogHeader>
+                      <DialogTitle>Introducere note rapidă</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-2 min-h-0 flex flex-col">
+                      <Label>Materie</Label>
+                      <Select
+                        value={quickGradeSubjectId || undefined}
+                        onValueChange={setQuickGradeSubjectId}
+                        disabled={subjects.length === 0}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder={subjects.length === 0 ? "Nu există materii" : "Selectează materia"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {subjects.map((s) => (
+                            <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <QuickGrade
+                        students={students}
+                        subjectId={quickGradeSubjectId}
+                        subjectName={subjects.find((s) => s.id === quickGradeSubjectId)?.name ?? ""}
+                        date={new Date().toISOString().split("T")[0]}
+                        onGradeEntered={async (studentId, grade) => {
+                          await addGradeMutation.mutateAsync({
+                            student_id: studentId,
+                            subject_id: quickGradeSubjectId,
+                            grade,
+                            date: new Date().toISOString().split("T")[0],
+                            description: null,
+                          });
+                          fetchData();
+                        }}
+                        disabled={addGradeMutation.isPending}
+                        className="min-h-0 flex-1 overflow-auto"
+                      />
+                    </div>
+                  </DialogContent>
+                </Dialog>
+                <div className="relative w-full sm:w-64">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Caută elev..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
               </div>
             </div>
 

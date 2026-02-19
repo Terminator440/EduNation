@@ -41,20 +41,70 @@ export function validateGrade(grade: number): boolean {
 }
 
 /**
- * Check if current user is assigned as teacher to the subject
+ * Check if current user is assigned as teacher to the subject (source of truth: teacher_assignments, fallback: subjects.teacher_id).
  */
-export async function verifyTeacherAssignment(subjectId: string): Promise<boolean> {
+export async function verifyTeacherAssignment(
+  subjectId: string,
+  studentId?: string
+): Promise<boolean> {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) return false;
+
+    const schoolId = await getCurrentUserSchoolId();
+    if (!schoolId) return false;
+
+    if (studentId) {
+      const { data: student } = await supabase
+        .from("students")
+        .select("class_id")
+        .eq("id", studentId)
+        .maybeSingle();
+      if (student?.class_id) {
+        const { data: assignment } = await supabase
+          .from("teacher_assignments")
+          .select("id")
+          .eq("teacher_id", user.id)
+          .eq("subject_id", subjectId)
+          .eq("class_id", student.class_id)
+          .eq("school_id", schoolId)
+          .maybeSingle();
+        if (assignment) return true;
+      }
+    }
+
+    const { data: assignment } = await supabase
+      .from("teacher_assignments")
+      .select("id")
+      .eq("teacher_id", user.id)
+      .eq("subject_id", subjectId)
+      .eq("school_id", schoolId)
+      .limit(1)
+      .maybeSingle();
+    if (assignment) return true;
 
     const { data: subject } = await supabase
       .from("subjects")
       .select("teacher_id")
       .eq("id", subjectId)
       .maybeSingle();
+    if (subject?.teacher_id === user.id) return true;
 
-    return subject?.teacher_id === user.id;
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role, active_role, can_override_grades")
+      .eq("id", user.id)
+      .maybeSingle();
+    const role = (profile?.role ?? profile?.active_role)?.toString?.() ?? "";
+    if (
+      (role === "director" || role === "secretariat") &&
+      (profile as { can_override_grades?: boolean } | null)?.can_override_grades === true
+    ) {
+      return true;
+    }
+    return false;
   } catch (error) {
     console.error("Error verifying teacher assignment:", error);
     return false;
@@ -156,10 +206,12 @@ export async function addGrade(gradeData: GradeInsert): Promise<GradeRow> {
     throw new Error("Nota trebuie să fie un număr întreg între 1 și 10");
   }
 
-  // Verify teacher assignment
-  const isAssigned = await verifyTeacherAssignment(gradeData.subject_id);
+  const isAssigned = await verifyTeacherAssignment(
+    gradeData.subject_id,
+    gradeData.student_id
+  );
   if (!isAssigned) {
-    throw new Error("Nu sunteți asignat la această materie");
+    throw new Error("Nu sunteți asignat la această materie pentru această clasă");
   }
 
   // Get current user and school_id
@@ -246,7 +298,15 @@ export async function updateGrade(
 
   // Verify teacher assignment if updating grade value
   if (updates.grade !== undefined) {
-    const isAssigned = await verifyTeacherAssignment(existingGrade.subject_id);
+    const { data: row } = await supabase
+      .from("grades")
+      .select("student_id")
+      .eq("id", gradeId)
+      .single();
+    const isAssigned = await verifyTeacherAssignment(
+      existingGrade.subject_id,
+      row?.student_id
+    );
     if (!isAssigned) {
       throw new Error("Nu sunteți asignat la această materie");
     }
@@ -300,7 +360,15 @@ export async function deleteGrade(gradeId: string): Promise<void> {
   }
 
   // Verify teacher assignment
-  const isAssigned = await verifyTeacherAssignment(existingGrade.subject_id);
+  const { data: row } = await supabase
+    .from("grades")
+    .select("student_id")
+    .eq("id", gradeId)
+    .single();
+  const isAssigned = await verifyTeacherAssignment(
+    existingGrade.subject_id,
+    row?.student_id
+  );
   if (!isAssigned) {
     throw new Error("Nu sunteți asignat la această materie");
   }

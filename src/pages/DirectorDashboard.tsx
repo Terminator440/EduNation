@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense } fro
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useNavigate } from "react-router-dom";
 /* Lucide: import doar iconițele folosite (tree-shaking) — nu importa întreaga librărie */
-import { Users, GraduationCap, TrendingUp, FileText, Shield, Bell, BarChart3, Building, Megaphone, Search, Lock } from "lucide-react";
+import { Users, GraduationCap, TrendingUp, FileText, Shield, Bell, BarChart3, Building, Megaphone, Search, Lock, BookOpen } from "lucide-react";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
 import StatsCard from "@/components/dashboard/StatsCard";
 import { useAuth } from "@/hooks/useAuth";
@@ -46,6 +46,7 @@ import {
 import { PaginationControls } from "@/components/ui/pagination-controls";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
+import { Link } from "react-router-dom";
 
 const DirectorDashboardChart = lazy(() => import("./DirectorDashboardChart"));
 
@@ -118,6 +119,7 @@ const DirectorDashboard = () => {
 
   const [announcementDialogOpen, setAnnouncementDialogOpen] = useState(false);
   const [closeSemesterDialogOpen, setCloseSemesterDialogOpen] = useState(false);
+  const [teacherAssignmentsCount, setTeacherAssignmentsCount] = useState(0);
   const [exportRegisterDialogOpen, setExportRegisterDialogOpen] = useState(false);
   const [recentAnnouncements, setRecentAnnouncements] = useState<AnnouncementRow[]>([]);
 
@@ -223,6 +225,17 @@ const DirectorDashboard = () => {
     void loadDirectorInvitations();
   }, [user, activeRole]);
 
+  useEffect(() => {
+    const loadTeacherAssignmentsCount = async () => {
+      if (!user?.id || activeRole !== "director") return;
+      const { count } = await supabase
+        .from("teacher_assignments")
+        .select("id", { count: "exact", head: true })
+        .eq("teacher_id", user.id);
+      setTeacherAssignmentsCount(count ?? 0);
+    };
+    void loadTeacherAssignmentsCount();
+  }, [user?.id, activeRole]);
 
   const fetchAnnouncements = useCallback(async () => {
     try {
@@ -420,6 +433,24 @@ const DirectorDashboard = () => {
               icon={BarChart3}
               variant="warning"
             />
+            {teacherAssignmentsCount > 0 && (
+              <Card className="md:col-span-2 lg:col-span-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-6 bg-primary/5 border-primary/20">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-primary/10">
+                    <BookOpen className="h-6 w-6 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-foreground">Clasele Mele</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Ești asignat la {teacherAssignmentsCount} {teacherAssignmentsCount === 1 ? "clasă/materie" : "clase/materii"}. Poți introduce note fără să schimbi rolul.
+                    </p>
+                  </div>
+                </div>
+                <Button asChild variant="default" className="shrink-0">
+                  <Link to="/teacher">Introdu note / Vezi clasele</Link>
+                </Button>
+              </Card>
+            )}
           </div>
 
           {/* Quick Actions */}

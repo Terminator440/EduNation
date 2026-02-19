@@ -250,7 +250,7 @@ const menuItemsByRole: Record<AppRole, MenuItem[]> = {
     { icon: LayoutDashboard, label: "Panou Director", href: "/director" },
     { icon: Key, label: "Invitații", href: "/director" },
     { icon: Users, label: "Secretariat", href: "/secretariat" },
-    { icon: GraduationCap, label: "Catalog Profesor", href: "/teacher" },
+    { icon: GraduationCap, label: "Clasele Mele", href: "/teacher" },
     { icon: Clock, label: "Orar", href: "/dashboard/schedule" },
     { icon: FileText, label: "Rapoarte", href: "/reports" },
     { icon: Shield, label: "Audit", href: "/audit" },
