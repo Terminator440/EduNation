@@ -20,7 +20,11 @@ const roleConfig: Record<AppRole, { label: string; icon: typeof GraduationCap; c
   developer: { label: 'Developer', icon: Shield, color: 'text-emerald-500', route: '/developer' },
 };
 
-/** Only shown in development or when VITE_ENABLE_ROLE_SWITCHER=true. Hidden in production for security. */
+/**
+ * Context Switcher: schimbă doar perspectiva UI ("View as").
+ * Permisiunile se verifică în backend/RLS; rolurile vin din DB (user_roles).
+ * Afișat doar în dev sau când VITE_ENABLE_ROLE_SWITCHER=true.
+ */
 const RoleSwitcher = () => {
   const { userRoles, activeRole, switchRole } = useAuth();
   const navigate = useNavigate();
@@ -60,7 +64,7 @@ const RoleSwitcher = () => {
       <DropdownMenuTrigger asChild>
         <Button variant="outline" className="gap-2">
           <CurrentIcon className={`w-4 h-4 ${currentConfig.color}`} />
-          <span>Mod: {currentConfig.label}</span>
+          <span>View as: {currentConfig.label}</span>
           <ChevronDown className="w-4 h-4" />
         </Button>
       </DropdownMenuTrigger>

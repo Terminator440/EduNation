@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
+import { OfflineQueueProvider } from "@/contexts/OfflineQueueContext";
 import { NavigationTransitionProvider } from "@/hooks/useNavigationTransition";
 import ProtectedRoute from "./components/ProtectedRoute";
 import ErrorBoundary from "./components/ErrorBoundary";
@@ -95,6 +96,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
+          <OfflineQueueProvider>
           <NavigationTransitionProvider>
             <ErrorBoundary>
               <div className="min-h-screen w-full max-w-full overflow-x-hidden">
@@ -152,6 +154,7 @@ const App = () => (
             </div>
             </ErrorBoundary>
           </NavigationTransitionProvider>
+          </OfflineQueueProvider>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>

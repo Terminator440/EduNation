@@ -11,7 +11,9 @@ Când aplicația revine online după lucru offline:
    - Dacă un rând a fost deja modificat pe server (ex: alt device), se consideră **server-wins** pentru acel rând; clientul primește eroare de conflict și poate reîncărca datele (React Query invalidează cache).
 3. **Evitarea request-urilor inutile** – Folosim React Query cu `staleTime` și `invalidateQueries` la mutații, astfel încât la reconectare refetch-ul să aducă starea actuală de pe server.
 
-## Implementare recomandată
+## Implementare
 
-- Păstrarea unei cozi locale de mutații (ex: IndexedDB) doar pentru cazul în care request-ul eșuează (rețea); la succes, mutația e ștearsă din coadă.
-- La revenirea online: procesare coadă în ordine; la eroare 409/conflict, nu suprascrie pe server, reîncarcă resursa și notifică utilizatorul.
+- **Coada de acțiuni** este persistenată în IndexedDB (`edunation_offline_queue`). La eșec de rețea (failed to fetch, offline), mutațiile pentru note și absențe sunt adăugate în coadă; la succes, mutația nu este pusă în coadă.
+- **Tipuri în coadă**: `add_grade`, `update_grade`, `delete_grade`, `add_attendance`, `update_attendance`, `delete_attendance`.
+- **La revenirea online** (event `online` sau deschidere tab cu conexiune): se procesează coada în ordine. La succes, rândul e șters din coadă și se invalidează cache-ul React Query. La eroare de conflict (409 / semestru blocat), rândul e șters din coadă, se notifică utilizatorul și se reîncarcă datele (invalidateQueries).
+- **UI**: banner-ul de offline afișează numărul de acțiuni în așteptare când utilizatorul e fără conexiune; la adăugare în coadă se afișează toast „Salvat local. Se va sincroniza automat când revii online.”

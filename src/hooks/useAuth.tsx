@@ -183,12 +183,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setActiveRole(profileData.active_role as AppRole);
       }
 
-      const { data: rolesData } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", userId);
-
-      const roles = (rolesData || []).map((r) => r.role as AppRole);
+      // Rolurile din DB (sursa de adevăr pentru permisiuni în RLS). Preferăm RPC get_user_role_list.
+      let roles: AppRole[] = [];
+      const { data: rpcRoles } = await supabase.rpc("get_user_role_list", {
+        p_user_id: userId,
+      });
+      if (Array.isArray(rpcRoles) && rpcRoles.length > 0) {
+        const toRoleStr = (r: unknown): string | null =>
+          typeof r === "string" ? r : (r && typeof r === "object" && "role" in r ? (r as { role: string }).role : null);
+        roles = rpcRoles
+          .map((r: unknown) => normalizeRole(toRoleStr(r) ?? undefined))
+          .filter((r): r is AppRole => r !== null);
+      }
+      if (roles.length === 0) {
+        const { data: rolesData } = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", userId);
+        roles = (rolesData || []).map((r) => r.role as AppRole);
+      }
 
       const metaRole = authUser
         ? normalizeRole(authUser.user_metadata?.role) ??

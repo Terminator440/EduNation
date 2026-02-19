@@ -64,7 +64,42 @@ export function toFriendlySupabaseError(err: unknown, context?: FriendlyErrorCon
     return "Schema bazei de date nu este actualizată (lipsește o coloană). Rulează migrațiile Supabase (ex: contact_email/contact_phone) și reîncearcă.";
   }
 
+  // Conflict (date modificate pe server în timp ce utilizatorul era offline / alt device)
+  if (status === 409 || message.includes("conflict") || message.includes("modificat") || message.includes("blocat") || message.includes("semestrul")) {
+    return "Datele au fost modificate pe server. Reîncărcați pentru a vedea versiunea actuală.";
+  }
+
   // Fallback
   const raw = (e.message || e.details || "").trim();
   return raw ? raw : "A apărut o eroare neașteptată.";
 }
+
+/** Eroare de rețea: request-ul nu a ajuns la server (offline, timeout, failed to fetch). */
+export function isNetworkError(err: unknown): boolean {
+  const e = (err as AnyError) ?? {};
+  const message = (e.message || "").toLowerCase();
+  return (
+    message.includes("failed to fetch") ||
+    message.includes("network request failed") ||
+    message.includes("networkerror") ||
+    message.includes("load failed") ||
+    message.includes("connection") ||
+    (typeof navigator !== "undefined" && !navigator.onLine)
+  );
+}
+
+/** Eroare de tip conflict: serverul are o versiune mai nouă; la sync trebuie reîncărcat. */
+export function isConflictError(err: unknown): boolean {
+  const e = (err as AnyError) ?? {};
+  const message = (e.message || "").toLowerCase();
+  const status = typeof e.status === "number" ? e.status : typeof e.statusCode === "number" ? e.statusCode : undefined;
+  return (
+    status === 409 ||
+    message.includes("conflict") ||
+    message.includes("modificat pe server") ||
+    message.includes("semestrul este blocat")
+  );
+}
+
+export const CONFLICT_MESSAGE =
+  "Datele au fost modificate pe server. Reîncărcați pentru a vedea versiunea actuală.";

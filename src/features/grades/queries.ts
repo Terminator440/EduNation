@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { toFriendlySupabaseError } from "@/utils/supabaseErrors";
+import { toFriendlySupabaseError, isConflictError, isNetworkError, CONFLICT_MESSAGE } from "@/utils/supabaseErrors";
 import {
   addGrade,
   updateGrade,
@@ -10,6 +10,7 @@ import {
   type GradeUpdate,
 } from "./services/grades.service";
 import { useAuditLog, AUDIT_ACTIONS } from "@/hooks/useAuditLog";
+import { useOfflineQueue } from "@/contexts/OfflineQueueContext";
 
 export type AddGradeInput = GradeInsert;
 
@@ -26,6 +27,7 @@ export type UpdateGradeInput = {
 export const useAddGrade = () => {
   const queryClient = useQueryClient();
   const { logAction } = useAuditLog();
+  const { addToQueue } = useOfflineQueue();
 
   return useMutation({
     mutationFn: async (input: AddGradeInput): Promise<GradeRow> => {
@@ -52,7 +54,22 @@ export const useAddGrade = () => {
         description: `Nota ${data.grade} a fost adăugată cu succes.`,
       });
     },
-    onError: (error: Error) => {
+    onError: async (error: Error, variables: AddGradeInput) => {
+      if (isConflictError(error)) {
+        toast.warning("Conflict la sincronizare", { description: CONFLICT_MESSAGE });
+        await queryClient.invalidateQueries({ queryKey: ["grades"] });
+        await queryClient.invalidateQueries({ queryKey: ["subject-averages"] });
+        await queryClient.invalidateQueries({ queryKey: ["general-averages"] });
+        await queryClient.invalidateQueries({ queryKey: ["student-scope"] });
+        return;
+      }
+      if (isNetworkError(error)) {
+        await addToQueue("add_grade", variables);
+        toast.info("Salvat local", {
+          description: "Se va sincroniza automat când revii online.",
+        });
+        return;
+      }
       toast.error("Eroare", {
         description: toFriendlySupabaseError(error, { entity: "grade", action: "add" }),
       });
@@ -68,6 +85,7 @@ export const useAddGrade = () => {
 export const useUpdateGrade = () => {
   const queryClient = useQueryClient();
   const { logAction } = useAuditLog();
+  const { addToQueue } = useOfflineQueue();
 
   return useMutation({
     mutationFn: async (input: UpdateGradeInput): Promise<GradeRow> => {
@@ -92,7 +110,21 @@ export const useUpdateGrade = () => {
         description: `Nota a fost actualizată cu succes.`,
       });
     },
-    onError: (error: Error) => {
+    onError: async (error: Error, variables: UpdateGradeInput) => {
+      if (isConflictError(error)) {
+        toast.warning("Conflict la sincronizare", { description: CONFLICT_MESSAGE });
+        await queryClient.invalidateQueries({ queryKey: ["grades"] });
+        await queryClient.invalidateQueries({ queryKey: ["subject-averages"] });
+        await queryClient.invalidateQueries({ queryKey: ["general-averages"] });
+        return;
+      }
+      if (isNetworkError(error)) {
+        await addToQueue("update_grade", { gradeId: variables.gradeId, updates: variables.updates });
+        toast.info("Salvat local", {
+          description: "Se va sincroniza automat când revii online.",
+        });
+        return;
+      }
       toast.error("Eroare", {
         description: toFriendlySupabaseError(error, { entity: "grade", action: "update" }),
       });
@@ -108,6 +140,7 @@ export const useUpdateGrade = () => {
 export const useDeleteGrade = () => {
   const queryClient = useQueryClient();
   const { logAction } = useAuditLog();
+  const { addToQueue } = useOfflineQueue();
 
   return useMutation({
     mutationFn: async (gradeId: string): Promise<void> => {
@@ -142,7 +175,21 @@ export const useDeleteGrade = () => {
         description: "Nota a fost ștearsă cu succes.",
       });
     },
-    onError: (error: Error) => {
+    onError: async (error: Error, gradeId: string) => {
+      if (isConflictError(error)) {
+        toast.warning("Conflict la sincronizare", { description: CONFLICT_MESSAGE });
+        await queryClient.invalidateQueries({ queryKey: ["grades"] });
+        await queryClient.invalidateQueries({ queryKey: ["subject-averages"] });
+        await queryClient.invalidateQueries({ queryKey: ["general-averages"] });
+        return;
+      }
+      if (isNetworkError(error)) {
+        await addToQueue("delete_grade", { gradeId });
+        toast.info("Salvat local", {
+          description: "Se va sincroniza automat când revii online.",
+        });
+        return;
+      }
       toast.error("Eroare", {
         description: toFriendlySupabaseError(error, { entity: "grade", action: "delete" }),
       });

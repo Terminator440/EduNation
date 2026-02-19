@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { toFriendlySupabaseError } from "@/utils/supabaseErrors";
+import { toFriendlySupabaseError, isConflictError, isNetworkError, CONFLICT_MESSAGE } from "@/utils/supabaseErrors";
+import { useOfflineQueue } from "@/contexts/OfflineQueueContext";
 import {
   addAttendance,
   updateAttendance,
@@ -26,6 +27,7 @@ export type UpdateAttendanceInput = {
 export const useAddAttendance = () => {
   const queryClient = useQueryClient();
   const { logAction } = useAuditLog();
+  const { addToQueue } = useOfflineQueue();
 
   return useMutation({
     mutationFn: async (input: AddAttendanceInput): Promise<AttendanceRow> => {
@@ -47,7 +49,19 @@ export const useAddAttendance = () => {
         description: `Absența a fost înregistrată cu succes.`,
       });
     },
-    onError: (error: Error) => {
+    onError: async (error: Error, variables: AddAttendanceInput) => {
+      if (isConflictError(error)) {
+        toast.warning("Conflict la sincronizare", { description: CONFLICT_MESSAGE });
+        await queryClient.invalidateQueries({ queryKey: ["attendance"] });
+        return;
+      }
+      if (isNetworkError(error)) {
+        await addToQueue("add_attendance", variables);
+        toast.info("Salvat local", {
+          description: "Se va sincroniza automat când revii online.",
+        });
+        return;
+      }
       toast.error("Eroare", {
         description: toFriendlySupabaseError(error, { entity: "attendance", action: "add" }),
       });
@@ -63,6 +77,7 @@ export const useAddAttendance = () => {
 export const useUpdateAttendance = () => {
   const queryClient = useQueryClient();
   const { logAction } = useAuditLog();
+  const { addToQueue } = useOfflineQueue();
 
   return useMutation({
     mutationFn: async (input: UpdateAttendanceInput): Promise<AttendanceRow> => {
@@ -95,7 +110,22 @@ export const useUpdateAttendance = () => {
         description: `Absența a fost actualizată cu succes.`,
       });
     },
-    onError: (error: Error) => {
+    onError: async (error: Error, variables: UpdateAttendanceInput) => {
+      if (isConflictError(error)) {
+        toast.warning("Conflict la sincronizare", { description: CONFLICT_MESSAGE });
+        await queryClient.invalidateQueries({ queryKey: ["attendance"] });
+        return;
+      }
+      if (isNetworkError(error)) {
+        await addToQueue("update_attendance", {
+          attendanceId: variables.attendanceId,
+          updates: variables.updates,
+        });
+        toast.info("Salvat local", {
+          description: "Se va sincroniza automat când revii online.",
+        });
+        return;
+      }
       toast.error("Eroare", {
         description: toFriendlySupabaseError(error, { entity: "attendance", action: "update" }),
       });
@@ -111,6 +141,7 @@ export const useUpdateAttendance = () => {
 export const useDeleteAttendance = () => {
   const queryClient = useQueryClient();
   const { logAction } = useAuditLog();
+  const { addToQueue } = useOfflineQueue();
 
   return useMutation({
     mutationFn: async (attendanceId: string): Promise<void> => {
@@ -143,7 +174,19 @@ export const useDeleteAttendance = () => {
         description: "Absența a fost ștearsă cu succes.",
       });
     },
-    onError: (error: Error) => {
+    onError: async (error: Error, attendanceId: string) => {
+      if (isConflictError(error)) {
+        toast.warning("Conflict la sincronizare", { description: CONFLICT_MESSAGE });
+        await queryClient.invalidateQueries({ queryKey: ["attendance"] });
+        return;
+      }
+      if (isNetworkError(error)) {
+        await addToQueue("delete_attendance", { attendanceId });
+        toast.info("Salvat local", {
+          description: "Se va sincroniza automat când revii online.",
+        });
+        return;
+      }
       toast.error("Eroare", {
         description: toFriendlySupabaseError(error, { entity: "attendance", action: "delete" }),
       });
