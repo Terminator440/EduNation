@@ -14,11 +14,12 @@ import { getCurrentUserSchoolId } from "@/lib/supabase-helpers";
 import { fetchGradesForStudents } from "@/features/grades/services/grades.service";
 import { fetchAttendanceForStudents } from "@/features/attendance/services/attendance.service";
 import type { GradeRow } from "@/features/grades/services/grades.service";
+import { addGradeBulk } from "@/features/grades/services/grades.service";
 import type { AttendanceRow } from "@/features/attendance/services/attendance.service";
 import { useAddGrade } from "@/features/grades/queries";
 import { useAddAttendance } from "@/features/attendance/queries";
 import { useUnreadTicketsCount } from "@/features/tickets/queries";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { CreateInvitationDialog } from "@/components/invitations/CreateInvitationDialog";
 import {
   listInvitations,
@@ -57,6 +58,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { QuickGrade } from "@/components/grades/QuickGrade";
+import { getCurrentTimetableSlot } from "@/features/schedule/useCurrentTimetableSlot";
+import { BookOpen } from "lucide-react";
 
 interface Student {
   id: string;
@@ -131,10 +134,16 @@ const TeacherDashboard = () => {
   const [invitesLoading, setInvitesLoading] = useState(false);
   const [isQuickGradeOpen, setIsQuickGradeOpen] = useState(false);
   const [quickGradeSubjectId, setQuickGradeSubjectId] = useState("");
+  const [currentClassId, setCurrentClassId] = useState<string | null>(null);
+  const [isBulkGradeOpen, setIsBulkGradeOpen] = useState(false);
+  const [bulkGrade, setBulkGrade] = useState({ subjectId: "", grade: "" });
+  const [bulkGradeSaving, setBulkGradeSaving] = useState(false);
 
   const { user, profile, activeRole, refetchProfile, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  const currentSlot = getCurrentTimetableSlot(timetableEntries);
   const addGradeMutation = useAddGrade();
   const addAttendanceMutation = useAddAttendance();
   const unreadTickets = useUnreadTicketsCount();
@@ -347,6 +356,7 @@ const TeacherDashboard = () => {
       }
 
       if (!classId) {
+        setCurrentClassId(null);
         const { data: assignments } = await supabase
           .from("teacher_assignments")
           .select("class_id")
@@ -358,6 +368,7 @@ const TeacherDashboard = () => {
       }
 
       if (classId) {
+        setCurrentClassId(classId);
         const { data: studentsData } = await supabase
           .from("students")
           .select(`
@@ -437,6 +448,8 @@ const TeacherDashboard = () => {
           }));
 
           setStudents(enrichedStudents);
+        } else {
+          setCurrentClassId(null);
         }
 
         const { data: assignedSubjects } = await supabase
@@ -664,6 +677,36 @@ const TeacherDashboard = () => {
       title="Panou Profesor"
       subtitle="Gestionează elevii clasei tale"
     >
+          {/* Oră curentă + Deschide catalog */}
+          {currentSlot && (
+            <Card className="mb-6 border-primary/40 bg-primary/5">
+              <CardContent className="flex flex-wrap items-center justify-between gap-4 py-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/20">
+                    <BookOpen className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-foreground">
+                      Acum: {currentSlot.subjects?.name ?? "Materie"} – {currentSlot.classes?.name ?? "Clasă"}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      Ora {currentSlot.period}
+                      {currentSlot.start_time && currentSlot.end_time && ` • ${currentSlot.start_time}–${currentSlot.end_time}`}
+                    </p>
+                  </div>
+                </div>
+                <Button asChild>
+                  <Link
+                    to="/dashboard/take-attendance"
+                    state={{ focusSlotId: currentSlot.id, subjectId: currentSlot.subject_id, classId: currentSlot.class_id }}
+                  >
+                    Deschide catalog
+                  </Link>
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Mesaje noi de la părinți */}
           {unreadTicketsCount > 0 && (
             <Link to="/teacher/tickets" className="block mb-6">
@@ -768,6 +811,74 @@ const TeacherDashboard = () => {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
               <h2 className="text-lg font-semibold text-foreground">Elevii Clasei</h2>
               <div className="flex flex-col xs:flex-row gap-2 sm:gap-4">
+                <Dialog open={isBulkGradeOpen} onOpenChange={setIsBulkGradeOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" className="gap-1 shrink-0" disabled={!currentClassId || students.length === 0}>
+                      Adaugă nota la toți
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-md">
+                    <DialogHeader>
+                      <DialogTitle>Notă la toți elevii din clasă</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <div>
+                        <Label>Materie</Label>
+                        <Select value={bulkGrade.subjectId} onValueChange={(v) => setBulkGrade((p) => ({ ...p, subjectId: v }))}>
+                          <SelectTrigger><SelectValue placeholder="Selectează materia" /></SelectTrigger>
+                          <SelectContent>
+                            {subjects.map((s) => (
+                              <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label>Nota (1–10)</Label>
+                        <Input
+                          type="number"
+                          min={1}
+                          max={10}
+                          value={bulkGrade.grade}
+                          onChange={(e) => setBulkGrade((p) => ({ ...p, grade: e.target.value }))}
+                          placeholder="ex. 8"
+                        />
+                      </div>
+                      <Button
+                        className="w-full"
+                        disabled={bulkGradeSaving || !bulkGrade.subjectId || !bulkGrade.grade || !currentClassId}
+                        onClick={async () => {
+                          if (!currentClassId || !bulkGrade.subjectId || !bulkGrade.grade) return;
+                          const g = Math.round(parseFloat(bulkGrade.grade));
+                          if (g < 1 || g > 10) {
+                            toast({ title: "Eroare", description: "Nota trebuie între 1 și 10", variant: "destructive" });
+                            return;
+                          }
+                          setBulkGradeSaving(true);
+                          try {
+                            const res = await addGradeBulk(currentClassId, bulkGrade.subjectId, g);
+                            toast({
+                              title: res.success ? "Note adăugate" : "Eroare",
+                              description: res.success ? `${res.count} elevi au primit nota ${g}.` : (res.error ?? "Nu s-au putut adăuga notele."),
+                              variant: res.success ? "default" : "destructive",
+                            });
+                            if (res.success) {
+                              setIsBulkGradeOpen(false);
+                              setBulkGrade({ subjectId: "", grade: "" });
+                              fetchData();
+                            }
+                          } catch (e) {
+                            toast({ title: "Eroare", description: e instanceof Error ? e.message : "Eroare la adăugare note", variant: "destructive" });
+                          } finally {
+                            setBulkGradeSaving(false);
+                          }
+                        }}
+                      >
+                        {bulkGradeSaving ? "Se salvează..." : "Adaugă nota la toți elevii"}
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
                 <Dialog open={isQuickGradeOpen} onOpenChange={setIsQuickGradeOpen}>
                   <DialogTrigger asChild>
                     <Button variant="default" className="gap-1 shrink-0">

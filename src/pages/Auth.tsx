@@ -9,6 +9,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { useAuth, type AppRole } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { validateInvitationCode, claimInvitation, getRoleLabelRo, type Invitation, type InvitationRole } from "@/lib/invitations";
+import { checkLoginRateLimit, recordLoginAttempt } from "@/lib/rate-limit";
 
 const routeMap: Record<AppRole, string> = {
   student: "/dashboard",
@@ -174,23 +175,36 @@ export default function Auth() {
 
   const handleLogin = async (e: FormEvent) => {
     e.preventDefault();
+    const identifier = email.trim().toLowerCase();
+    if (!identifier) return;
+
+    const allowed = await checkLoginRateLimit(identifier);
+    if (!allowed) {
+      toast({
+        title: "Prea multe încercări",
+        description: "Vă rugăm încercați din nou în 15 minute.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsLoading(true);
     try {
       const { error } = await signIn(email, password);
       if (error) {
+        await recordLoginAttempt(identifier, false);
         toast({
           title: "Eroare la autentificare",
           description: "Email sau parolă incorectă.",
           variant: "destructive",
         });
+      } else {
+        await recordLoginAttempt(identifier, true);
       }
-      // Navigarea se va face prin useEffect-ul de mai jos când "user" devine disponibil
     } catch (err: unknown) {
-      toast({
-        title: "Eroare",
-        description: err.message || "A apărut o eroare neașteptată.",
-        variant: "destructive",
-      });
+      await recordLoginAttempt(identifier, false);
+      const msg = err instanceof Error ? err.message : "A apărut o eroare neașteptată.";
+      toast({ title: "Eroare", description: msg, variant: "destructive" });
     } finally {
       setIsLoading(false);
     }

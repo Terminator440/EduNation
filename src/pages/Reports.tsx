@@ -21,6 +21,7 @@ import { exportToCsv } from "@/utils/exportCsv";
 import { exportClassRegisterPdf } from "@/utils/exportClassRegisterPdf";
 import { exportStudentReportPdf } from "@/utils/exportStudentReportPdf";
 import { exportClassReportPdf } from "@/utils/exportClassReportPdf";
+import { exportAttendanceReportPdf } from "@/utils/exportAttendanceReportPdf";
 import { fetchClassStatsForDisplay, fetchClassTotalsForDisplay } from "@/lib/reports-rpc";
 import { fetchStudentReport, fetchClassReport } from "@/features/reports/services/reports.service";
 import { getCurrentUserSchoolId } from "@/lib/supabase-helpers";
@@ -500,6 +501,37 @@ const Reports = () => {
     }
   };
 
+  const handleExportAttendanceReportPdf = async () => {
+    if (!classId) {
+      toast({
+        title: "Eroare",
+        description: "Selectați o clasă pentru raportul de absențe.",
+        variant: "destructive",
+      });
+      return;
+    }
+    try {
+      const payload = await fetchClassReport(classId);
+      if (!payload.success || !payload.class_name) throw new Error(payload.error ?? "Date invalide");
+      exportAttendanceReportPdf({
+        class_name: payload.class_name,
+        period: `${getCurrentAcademicYear()}-S${getCurrentSemester()}`,
+        students: (payload.students ?? []).map((s) => ({
+          student_name: s.student_name,
+          student_number: s.student_number,
+          total_absences: s.total_absences ?? 0,
+        })),
+      });
+      toast({
+        title: "PDF generat",
+        description: "Raportul de absențe a fost descărcat.",
+      });
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : "Eroare la generarea PDF.";
+      toast({ title: "Eroare", description: msg, variant: "destructive" });
+    }
+  };
+
   if (authLoading || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -647,9 +679,14 @@ const Reports = () => {
               <Card>
                 <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                   <CardTitle>Raport clasă (PDF)</CardTitle>
-                  <Button variant="secondary" className="gap-2 w-full sm:w-auto justify-center" onClick={handleExportClassReportPdf}>
-                    <FileDown className="w-4 h-4" /> Raport clasă PDF
-                  </Button>
+                  <div className="flex flex-wrap gap-2">
+                    <Button variant="secondary" className="gap-2" onClick={handleExportClassReportPdf}>
+                      <FileDown className="w-4 h-4" /> Raport clasă PDF
+                    </Button>
+                    <Button variant="outline" className="gap-2" onClick={handleExportAttendanceReportPdf}>
+                      <FileDown className="w-4 h-4" /> Raport absențe PDF
+                    </Button>
+                  </div>
                 </CardHeader>
                 <CardContent className="text-sm text-muted-foreground">
                   Rezumat pe elevi: medie generală, absențe, medii pe materii (date din RPC get_class_report).

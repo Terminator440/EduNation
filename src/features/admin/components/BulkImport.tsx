@@ -22,6 +22,8 @@ import { toast } from "sonner";
 import { toFriendlySupabaseError } from "@/utils/supabaseErrors";
 
 const CSV_TEMPLATE_STUDENTS = "email,full_name,cnp,phone,class\nion.popescu@email.ro,Ion Popescu,1900101123456,,10A";
+/** Template pentru import elevi: name, class, email (coloanele pot fi și full_name, class_identifier) */
+export const CSV_TEMPLATE_STUDENTS_SIMPLE = "name,class,email\nIon Popescu,10A,ion.popescu@email.ro\nMaria Ionescu,10A,";
 const CSV_TEMPLATE_TEACHERS = "email,full_name,cnp,phone\nmaria.ionescu@email.ro,Maria Ionescu,2850302123456,";
 
 export function BulkImport({ isActive = true }: { isActive?: boolean }) {
@@ -133,7 +135,9 @@ export function BulkImport({ isActive = true }: { isActive?: boolean }) {
       <div className="rounded-lg border bg-card p-4">
         <h3 className="font-medium mb-2">Import în masă (elevi sau profesori)</h3>
         <p className="text-sm text-muted-foreground mb-4">
-          Încărcați un fișier CSV sau Excel (.xlsx) cu coloane: email, full_name, cnp (opțional), phone (opțional) și pentru elevi: class (ex. 10A).
+          {role === "student"
+            ? "Import elevi: coloane name (sau full_name), class (ex. 10A), email (obligatoriu pentru cont). Validări: existența clasei, evită duplicate după email."
+            : "Import profesori: coloane email, full_name, cnp (opțional), phone (opțional)."}
         </p>
         <div className="flex flex-wrap items-center gap-4">
           <RadioGroup

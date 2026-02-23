@@ -1,24 +1,25 @@
 import { useState, useTransition, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Users, Link2, Upload } from "lucide-react";
+import { Users, Link2, Upload, FileText } from "lucide-react";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/hooks/useAuth";
 import { UserManagement } from "@/features/admin/components/UserManagement";
 import { AssignmentManagement } from "@/features/admin/components/AssignmentManagement";
 import { BulkImport } from "@/features/admin/components/BulkImport";
+import { SchoolInvoicesCard } from "@/features/billing/components/SchoolInvoicesCard";
 import { cn } from "@/lib/utils";
 
 const AdminPanel = () => {
   const { user, activeRole, loading: authLoading } = useAuth();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<"users" | "assignments" | "bulk-import">("users");
+  const [activeTab, setActiveTab] = useState<"users" | "assignments" | "bulk-import" | "invoices">("users");
   const [, startTransition] = useTransition();
 
   // Handle tab change with transition - active state updates instantly, content renders with low priority
   const handleTabChange = useCallback((value: string) => {
     // Update active tab instantly (optimistic update)
-    setActiveTab(value as "users" | "assignments");
+    setActiveTab(value as "users" | "assignments" | "bulk-import" | "invoices");
     
     // Mark content rendering as low priority transition
     startTransition(() => {
@@ -43,7 +44,7 @@ const AdminPanel = () => {
       subtitle="Gestionează utilizatorii și asignările școlii"
     >
       <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="users">
             <Users className="w-4 h-4 mr-2" />
             Utilizatori
@@ -55,6 +56,10 @@ const AdminPanel = () => {
           <TabsTrigger value="assignments">
             <Link2 className="w-4 h-4 mr-2" />
             Asignări
+          </TabsTrigger>
+          <TabsTrigger value="invoices">
+            <FileText className="w-4 h-4 mr-2" />
+            Facturi
           </TabsTrigger>
         </TabsList>
 
@@ -68,6 +73,9 @@ const AdminPanel = () => {
           </div>
           <div className={cn(activeTab === "assignments" ? "block" : "hidden")}>
             <AssignmentManagement isActive={activeTab === "assignments"} />
+          </div>
+          <div className={cn(activeTab === "invoices" ? "block" : "hidden")}>
+            <SchoolInvoicesCard />
           </div>
         </div>
       </Tabs>

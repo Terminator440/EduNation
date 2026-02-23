@@ -319,3 +319,39 @@ export async function deleteGrade(gradeId: string): Promise<void> {
     throw new Error(result?.error ?? "Ștergere notă eșuată");
   }
 }
+
+export type AddGradeBulkResult = { success: boolean; count: number; error?: string };
+
+/**
+ * Add the same grade to all active students in a class for one subject/date. Uses RPC add_grade_bulk.
+ */
+export async function addGradeBulk(
+  classId: string,
+  subjectId: string,
+  grade: number,
+  date?: string,
+  description?: string | null
+): Promise<AddGradeBulkResult> {
+  if (!validateGrade(grade)) {
+    throw new Error("Nota trebuie să fie un număr întreg între 1 și 10");
+  }
+  const dateStr = date ?? new Date().toISOString().split("T")[0];
+  const { data, error } = await supabase.rpc("add_grade_bulk", {
+    p_class_id: classId,
+    p_subject_id: subjectId,
+    p_value: grade,
+    p_date: dateStr,
+    p_description: description ?? null,
+  });
+  if (error) {
+    handleServiceError(error, "Note în masă");
+    throw error;
+  }
+  const result = data as { success: boolean; count: number; error?: string } | null;
+  if (!result) return { success: false, count: 0, error: "Răspuns invalid" };
+  return {
+    success: result.success,
+    count: result.count ?? 0,
+    error: result.error ?? undefined,
+  };
+}

@@ -30,6 +30,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { useAuth, AppRole } from "@/hooks/useAuth";
 import { NotificationsPopover } from "@/components/notifications";
+import { GlobalSearchBar } from "@/features/search/components/GlobalSearchBar";
 
 interface SidebarProps {
   isCollapsed: boolean;
@@ -78,6 +79,7 @@ const SidebarContent = memo(function SidebarContent({
           )}
         </button>
         <div className="flex items-center gap-1 shrink-0">
+          {!isCollapsed && <GlobalSearchBar className="hidden sm:block" />}
           <NotificationsPopover />
           {showToggle ? (
             <Button

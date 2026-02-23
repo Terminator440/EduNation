@@ -12,6 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "@/hooks/use-toast";
 import type { Database } from "@/integrations/supabase/types";
 import { fetchSchoolsForGlobalAdmin } from "@/features/admin/services/global-admin.service";
+import { BillingSection } from "@/features/billing/components/BillingSection";
+import { SchoolOnboardingWizard } from "@/features/onboarding/components/SchoolOnboardingWizard";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Spinner } from "@/components/ui/spinner";
 
@@ -219,6 +221,13 @@ const AdminDashboard = () => {
                   </div>
                 )}
               </div>
+            </div>
+          )}
+
+          {isGlobalAdmin && (
+            <div className="space-y-6">
+              <SchoolOnboardingWizard />
+              <BillingSection />
             </div>
           )}
 

@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { ClipboardCheck, ClipboardSignature, RefreshCw, CheckCircle, Clock, BookOpen } from "lucide-react";
 
 import Sidebar from "@/components/dashboard/Sidebar";
@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
@@ -75,6 +76,7 @@ const TakeAttendance = () => {
   // Students for selected slot
   const [students, setStudents] = useState<StudentRow[]>([]);
   const [statuses, setStatuses] = useState<Record<string, AttendanceStatus>>({});
+  const [selectedStudentIds, setSelectedStudentIds] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
   const [saving, setSaving] = useState(false);
   const [signing, setSigning] = useState(false);
@@ -83,6 +85,9 @@ const TakeAttendance = () => {
   const { user, activeRole, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const location = useLocation();
+  const focusSlotId = (location.state as { focusSlotId?: string } | null)?.focusSlotId;
+  const focusSlotApplied = useRef(false);
 
   useEffect(() => {
     if (!authLoading && (!user || (activeRole !== "teacher" && activeRole !== "homeroom_teacher"))) {
@@ -181,10 +186,21 @@ const TakeAttendance = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, activeRole, dateKey]);
 
+  // Focus slot when navigating from "Deschide catalog" (TeacherDashboard)
+  useEffect(() => {
+    if (!focusSlotId || slots.length === 0 || focusSlotApplied.current) return;
+    const slot = slots.find((s) => s.id === focusSlotId);
+    if (slot) {
+      focusSlotApplied.current = true;
+      handleSelectSlot(slot);
+    }
+  }, [focusSlotId, slots]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // When a slot is selected, fetch students
   const handleSelectSlot = async (slot: TimetableSlot) => {
     setSelectedSlot(slot);
     setSearch("");
+    setSelectedStudentIds(new Set());
 
     if (!slot.class_id) {
       setStudents([]);
@@ -297,6 +313,33 @@ const TakeAttendance = () => {
     });
     setStatuses(next);
   };
+
+  const toggleSelectStudent = (id: string) => {
+    setSelectedStudentIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const selectAllFiltered = (checked: boolean) => {
+    if (checked) setSelectedStudentIds(new Set(filteredStudents.map((s) => s.id)));
+    else setSelectedStudentIds(new Set());
+  };
+
+  const setSelectedAbsent = () => {
+    setStatuses((prev) => {
+      const next = { ...prev };
+      selectedStudentIds.forEach((id) => {
+        next[id] = "unexcused";
+      });
+      return next;
+    });
+  };
+
+  const allFilteredSelected = filteredStudents.length > 0 && filteredStudents.every((s) => selectedStudentIds.has(s.id));
+  const someSelected = selectedStudentIds.size > 0;
 
   const handleSave = async () => {
     if (!user || !selectedSlot?.subject_id) return;
@@ -502,9 +545,14 @@ const TakeAttendance = () => {
                       onChange={(e) => setSearch(e.target.value)}
                       className="md:w-64"
                     />
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
                       <Button type="button" variant="secondary" size="sm" onClick={() => setAll("present")}>Toți prezenți</Button>
                       <Button type="button" variant="secondary" size="sm" onClick={() => setAll("unexcused")}>Toți absenți</Button>
+                      {someSelected && (
+                        <Button type="button" variant="outline" size="sm" onClick={setSelectedAbsent} className="border-amber-500 text-amber-700 dark:text-amber-400">
+                          Marchează cei {selectedStudentIds.size} selectați absenți
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </CardHeader>
@@ -517,6 +565,13 @@ const TakeAttendance = () => {
                         <Table>
                           <TableHeader>
                             <TableRow>
+                              <TableHead className="w-12">
+                                <Checkbox
+                                  checked={allFilteredSelected}
+                                  onCheckedChange={(c) => selectAllFiltered(c === true)}
+                                  aria-label="Selectează toți"
+                                />
+                              </TableHead>
                               <TableHead className="w-full">Nr.</TableHead>
                               <TableHead>Elev</TableHead>
                               <TableHead className="w-full">Status</TableHead>
@@ -525,6 +580,13 @@ const TakeAttendance = () => {
                           <TableBody>
                             {filteredStudents.map((s) => (
                               <TableRow key={s.id}>
+                                <TableCell>
+                                  <Checkbox
+                                    checked={selectedStudentIds.has(s.id)}
+                                    onCheckedChange={() => toggleSelectStudent(s.id)}
+                                    aria-label={`Selectează ${s.full_name ?? s.id}`}
+                                  />
+                                </TableCell>
                                 <TableCell className="text-muted-foreground">{s.student_number ?? "—"}</TableCell>
                                 <TableCell className="font-medium">{s.full_name ?? "(fără nume)"}</TableCell>
                                 <TableCell>
