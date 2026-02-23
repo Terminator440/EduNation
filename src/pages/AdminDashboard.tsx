@@ -1,5 +1,5 @@
 import { useMemo, useState, useCallback } from "react";
-import { Shield, Users, GraduationCap, ClipboardList, CalendarDays, Plus, Trash2 } from "lucide-react";
+import { Shield, Users, GraduationCap, ClipboardList, CalendarDays, Plus, Trash2, Building2 } from "lucide-react";
 import Sidebar from "@/components/dashboard/Sidebar";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
@@ -11,6 +11,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
 import type { Database } from "@/integrations/supabase/types";
+import { fetchSchoolsForGlobalAdmin } from "@/features/admin/services/global-admin.service";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { Spinner } from "@/components/ui/spinner";
 
 type AppRoleEnum = Database["public"]["Enums"]["app_role"];
 type Role = Exclude<AppRoleEnum, "developer">; // Exclude developer from admin assignable roles
@@ -28,7 +31,15 @@ type UserRow = {
 const AdminDashboard = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const onToggleSidebar = useCallback(() => setSidebarCollapsed((prev) => !prev), []);
-  const { user } = useAuth();
+  const { user, activeRole } = useAuth();
+
+  const isGlobalAdmin = activeRole === "uat_admin" || activeRole === "developer";
+
+  const schoolsQuery = useQuery({
+    queryKey: ["admin-schools"],
+    queryFn: fetchSchoolsForGlobalAdmin,
+    enabled: isGlobalAdmin,
+  });
 
   const statsQuery = useQuery({
     queryKey: ['admin-stats'],
@@ -157,6 +168,59 @@ const AdminDashboard = () => {
             <div className="bg-card rounded-2xl border border-border p-4"><div className="flex items-center justify-between"><p className="text-sm text-muted-foreground">Prezențe</p><ClipboardList className="w-4 h-4 text-muted-foreground" /></div><p className="text-2xl font-bold mt-2">{statsQuery.data?.attendance ?? 0}</p></div>
             <div className="bg-card rounded-2xl border border-border p-4"><div className="flex items-center justify-between"><p className="text-sm text-muted-foreground">Evenimente</p><CalendarDays className="w-4 h-4 text-muted-foreground" /></div><p className="text-2xl font-bold mt-2">{statsQuery.data?.events ?? 0}</p></div>
           </div>
+
+          {isGlobalAdmin && (
+            <div className="bg-card rounded-2xl border border-border overflow-hidden">
+              <div className="p-6 border-b border-border flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Building2 className="w-5 h-5 text-muted-foreground" />
+                  <h2 className="text-lg font-semibold">Școli (catalog multi-tenant)</h2>
+                </div>
+              </div>
+              <div className="p-6">
+                {schoolsQuery.isLoading && (
+                  <div className="flex items-center justify-center py-8">
+                    <Spinner size="lg" className="text-primary" />
+                  </div>
+                )}
+                {schoolsQuery.isError && (
+                  <p className="text-sm text-destructive">Eroare la încărcarea școlilor.</p>
+                )}
+                {schoolsQuery.isSuccess && (!schoolsQuery.data?.length) && (
+                  <EmptyState
+                    title="Nicio școală"
+                    description="Nu există școli încă în sistem."
+                  />
+                )}
+                {schoolsQuery.isSuccess && schoolsQuery.data && schoolsQuery.data.length > 0 && (
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-secondary/50">
+                        <tr>
+                          <th className="text-left px-4 py-2 text-sm font-semibold text-muted-foreground">Școală</th>
+                          <th className="text-left px-4 py-2 text-sm font-semibold text-muted-foreground">Cod</th>
+                          <th className="text-right px-4 py-2 text-sm font-semibold text-muted-foreground">Utilizatori</th>
+                          <th className="text-right px-4 py-2 text-sm font-semibold text-muted-foreground">Clase</th>
+                          <th className="text-right px-4 py-2 text-sm font-semibold text-muted-foreground">Elevi</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border">
+                        {schoolsQuery.data.map((s) => (
+                          <tr key={s.id} className="hover:bg-secondary/30">
+                            <td className="px-4 py-3 font-medium">{s.name}</td>
+                            <td className="px-4 py-3 text-muted-foreground">{s.code ?? "—"}</td>
+                            <td className="px-4 py-3 text-right">{s.user_count}</td>
+                            <td className="px-4 py-3 text-right">{s.class_count}</td>
+                            <td className="px-4 py-3 text-right">{s.student_count}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           <div className="bg-card rounded-2xl border border-border overflow-hidden">
             <div className="p-6 border-b border-border flex items-center justify-between">

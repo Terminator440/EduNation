@@ -2,6 +2,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { supabase } from "@/integrations/supabase/client";
 import { getCurrentUserSchoolId } from "@/lib/supabase-helpers";
+import { exportToCsv } from "@/utils/exportCsv";
 import type { Database } from "@/integrations/supabase/types";
 
 type StudentRow = Database["public"]["Tables"]["students"]["Row"];
@@ -311,4 +312,40 @@ export async function exportClassRegisterPdf(
   // Save PDF
   const fileName = `foaia_matricola_${data.class.name || "clasa"}_${data.class.year || ""}${data.class.section || ""}_${new Date().toISOString().split("T")[0]}.pdf`;
   doc.save(fileName);
+}
+
+/**
+ * Exportă foaia matricolă (catalog) pentru o clasă în CSV.
+ */
+export async function exportClassRegisterCsv(
+  classId: string,
+  academicYear?: number,
+  semester?: 1 | 2
+): Promise<void> {
+  const data = await fetchClassRegisterData(classId, academicYear, semester);
+  const headers: string[] = ["Nr", "Nume elev", ...data.subjects.map((s) => s.name ?? "Materie"), "Medie gen."];
+  const rows: Record<string, unknown>[] = data.students.map((student, index) => {
+    const studentFinalGrades = data.finalGrades.filter((fg) => fg.student_id === student.id);
+    const avg =
+      studentFinalGrades.length > 0
+        ? (
+            studentFinalGrades.reduce((sum, fg) => sum + fg.final_grade, 0) /
+            studentFinalGrades.length
+          ).toFixed(2)
+        : "—";
+    const row: Record<string, unknown> = {
+      Nr: student.student_number ?? index + 1,
+      "Nume elev": student.full_name ?? "—",
+      "Medie gen.": avg,
+    };
+    data.subjects.forEach((subj) => {
+      const fg = data.finalGrades.find(
+        (f) => f.student_id === student.id && f.subject_id === subj.id
+      );
+      row[subj.name ?? "Materie"] = fg ? fg.final_grade : "—";
+    });
+    return row;
+  });
+  const filename = `catalog_${data.class.name}_${data.class.year}${data.class.section}_${new Date().toISOString().slice(0, 10)}.csv`;
+  exportToCsv(filename, headers as (keyof Record<string, unknown> & string)[], rows);
 }

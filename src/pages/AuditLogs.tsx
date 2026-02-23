@@ -102,6 +102,9 @@ const AuditLogsBase = () => {
 
   const [allRows, setAllRows] = useState<AuditRow[]>([]);
   const [loading, setLoading] = useState(false);
+  const [page, setPage] = useState(0);
+  const PAGE_SIZE = 50;
+  const [totalCount, setTotalCount] = useState<number | null>(null);
 
   // Filters
   const [q, setQ] = useState("");
@@ -161,19 +164,23 @@ const AuditLogsBase = () => {
   const virtualItems = virtualizer.getVirtualItems();
   const totalSize = virtualizer.getTotalSize();
 
-  const fetchRows = async () => {
+  const fetchRows = async (pageIndex: number = 0) => {
     if (!canView) return;
 
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      const from = pageIndex * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
+      const { data, error, count } = await supabase
         .from("audit_logs")
-        .select("id, created_at, user_name, active_role, action, entity_type, entity_id, details, old_data, new_data, school_id")
+        .select("id, created_at, user_name, active_role, action, entity_type, entity_id, details, old_data, new_data, school_id", { count: "exact" })
         .order("created_at", { ascending: false })
-        .limit(500);
+        .range(from, to);
 
       if (error) throw error;
       setAllRows((data as AuditRow[]) ?? []);
+      setTotalCount(count ?? null);
+      setPage(pageIndex);
     } catch (e: unknown) {
       const errorMessage = e instanceof Error ? e.message : "Nu am putut încărca audit log.";
       toast({
@@ -187,7 +194,7 @@ const AuditLogsBase = () => {
   };
 
   useEffect(() => {
-    fetchRows();
+    fetchRows(0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canView]);
 
@@ -276,7 +283,7 @@ const AuditLogsBase = () => {
                 <Download className="w-4 h-4" />
                 Export CSV
               </Button>
-              <Button onClick={fetchRows} disabled={loading} className="gap-2 w-full sm:w-auto">
+              <Button onClick={() => fetchRows(0)} disabled={loading} className="gap-2 w-full sm:w-auto">
                 {loading ? <Spinner size="sm" className="w-4 h-4 text-current" /> : <RefreshCw className="w-4 h-4" />}
                 {loading ? "Se încarcă..." : "Reîncarcă"}
               </Button>
@@ -346,7 +353,7 @@ const AuditLogsBase = () => {
                 {loading ? (
                   <Skeleton className="h-5 w-48" />
                 ) : (
-                  `Evenimente (${filteredRows.length} înregistrări)`
+                  `Evenimente (${filteredRows.length}${totalCount != null ? ` din ${totalCount}` : ""})`
                 )}
               </CardTitle>
             </CardHeader>
@@ -473,6 +480,29 @@ const AuditLogsBase = () => {
                   )}
                 </div>
               </div>
+              {totalCount != null && totalCount > PAGE_SIZE && !loading && (
+                <div className="flex items-center justify-between mt-4">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => fetchRows(page - 1)}
+                    disabled={page === 0}
+                  >
+                    Înapoi
+                  </Button>
+                  <span className="text-sm text-muted-foreground">
+                    Pagina {page + 1} din {Math.ceil(totalCount / PAGE_SIZE)}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => fetchRows(page + 1)}
+                    disabled={(page + 1) * PAGE_SIZE >= totalCount}
+                  >
+                    Înainte
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
 

@@ -5,7 +5,8 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { AuthProvider } from "@/hooks/useAuth";
+import { AuthProvider, useAuth } from "@/hooks/useAuth";
+import { SchoolProvider } from "@/contexts/SchoolContext";
 import { OfflineQueueProvider } from "@/contexts/OfflineQueueContext";
 import { NavigationTransitionProvider } from "@/hooks/useNavigationTransition";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -89,6 +90,16 @@ function PR({
 const allRoles: AppRole[] = ["student", "parent", "teacher", "homeroom_teacher", "secretariat", "director", "uat_admin"];
 const allPlusDev: AppRole[] = [...allRoles, "developer"];
 
+/** Wraps authenticated tree with SchoolProvider (multi-tenant). Must be inside AuthProvider. */
+function AppWithSchool({ children }: { children: React.ReactNode }) {
+  const { profile } = useAuth();
+  return (
+    <SchoolProvider schoolIdFromProfile={profile?.school_id ?? null}>
+      {children}
+    </SchoolProvider>
+  );
+}
+
 const App = () => (
   <PersistQueryClientProvider client={queryClient} persistOptions={persistOptions}>
     <TooltipProvider>
@@ -96,6 +107,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
+          <AppWithSchool>
           <OfflineQueueProvider>
           <NavigationTransitionProvider>
             <ErrorBoundary>
@@ -155,6 +167,7 @@ const App = () => (
             </ErrorBoundary>
           </NavigationTransitionProvider>
           </OfflineQueueProvider>
+          </AppWithSchool>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>

@@ -19,7 +19,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Spinner } from "@/components/ui/spinner";
-import { exportClassRegisterPdf } from "@/utils/exportClassRegisterPdf";
+import { exportClassRegisterPdf, exportClassRegisterCsv } from "@/utils/exportClassRegisterPdf";
 import {
   getCurrentAcademicYear,
   getCurrentSemester,
@@ -101,6 +101,35 @@ export function ExportClassRegisterDialog({
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "Eroare la generarea PDF-ului";
+      toast({
+        title: "Eroare",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleExportCsv = async () => {
+    if (!selectedClassId) {
+      toast({
+        title: "Eroare",
+        description: "Vă rugăm să selectați o clasă.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setLoading(true);
+    try {
+      await exportClassRegisterCsv(selectedClassId, academicYear, semester);
+      toast({
+        title: "CSV exportat cu succes",
+        description: "Catalogul a fost exportat în CSV.",
+      });
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Eroare la exportul CSV";
       toast({
         title: "Eroare",
         description: errorMessage,
@@ -200,6 +229,9 @@ export function ExportClassRegisterDialog({
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
             Anulează
+          </Button>
+          <Button variant="outline" onClick={handleExportCsv} disabled={loading || !selectedClassId}>
+            Exportă CSV
           </Button>
           <Button onClick={handleExport} disabled={loading || !selectedClassId}>
             {loading ? (

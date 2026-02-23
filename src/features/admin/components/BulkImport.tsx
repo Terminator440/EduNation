@@ -11,6 +11,7 @@ import {
   type BulkImportRole,
   type BulkImportRowValidation,
 } from "@/lib/bulk-import-validation";
+import { parseExcelFromArrayBuffer } from "@/lib/parseExcel";
 import { getCurrentUserSchoolId } from "@/lib/supabase-helpers";
 import {
   validateBulkImportRows,
@@ -30,11 +31,11 @@ export function BulkImport({ isActive = true }: { isActive?: boolean }) {
   const [fileError, setFileError] = useState<string | null>(null);
 
   const validateMutation = useMutation({
-    mutationFn: async (csvText: string) => {
+    mutationFn: async (payload: { rows: Record<string, string>[] }) => {
       const schoolId = await getCurrentUserSchoolId();
       if (!schoolId) throw new Error("Nu aveți o școală asociată");
-      const rows = parseCSV(csvText);
-      if (rows.length === 0) throw new Error("Fișierul CSV este gol sau format invalid");
+      const { rows } = payload;
+      if (rows.length === 0) throw new Error("Fișierul este gol sau format invalid");
       const clientValidations: BulkImportRowValidation[] = rows.map((raw, i) => {
         const row = mapCSVRowToBulkImportRow(raw, role);
         return validateBulkImportRow(row, i, role);
@@ -85,13 +86,31 @@ export function BulkImport({ isActive = true }: { isActive?: boolean }) {
       if (!file) return;
       setValidations(null);
       setFileError(null);
-      const reader = new FileReader();
-      reader.onload = () => {
-        const text = String(reader.result ?? "");
-        validateMutation.mutate(text);
-      };
-      reader.onerror = () => setFileError("Nu s-a putut citi fișierul");
-      reader.readAsText(file, "UTF-8");
+      const isExcel = file.name.toLowerCase().endsWith(".xlsx");
+      if (isExcel) {
+        const reader = new FileReader();
+        reader.onload = async () => {
+          const buffer = reader.result as ArrayBuffer;
+          const { rows, error } = await parseExcelFromArrayBuffer(buffer);
+          if (error) {
+            setFileError(error);
+            toast.error("Eroare Excel", { description: error });
+            return;
+          }
+          validateMutation.mutate({ rows });
+        };
+        reader.onerror = () => setFileError("Nu s-a putut citi fișierul");
+        reader.readAsArrayBuffer(file);
+      } else {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const text = String(reader.result ?? "");
+          const rows = parseCSV(text);
+          validateMutation.mutate({ rows });
+        };
+        reader.onerror = () => setFileError("Nu s-a putut citi fișierul");
+        reader.readAsText(file, "UTF-8");
+      }
       e.target.value = "";
     },
     [role, validateMutation]
@@ -114,7 +133,7 @@ export function BulkImport({ isActive = true }: { isActive?: boolean }) {
       <div className="rounded-lg border bg-card p-4">
         <h3 className="font-medium mb-2">Import în masă (elevi sau profesori)</h3>
         <p className="text-sm text-muted-foreground mb-4">
-          Încărcați un fișier CSV cu coloane: email, full_name, cnp (opțional), phone (opțional) și pentru elevi: class (ex. 10A).
+          Încărcați un fișier CSV sau Excel (.xlsx) cu coloane: email, full_name, cnp (opțional), phone (opțional) și pentru elevi: class (ex. 10A).
         </p>
         <div className="flex flex-wrap items-center gap-4">
           <RadioGroup
@@ -139,14 +158,14 @@ export function BulkImport({ isActive = true }: { isActive?: boolean }) {
             <Download className="w-4 h-4 mr-2" />
             Descarcă template CSV
           </Button>
-          <Label className="cursor-pointer">
+            <Label className="cursor-pointer">
             <span className="inline-flex items-center justify-center rounded-md text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 h-9 px-4 py-2">
               <Upload className="w-4 h-4 mr-2" />
-              Încarcă CSV
+              Încarcă CSV / Excel
             </span>
             <input
               type="file"
-              accept=".csv,text/csv"
+              accept=".csv,text/csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
               className="sr-only"
               onChange={handleFile}
               disabled={validateMutation.isPending}

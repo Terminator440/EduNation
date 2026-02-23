@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useTransition } from "react";
-import { User, Bell, Shield, Palette, Sun, Moon, Lock, Info } from "lucide-react";
+import { User, Bell, Shield, Palette, Sun, Moon, Lock, Info, FileDown, Trash2 } from "lucide-react";
 import Sidebar from "@/components/dashboard/Sidebar";
 import { cn } from "@/lib/utils";
 import { Spinner } from "@/components/ui/spinner";
@@ -11,6 +11,17 @@ import { useToast } from "@/hooks/use-toast";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { exportMyData, softDeleteMyAccount } from "@/lib/gdpr";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 /** Roles that can edit their own Name, Surname, Phone. Students/Parents are read-only. */
 const CAN_EDIT_PERSONAL_INFO: string[] = [
@@ -99,6 +110,10 @@ const Settings = () => {
     events: true,
     messages: false,
   });
+
+  const [gdprExporting, setGdprExporting] = useState(false);
+  const [deleteAccountDialogOpen, setDeleteAccountDialogOpen] = useState(false);
+  const [deleteAccountPending, setDeleteAccountPending] = useState(false);
 
   // Profile form (Name, Surname, Phone) - populated from profile
   const [firstName, setFirstName] = useState("");
@@ -219,6 +234,7 @@ const Settings = () => {
     { id: "profile", label: "Profil", icon: User },
     { id: "notifications", label: "Notificări", icon: Bell },
     { id: "security", label: "Securitate", icon: Shield },
+    { id: "gdpr", label: "Date și cont", icon: FileDown },
     { id: "appearance", label: "Aspect", icon: Palette },
   ];
 
@@ -523,6 +539,97 @@ const Settings = () => {
                       </div>
                     </div>
                   </div>
+
+                  <div role="tabpanel" aria-hidden={activeTab !== "gdpr"} className={cn(activeTab !== "gdpr" && "hidden")}>
+                    <div className="space-y-6">
+                      <h2 className="text-lg font-semibold text-foreground mb-4">GDPR – Date personale și cont</h2>
+                      <p className="text-sm text-muted-foreground">
+                        Puteți exporta toate datele dvs. personale (profil, roluri, note, prezență) sau șterge contul (anonimizare date).
+                      </p>
+                      <div className="flex flex-col gap-4">
+                        <Button
+                          variant="outline"
+                          onClick={async () => {
+                            setGdprExporting(true);
+                            try {
+                              const data = await exportMyData();
+                              const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+                              const a = document.createElement("a");
+                              a.href = URL.createObjectURL(blob);
+                              a.download = `date_personale_${new Date().toISOString().slice(0, 10)}.json`;
+                              a.click();
+                              URL.revokeObjectURL(a.href);
+                              toast({ title: "Export realizat", description: "Fișierul JSON a fost descărcat." });
+                            } catch (e) {
+                              toast({
+                                title: "Eroare",
+                                description: e instanceof Error ? e.message : "Export eșuat",
+                                variant: "destructive",
+                              });
+                            } finally {
+                              setGdprExporting(false);
+                            }
+                          }}
+                          disabled={gdprExporting}
+                        >
+                          <FileDown className="w-4 h-4 mr-2" />
+                          {gdprExporting ? "Se exportă..." : "Exportă datele mele (JSON)"}
+                        </Button>
+                        <div className="border border-destructive/50 rounded-lg p-4">
+                          <p className="text-sm font-medium text-destructive mb-2">Zone de pericol</p>
+                          <p className="text-sm text-muted-foreground mb-4">
+                            Ștergerea contului anonimizează datele din profil. Nu puteți reveni la acest cont.
+                          </p>
+                          <Button
+                            variant="destructive"
+                            onClick={() => setDeleteAccountDialogOpen(true)}
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Șterge contul
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <AlertDialog open={deleteAccountDialogOpen} onOpenChange={setDeleteAccountDialogOpen}>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Șterge contul?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Contul va fi anonimizat (datele din profil vor fi șterse). Această acțiune nu poate fi anulată.
+                          Veți fi deconectat după confirmare.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Anulează</AlertDialogCancel>
+                        <AlertDialogAction
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          onClick={async () => {
+                            setDeleteAccountPending(true);
+                            try {
+                              await softDeleteMyAccount();
+                              await supabase.auth.signOut();
+                              toast({ title: "Cont șters", description: "Datele au fost anonimizate." });
+                              setDeleteAccountDialogOpen(false);
+                              window.location.href = "/";
+                            } catch (e) {
+                              toast({
+                                title: "Eroare",
+                                description: e instanceof Error ? e.message : "Ștergere eșuată",
+                                variant: "destructive",
+                              });
+                            } finally {
+                              setDeleteAccountPending(false);
+                            }
+                          }}
+                          disabled={deleteAccountPending}
+                        >
+                          {deleteAccountPending ? "Se procesează..." : "Șterge contul"}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
 
                   <div role="tabpanel" aria-hidden={activeTab !== "appearance"} className={cn(activeTab !== "appearance" && "hidden")}>
                     <div className="space-y-6">

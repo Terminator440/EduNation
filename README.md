@@ -1,12 +1,14 @@
-# EduNation
+# EduNation (Eduro)
 
-Catalog școlar digital modern construit cu **Vite + React + TypeScript + Supabase**. Proiect orientat pe arhitectură sigură, separare clară a responsabilităților și control riguros al accesului pe roluri.
+Catalog școlar digital modern – **produs SaaS pentru școli și licee** – construit cu **Vite + React + TypeScript + Supabase**. Multi-tenant, RBAC, audit log, validări server-side și GDPR.
 
 ## 📋 Cuprins
 
 - [Scopul Proiectului](#scopul-proiectului)
 - [Stack Tehnic](#stack-tehnic)
 - [Arhitectură](#arhitectură)
+- [Multi-tenant și Roluri](#multi-tenant-și-roluri)
+- [Securitate](#securitate)
 - [Setup](#setup)
 - [Testare](#testare)
 - [Dezvoltare](#dezvoltare)
@@ -14,13 +16,16 @@ Catalog școlar digital modern construit cu **Vite + React + TypeScript + Supaba
 
 ## 🎯 Scopul Proiectului
 
-EduNation este o aplicație web pentru gestionarea situației școlare, concepută astfel încât:
+EduNation este un **catalog digital SaaS** pentru școli și licee, conceput astfel încât:
 
-- ✅ să ofere acces diferențiat pe roluri (elev, părinte, profesor, director etc.)
-- ✅ să asigure protecția datelor prin politici la nivel de bază de date (RLS)
-- ✅ să fie scalabilă și ușor de extins
-- ✅ să respecte principiul „database-ul este sursa adevărului"
-- ✅ să ofere experiență utilizator excelentă cu feedback vizual pentru toate acțiunile
+- ✅ **Multi-tenant**: fiecare școală este izolată (school_id pe toate tabelele relevante, RLS)
+- ✅ **RBAC**: roluri (admin/director, teacher, student, parent) cu permisiuni granulare
+- ✅ **Audit log**: toate modificările de note/absențe sunt înregistrate; soft delete unde e cazul
+- ✅ **Validări server-side**: note 1–10, blocare modificări după încheiere semestru, profesor doar la clasele alocate
+- ✅ **GDPR**: export date utilizator, ștergere cont (soft delete)
+- ✅ **Backend structurat**: api / services / repositories; logica critică în RPC-uri Supabase
+- ✅ **Notificări**: in-app și (opțional) email la note noi / absențe
+- ✅ **Rapoarte**: export CSV/PDF, situație școlară, catalog (jsPDF)
 
 ## 🛠 Stack Tehnic
 
@@ -56,32 +61,14 @@ Proiectul folosește o **arhitectură bazată pe Features** care separă clar lo
 
 ```
 src/
-├── features/              # Module de business organizate pe funcționalități
-│   ├── auth/
-│   │   └── services/     # Servicii de autentificare
-│   ├── grades/
-│   │   └── services/     # Servicii pentru note
-│   ├── attendance/
-│   │   └── services/     # Servicii pentru prezență
-│   ├── academics/
-│   │   └── queries.ts    # React Query hooks pentru date academice
-│   ├── secretariat/
-│   │   └── queries.ts    # React Query hooks pentru secretariat
-│   └── calendar/
-│       └── queries.ts    # React Query hooks pentru calendar
-│
-├── components/            # Componente UI reutilizabile
-│   ├── ui/               # Componente UI de bază (Button, Card, etc.)
-│   ├── layouts/          # Layout-uri (DashboardLayout)
-│   └── dashboard/        # Componente specifice dashboard
-│
-├── pages/                 # Pagini/rute ale aplicației
-├── hooks/                 # Custom React hooks
-├── lib/                   # Utilitare și helpers
-│   ├── error-handler.ts   # Gestionare erori globală cu toast
-│   └── supabase-helpers.ts # Helpers pentru Supabase
-│
-└── integrations/          # Integrări externe (Supabase client)
+├── api/                   # Punct de intrare API (client Supabase, RPC)
+├── repositories/          # Data access (DB); business logic în services/RPC
+├── features/              # Module pe funcționalități (grades, attendance, admin, ...)
+├── contexts/              # SchoolContext (multi-tenant)
+├── components/            # UI reutilizabile (EmptyState, ErrorState, Spinner)
+├── hooks/                 # useAuth, useSchool, usePermissions
+├── lib/                   # permissions, logger, gdpr, error-handler
+└── integrations/supabase/ # Client și tipuri generate
 ```
 
 ### Principii de Design
@@ -93,24 +80,21 @@ src/
 5. **Error Handling**: Sistem centralizat de gestionare erori cu notificări toast
 6. **Type Safety**: TypeScript strict mode pentru siguranță maximă
 
+### Multi-tenant și Roluri
+
+- **Școli (schools)**: fiecare utilizator aparține unei școli (`profiles.school_id`). Tabelele `classes`, `students`, `grades`, `attendance`, `subjects` au `school_id`; RLS filtrează după `get_user_school_id()`.
+- **Context școală**: `SchoolProvider` + `useSchool()` expun `schoolId` și detaliile școlii curente.
+- **Roluri (app_role)**: `student`, `parent`, `teacher`, `homeroom_teacher`, `secretariat`, `director`, `uat_admin`, `developer`. Rolurile sunt în `user_roles`; permisiunile granulare sunt mapate în `lib/permissions.ts` și expuse prin `usePermissions()` și `RequirePermission`.
+
 ### Securitate
 
-Controlul accesului este implementat pe două niveluri:
+1. **RLS (Row Level Security)** – sursa de adevăr: toate interogările sunt filtrate după `school_id` și rol (profesor vede doar clasele alocate, elev doar notele proprii).
+2. **Validări server-side**: note 1–10, semestru închis (nu se pot modifica notele), profesor doar la clasele asignate – verificate în RPC-uri (`add_grade`, `update_grade`, `delete_grade`) și în funcții helper (`user_can_edit_grade`, `is_semester_locked_for_grade`).
+3. **Audit**: `audit_log` / `audit_logs` și `grade_audit` înregistrează modificări; soft delete pe `grades`/`attendance` (`deleted_at`).
+4. **GDPR**: RPC `export_my_data` pentru export date personale; RPC `soft_delete_my_account` pentru ștergere cont (anonimizare profile). Jurnal acces: `login_logs`, `access_logs`.
+5. **UI**: `ProtectedRoute` pe rute; `usePermissions().can(permission)` și `<RequirePermission permission="...">` pentru ascundere butoane/secțiuni.
 
-1. **UI (routing și interfață)** – ascunde funcționalități în funcție de rol
-2. **Database (Row Level Security)** – restricționează efectiv accesul la date
-
-**Roluri implementate:**
-- `student` - Elev
-- `parent` - Părinte
-- `teacher` - Profesor
-- `homeroom_teacher` - Diriginte
-- `secretariat` - Secretariat
-- `director` - Director
-- `uat_admin` - Administrator UAT
-- `developer` - Dezvoltator
-
-**În producție, RLS este autoritatea finală. UI-ul doar reflectă permisiunile.**
+**În producție, RLS și RPC-urile sunt autoritatea finală.**
 
 ## 🚀 Setup
 
@@ -325,4 +309,6 @@ Proiect privat - toate drepturile rezervate.
 
 ---
 
-**Notă:** Acest README este menit să ofere o înțelegere rapidă a proiectului. Pentru detalii tehnice specifice, consultă codul sursă și comentariile inline.
+**Cum se rulează proiectul:** `npm install` → `cp .env.example .env` (completează cu Supabase URL și anon key) → `npm run dev`. Aplică migrațiile Supabase: `supabase db push`.
+
+**TODO-uri opționale rămase:** integrare Sentry pentru error logging; teste E2E Playwright (flux profesor adaugă notă / elev vede notă); trigger email la notă nouă/absență (backend); paginare pe toate listele mari.
