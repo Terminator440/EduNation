@@ -2,11 +2,7 @@
  * Unit tests for RBAC permissions mapping.
  */
 import { describe, it, expect } from "vitest";
-import {
-  getPermissionsForRoles,
-  hasPermission,
-  type Permission,
-} from "./permissions";
+import { getPermissionsForRoles, hasPermission } from "./permissions";
 
 describe("permissions", () => {
   describe("getPermissionsForRoles", () => {

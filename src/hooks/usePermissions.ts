@@ -5,11 +5,7 @@
  */
 import { useMemo } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import {
-  type Permission,
-  getPermissionsForRoles,
-  hasPermission as checkPermission,
-} from "@/lib/permissions";
+import { type Permission, getPermissionsForRoles } from "@/lib/permissions";
 
 export type { Permission } from "@/lib/permissions";
 
