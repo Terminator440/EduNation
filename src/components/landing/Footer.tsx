@@ -65,10 +65,14 @@ const Footer = () => {
             </ul>
           </div>
 
-          {/* Contact */}
+          {/* Contact & Support */}
           <div>
-            <h4 className="font-semibold text-foreground mb-4">Contact</h4>
+            <h4 className="font-semibold text-foreground mb-4">Contact și suport</h4>
             <ul className="space-y-3">
+              <li className="flex items-center gap-2 text-muted-foreground text-sm">
+                <Mail className="w-4 h-4" />
+                <a href="mailto:support@edunation.ro" className="hover:text-primary">support@edunation.ro</a>
+              </li>
               <li className="flex items-center gap-2 text-muted-foreground text-sm">
                 <Mail className="w-4 h-4" />
                 contact@edunation.ro

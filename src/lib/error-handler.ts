@@ -1,13 +1,25 @@
 import { toast } from "sonner";
 import { toFriendlySupabaseError } from "@/utils/supabaseErrors";
 import { logError } from "@/lib/logger";
+import type { NormalizedError } from "@/lib/errors";
+
+/**
+ * Normalize any error to { message, code? } for consistent handling.
+ */
+export function normalizeServiceError(error: unknown): NormalizedError {
+  const message = toFriendlySupabaseError(error);
+  const code = error != null && typeof error === "object" && "code" in error
+    ? String((error as { code?: string }).code)
+    : undefined;
+  return { message, code };
+}
 
 /**
  * Global error handler for Supabase operations.
  * Displays user-friendly error messages via toast notifications and logs for monitoring.
  */
 export function handleServiceError(error: unknown, context?: string): void {
-  const message = toFriendlySupabaseError(error);
+  const { message } = normalizeServiceError(error);
   logError("Service error", error, { context });
   toast.error("Eroare", {
     description: message,

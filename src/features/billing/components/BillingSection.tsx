@@ -13,6 +13,7 @@ import {
   fetchInvoices,
   generateInvoice,
   markInvoicePaid,
+  recalculateBilling,
   DEFAULT_PRICE_PER_STUDENT,
   type SchoolWithBilling,
   type InvoiceRow,
@@ -60,6 +61,15 @@ export function BillingSection() {
     },
   });
 
+  const recalculateMutation = useMutation({
+    mutationFn: recalculateBilling,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["billing-schools"] });
+      queryClient.invalidateQueries({ queryKey: ["billing-invoices"] });
+      toast.success("Factură recalculată (număr elevi și total actualizate)");
+    },
+  });
+
   if (!isSuperAdmin) return null;
 
   const schools = schoolsQuery.data ?? [];
@@ -97,6 +107,14 @@ export function BillingSection() {
             >
               {generateMutation.isPending ? <Spinner size="sm" className="mr-2" /> : null}
               Generează factură {CURRENT_YEAR}
+            </Button>
+            <Button
+              variant="outline"
+              disabled={!selectedSchoolId || recalculateMutation.isPending}
+              onClick={() => selectedSchoolId && recalculateMutation.mutate(selectedSchoolId)}
+            >
+              {recalculateMutation.isPending ? <Spinner size="sm" className="mr-2" /> : null}
+              Recalculează
             </Button>
           </div>
 

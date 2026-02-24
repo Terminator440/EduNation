@@ -12,25 +12,28 @@ import {
   createDirectorInvitation,
   createClasses,
   createSubjects,
+  initializeSchoolYear,
   type SchoolOnboardingStep1,
   type SchoolOnboardingStep2,
 } from "../schoolOnboarding.service";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
-import { Building2, UserPlus, GraduationCap, BookOpen, CheckCircle } from "lucide-react";
+import { Building2, UserPlus, GraduationCap, BookOpen, CheckCircle, ClipboardCheck } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const STEPS = [
   { id: 1, title: "Școala", icon: Building2 },
   { id: 2, title: "Admin (director)", icon: UserPlus },
   { id: 3, title: "Clase", icon: GraduationCap },
   { id: 4, title: "Materii", icon: BookOpen },
+  { id: 5, title: "Confirmare", icon: ClipboardCheck },
 ];
 
 export function SchoolOnboardingWizard() {
   const { activeRole } = useAuth();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
-  const [step1, setStep1] = useState<SchoolOnboardingStep1>({ name: "", code: "" });
+  const [step1, setStep1] = useState<SchoolOnboardingStep1>({ name: "", code: "", address: "", type: "", email: "", phone: "" });
   const [step2, setStep2] = useState<SchoolOnboardingStep2>({ adminEmail: "", adminName: "" });
   const [classNames, setClassNames] = useState("");
   const [subjectNames, setSubjectNames] = useState("");
@@ -50,7 +53,8 @@ export function SchoolOnboardingWizard() {
     try {
       const id = await createSchool(step1);
       setSchoolId(id);
-      toast.success("Școala a fost creată.");
+      await initializeSchoolYear(id);
+      toast.success("Școala și anul școlar curent au fost create.");
       setStep(2);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Eroare la creare școală");
@@ -100,13 +104,15 @@ export function SchoolOnboardingWizard() {
     try {
       const count = await createSubjects(schoolId, names);
       toast.success(count ? `${count} materii create.` : "Nicio materie adăugată.");
-      setDone(true);
+      setStep(5);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Eroare la creare materii");
     } finally {
       setLoading(false);
     }
   };
+
+  const handleConfirm = () => setDone(true);
 
   if (done) {
     return (
@@ -152,14 +158,38 @@ export function SchoolOnboardingWizard() {
         {step === 1 && (
           <>
             <div>
-              <Label>Nume școală</Label>
+              <Label>Nume școală *</Label>
               <Input value={step1.name} onChange={(e) => setStep1((p) => ({ ...p, name: e.target.value }))} placeholder="ex. Liceul X" />
             </div>
             <div>
               <Label>Cod (opțional)</Label>
               <Input value={step1.code} onChange={(e) => setStep1((p) => ({ ...p, code: e.target.value }))} placeholder="ex. LIX" />
             </div>
-            <Button onClick={handleStep1} disabled={loading}>Creează școala</Button>
+            <div>
+              <Label>Adresă (opțional)</Label>
+              <Input value={step1.address ?? ""} onChange={(e) => setStep1((p) => ({ ...p, address: e.target.value }))} placeholder="Strada, nr., oraș" />
+            </div>
+            <div>
+              <Label>Tip școală (opțional)</Label>
+              <Select value={step1.type ?? ""} onValueChange={(v) => setStep1((p) => ({ ...p, type: v }))}>
+                <SelectTrigger><SelectValue placeholder="Selectează" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="primary">Primar</SelectItem>
+                  <SelectItem value="secondary">Gimnaziu</SelectItem>
+                  <SelectItem value="high_school">Liceu</SelectItem>
+                  <SelectItem value="other">Altele</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Email școală (opțional)</Label>
+              <Input type="email" value={step1.email ?? ""} onChange={(e) => setStep1((p) => ({ ...p, email: e.target.value }))} placeholder="contact@școala.ro" />
+            </div>
+            <div>
+              <Label>Telefon (opțional)</Label>
+              <Input value={step1.phone ?? ""} onChange={(e) => setStep1((p) => ({ ...p, phone: e.target.value }))} placeholder="+40..." />
+            </div>
+            <Button onClick={handleStep1} disabled={loading}>Creează școala și anul școlar</Button>
           </>
         )}
         {step === 2 && (
@@ -200,7 +230,17 @@ export function SchoolOnboardingWizard() {
                 placeholder="Matematică&#10;Română&#10;Istorie"
               />
             </div>
-            <Button onClick={handleStep4} disabled={loading}>Finalizează</Button>
+            <Button onClick={handleStep4} disabled={loading}>Continuă</Button>
+          </>
+        )}
+        {step === 5 && (
+          <>
+            <div className="rounded-lg border bg-muted/50 p-4 space-y-2 text-sm">
+              <p><strong>Școala</strong> a fost creată. Anul școlar curent a fost inițializat.</p>
+              <p><strong>Invitație director:</strong> {invitationCode ?? "—"}</p>
+              <p className="text-muted-foreground">Trimite codul directorului; acesta poate crea cont pe pagina de autentificare.</p>
+            </div>
+            <Button onClick={handleConfirm}>Finalizează onboarding</Button>
           </>
         )}
       </CardContent>

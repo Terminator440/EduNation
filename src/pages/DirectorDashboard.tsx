@@ -47,6 +47,7 @@ import { PaginationControls } from "@/components/ui/pagination-controls";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { Link } from "react-router-dom";
+import { SchoolYearsCard } from "@/features/school-years/components/SchoolYearsCard";
 
 const DirectorDashboardChart = lazy(() => import("./DirectorDashboardChart"));
 
@@ -451,6 +452,10 @@ const DirectorDashboard = () => {
                 </Button>
               </Card>
             )}
+          </div>
+
+          <div className="mb-8 max-w-xl">
+            <SchoolYearsCard />
           </div>
 
           {/* Quick Actions */}

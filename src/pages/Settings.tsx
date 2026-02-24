@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useTransition } from "react";
-import { User, Bell, Shield, Palette, Sun, Moon, Lock, Info, FileDown, Trash2 } from "lucide-react";
+import { User, Bell, Shield, Palette, Sun, Moon, Lock, Info, FileDown, Trash2, Mail } from "lucide-react";
 import Sidebar from "@/components/dashboard/Sidebar";
 import { cn } from "@/lib/utils";
 import { Spinner } from "@/components/ui/spinner";
@@ -12,6 +12,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { exportMyData, softDeleteMyAccount } from "@/lib/gdpr";
+import { isDemoUser } from "@/lib/demo";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -236,6 +237,7 @@ const Settings = () => {
     { id: "security", label: "Securitate", icon: Shield },
     { id: "gdpr", label: "Date și cont", icon: FileDown },
     { id: "appearance", label: "Aspect", icon: Palette },
+    { id: "support", label: "Suport", icon: Mail },
   ];
 
   const handleTabChange = useCallback((tabId: string) => {
@@ -582,7 +584,17 @@ const Settings = () => {
                           </p>
                           <Button
                             variant="destructive"
-                            onClick={() => setDeleteAccountDialogOpen(true)}
+                            onClick={() => {
+                              if (isDemoUser(authEmail ?? user?.email)) {
+                                toast({
+                                  title: "Cont demo",
+                                  description: "Conturile demo nu pot fi șterse.",
+                                  variant: "destructive",
+                                });
+                                return;
+                              }
+                              setDeleteAccountDialogOpen(true);
+                            }}
                           >
                             <Trash2 className="w-4 h-4 mr-2" />
                             Șterge contul
@@ -667,6 +679,21 @@ const Settings = () => {
                             </button>
                           </div>
                         </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div role="tabpanel" aria-hidden={activeTab !== "support"} className={cn(activeTab !== "support" && "hidden")}>
+                    <div className="space-y-6">
+                      <h2 className="text-lg font-semibold text-foreground mb-4">Contact suport</h2>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Pentru asistență tehnică, întrebări despre facturare sau probleme cu contul, contactați echipa noastră.
+                      </p>
+                      <div className="p-4 rounded-xl bg-muted/50 border border-border">
+                        <p className="font-medium text-foreground mb-1">Email suport</p>
+                        <a href="mailto:support@edunation.ro" className="text-primary hover:underline">
+                          support@edunation.ro
+                        </a>
                       </div>
                     </div>
                   </div>

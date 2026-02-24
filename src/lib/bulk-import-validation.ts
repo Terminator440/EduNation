@@ -173,3 +173,22 @@ export function mapCSVRowToBulkImportRow(
       role === "student" ? get(BULK_IMPORT_CSV_HEADERS.class_identifier) || undefined : undefined,
   };
 }
+
+/**
+ * Build BulkImportRow from raw CSV row using explicit column mapping (field key -> CSV header).
+ * Use when user has chosen which column maps to name, email, class.
+ */
+export function mapCSVRowWithMappingToBulkImportRow(
+  csvRow: Record<string, string>,
+  mapping: Record<string, string>,
+  role: BulkImportRole
+): BulkImportRow {
+  const get = (fieldKey: string) => (mapping[fieldKey] ? (csvRow[mapping[fieldKey]] ?? "").trim() : "");
+  return {
+    email: get("email") || "",
+    full_name: get("name") || "",
+    cnp: get("cnp") || undefined,
+    phone: get("phone") || undefined,
+    class_identifier: role === "student" ? get("class") || undefined : undefined,
+  };
+}

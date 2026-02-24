@@ -19,6 +19,8 @@ export type AttendanceReportPayload = {
 };
 
 export function exportAttendanceReportPdf(payload: AttendanceReportPayload): void {
+  if (!payload) throw new Error("Date invalide pentru raport");
+  const students = Array.isArray(payload.students) ? payload.students : [];
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const pageW = doc.getPageWidth();
   let y = 16;
@@ -28,7 +30,7 @@ export function exportAttendanceReportPdf(payload: AttendanceReportPayload): voi
   y += 10;
 
   doc.setFontSize(11);
-  doc.text(`Clasă: ${payload.class_name}`, 14, y);
+  doc.text(`Clasă: ${payload.class_name ?? "—"}`, 14, y);
   y += 6;
   if (payload.school_name) {
     doc.text(`Școală: ${payload.school_name}`, 14, y);
@@ -44,22 +46,26 @@ export function exportAttendanceReportPdf(payload: AttendanceReportPayload): voi
   doc.text("Elevi și număr absențe", 14, y);
   y += 8;
 
-  const body = payload.students.map((s) => [
-    String(s.student_number ?? "—"),
-    s.student_name ?? "—",
-    String(s.total_absences),
-    String(s.motivated ?? "—"),
-  ]);
+  const body =
+    students.length > 0
+      ? students.map((s) => [
+          String(s.student_number ?? "—"),
+          s.student_name ?? "—",
+          String(s.total_absences ?? 0),
+          String(s.motivated ?? "—"),
+        ])
+      : [["—", "Niciun elev", "—", "—"]];
 
   autoTable(doc, {
     startY: y,
     head: [["Nr.", "Nume elev", "Total absențe", "Motivate"]],
-    body: body.length > 0 ? body : [["—", "Niciun elev", "—", "—"]],
+    body,
     margin: { left: 14 },
     theme: "grid",
   });
 
-  y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 10;
+  const lastY = (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY;
+  y = (lastY ?? y) + 10;
   doc.setFontSize(9);
   doc.text(`Generat: ${new Date().toLocaleDateString("ro-RO")}`, 14, y);
 

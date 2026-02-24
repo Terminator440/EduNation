@@ -1,7 +1,7 @@
 /**
  * Search bar global: elevi (nume), clase. Afișează rezultate în dropdown.
  */
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, type ChangeEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, User, GraduationCap } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -30,7 +30,7 @@ export function GlobalSearchBar({ className }: { className?: string }) {
     staleTime: 30_000,
   });
 
-  const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = useCallback((e: ChangeEvent<HTMLInputElement>) => {
     setInputValue(e.target.value);
     setOpen(true);
   }, []);

@@ -912,14 +912,37 @@ const TeacherDashboard = () => {
                         subjectName={subjects.find((s) => s.id === quickGradeSubjectId)?.name ?? ""}
                         date={new Date().toISOString().split("T")[0]}
                         onGradeEntered={async (studentId, grade) => {
-                          await addGradeMutation.mutateAsync({
-                            student_id: studentId,
-                            subject_id: quickGradeSubjectId,
-                            grade,
-                            date: new Date().toISOString().split("T")[0],
-                            description: null,
-                          });
-                          fetchData();
+                          const subjectName = subjects.find((s) => s.id === quickGradeSubjectId)?.name ?? "";
+                          const date = new Date().toISOString().split("T")[0];
+                          setStudents((prev) =>
+                            prev.map((s) =>
+                              s.id === studentId
+                                ? {
+                                    ...s,
+                                    grades: [
+                                      ...s.grades,
+                                      {
+                                        id: `opt-${Date.now()}`,
+                                        grade,
+                                        date,
+                                        subject: { name: subjectName },
+                                      },
+                                    ],
+                                  }
+                                : s
+                            )
+                          );
+                          try {
+                            await addGradeMutation.mutateAsync({
+                              student_id: studentId,
+                              subject_id: quickGradeSubjectId,
+                              grade,
+                              date,
+                              description: null,
+                            });
+                          } catch {
+                            fetchData();
+                          }
                         }}
                         disabled={addGradeMutation.isPending}
                         className="min-h-0 flex-1 overflow-auto"

@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, UserCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,6 +10,8 @@ import { useAuth, type AppRole } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { validateInvitationCode, claimInvitation, getRoleLabelRo, type Invitation, type InvitationRole } from "@/lib/invitations";
 import { checkLoginRateLimit, recordLoginAttempt } from "@/lib/rate-limit";
+import { getDemoCredentials, type DemoRole } from "@/lib/demo";
+import { getLoginErrorMessage } from "@/lib/errors";
 
 const routeMap: Record<AppRole, string> = {
   student: "/dashboard",
@@ -40,6 +42,8 @@ export default function Auth() {
   const [validatingCode, setValidatingCode] = useState(false);
   const [validatedInvitation, setValidatedInvitation] = useState<Invitation | null>(null);
   const [codeError, setCodeError] = useState<string | null>(null);
+  const [demoRole, setDemoRole] = useState<DemoRole | "">("");
+  const [loginError, setLoginError] = useState<string | null>(null);
 
   // Validare cod în timp real (Debounce)
   useEffect(() => {
@@ -188,14 +192,17 @@ export default function Auth() {
       return;
     }
 
+    setLoginError(null);
     setIsLoading(true);
     try {
       const { error } = await signIn(email, password);
       if (error) {
         await recordLoginAttempt(identifier, false);
+        const msg = getLoginErrorMessage(error);
+        setLoginError(msg);
         toast({
           title: "Eroare la autentificare",
-          description: "Email sau parolă incorectă.",
+          description: msg,
           variant: "destructive",
         });
       } else {
@@ -203,11 +210,20 @@ export default function Auth() {
       }
     } catch (err: unknown) {
       await recordLoginAttempt(identifier, false);
-      const msg = err instanceof Error ? err.message : "A apărut o eroare neașteptată.";
+      const msg = getLoginErrorMessage(err);
+      setLoginError(msg);
       toast({ title: "Eroare", description: msg, variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const fillDemoCredentials = (role: DemoRole) => {
+    const { email, password } = getDemoCredentials(role);
+    setDemoRole(role);
+    setEmail(email);
+    setPassword(password);
+    setLoginError(null);
   };
 
   // Redirecționare automată dacă userul este deja logat
@@ -235,6 +251,31 @@ export default function Auth() {
           <h2 className="text-3xl font-bold mb-6">
             {isLogin ? "Autentificare" : "Creează Cont"}
           </h2>
+
+          {isLogin && (
+            <div className="mb-4 p-3 rounded-lg border bg-muted/50 space-y-2">
+              <Label className="text-sm font-medium flex items-center gap-2">
+                <UserCircle className="w-4 h-4" />
+                Autentificare rapidă (demo)
+              </Label>
+              <div className="flex flex-wrap gap-2">
+                {(["Admin", "Teacher", "Parent"] as const).map((role) => (
+                  <Button
+                    key={role}
+                    type="button"
+                    variant={demoRole === role ? "secondary" : "outline"}
+                    size="sm"
+                    onClick={() => fillDemoCredentials(role)}
+                  >
+                    {role}
+                  </Button>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Selectați un rol pentru a completa automat emailul și parola demo.
+              </p>
+            </div>
+          )}
 
           <form onSubmit={isLogin ? handleLogin : handleSignup} className="space-y-4">
             {!isLogin && (
@@ -269,13 +310,22 @@ export default function Auth() {
               </div>
             )}
 
+            {isLogin && loginError && (
+              <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                {loginError}
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
                 id="email"
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  setLoginError(null);
+                }}
                 placeholder="exemplu@email.com"
                 required
               />
@@ -373,7 +423,7 @@ export default function Auth() {
             >
               {isLoading ? (
                 <>
-                  <Spinner size="sm" className="w-4 h-4 mr-2 text-current" />
+                  <Spinner size="sm" className="w-4 h-4 mr-2 shrink-0 text-current" />
                   Se procesează...
                 </>
               ) : isLogin ? (
@@ -382,6 +432,11 @@ export default function Auth() {
                 "Înregistrare"
               )}
             </Button>
+            {isLogin && (email === "admin@demo.com" || email === "teacher@demo.com" || email === "parent@demo.com") && (
+              <p className="text-xs text-center text-muted-foreground">
+                Parola demo: Demo123!
+              </p>
+            )}
           </form>
 
           <div className="mt-6 text-center">
@@ -397,6 +452,8 @@ export default function Auth() {
                 setInvitationCode("");
                 setValidatedInvitation(null);
                 setCodeError(null);
+                setDemoRole("");
+                setLoginError(null);
               }}
               className="text-sm text-primary hover:underline"
             >

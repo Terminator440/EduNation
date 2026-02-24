@@ -7,8 +7,8 @@ import autoTable from "jspdf-autotable";
 import type { StudentReportPayload } from "@/features/reports/services/reports.service";
 
 export function exportStudentReportPdf(payload: StudentReportPayload): void {
-  if (!payload.success || !payload.student_id) {
-    throw new Error(payload.error ?? "Date invalide pentru raport");
+  if (!payload || !payload.success || !payload.student_id) {
+    throw new Error(payload?.error ?? "Date invalide pentru raport");
   }
 
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
@@ -25,9 +25,9 @@ export function exportStudentReportPdf(payload: StudentReportPayload): void {
   doc.text(`Clasă: ${payload.class_name ?? "—"}`, 14, y);
   y += 10;
 
-  const grades = payload.grades ?? [];
-  const attendance = payload.attendance ?? [];
-  const averages = payload.subject_averages ?? [];
+  const grades = Array.isArray(payload.grades) ? payload.grades : [];
+  const attendance = Array.isArray(payload.attendance) ? payload.attendance : [];
+  const averages = Array.isArray(payload.subject_averages) ? payload.subject_averages : [];
 
   if (averages.length > 0) {
     doc.setFontSize(12);
@@ -44,7 +44,8 @@ export function exportStudentReportPdf(payload: StudentReportPayload): void {
       margin: { left: 14 },
       theme: "grid",
     });
-    y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 10;
+    const finalY = (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY;
+    y = (finalY ?? y) + 10;
   }
 
   if (grades.length > 0) {
@@ -63,7 +64,8 @@ export function exportStudentReportPdf(payload: StudentReportPayload): void {
       margin: { left: 14 },
       theme: "grid",
     });
-    y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 10;
+    y = (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? y;
+    y += 10;
     if (grades.length > 50) {
       doc.setFontSize(9);
       doc.text(`(afișate primele 50 din ${grades.length} note)`, 14, y);
@@ -93,7 +95,8 @@ export function exportStudentReportPdf(payload: StudentReportPayload): void {
       theme: "grid",
     });
     if (attendance.length > 40) {
-      const finalY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
+      const tblY = (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? 0;
+      const finalY = tblY + 6;
       doc.setFontSize(9);
       doc.text(`(afișate primele 40 din ${attendance.length} înregistrări)`, 14, finalY);
     }

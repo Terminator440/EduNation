@@ -160,3 +160,11 @@ export async function markInvoicePaid(invoiceId: string): Promise<boolean> {
   }
   return data === true;
 }
+
+/**
+ * Recalculează factura pentru școală și anul curent (actualizează număr elevi și total).
+ * Echivalent POST /billing/recalculate. Doar super admin.
+ */
+export async function recalculateBilling(schoolId: string): Promise<string> {
+  return generateInvoice(schoolId, CURRENT_YEAR);
+}

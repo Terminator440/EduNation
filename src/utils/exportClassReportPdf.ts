@@ -7,8 +7,8 @@ import autoTable from "jspdf-autotable";
 import type { ClassReportPayload } from "@/features/reports/services/reports.service";
 
 export function exportClassReportPdf(payload: ClassReportPayload): void {
-  if (!payload.success || !payload.class_id) {
-    throw new Error(payload.error ?? "Date invalide pentru raport");
+  if (!payload || !payload.success || !payload.class_id) {
+    throw new Error(payload?.error ?? "Date invalide pentru raport");
   }
 
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
@@ -23,13 +23,16 @@ export function exportClassReportPdf(payload: ClassReportPayload): void {
   doc.text(`Clasă: ${payload.class_name ?? "—"}`, 14, y);
   y += 10;
 
-  const students = payload.students ?? [];
-  const body = students.map((s) => [
-    String(s.student_number ?? "—"),
-    s.student_name ?? "—",
-    s.general_average != null ? s.general_average.toFixed(2) : "—",
-    String(s.total_absences ?? 0),
-  ]);
+  const students = Array.isArray(payload.students) ? payload.students : [];
+  const body =
+    students.length > 0
+      ? students.map((s) => [
+          String(s.student_number ?? "—"),
+          s.student_name ?? "—",
+          s.general_average != null ? s.general_average.toFixed(2) : "—",
+          String(s.total_absences ?? 0),
+        ])
+      : [["—", "Niciun elev în clasă", "—", "—"]];
 
   autoTable(doc, {
     startY: y,
@@ -39,9 +42,10 @@ export function exportClassReportPdf(payload: ClassReportPayload): void {
     theme: "grid",
   });
 
-  y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 10;
+  const lastY = (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY;
+  y = (lastY ?? y) + 10;
 
-  if (students.some((s) => (s.subject_averages ?? []).length > 0)) {
+  if (students.length > 0 && students.some((s) => Array.isArray(s.subject_averages) && s.subject_averages.length > 0)) {
     if (y > 250) {
       doc.addPage();
       y = 16;
@@ -50,7 +54,7 @@ export function exportClassReportPdf(payload: ClassReportPayload): void {
     doc.text("Medii pe materii (per elev)", 14, y);
     y += 8;
     for (const s of students.slice(0, 20)) {
-      const avgs = s.subject_averages ?? [];
+      const avgs = Array.isArray(s.subject_averages) ? s.subject_averages : [];
       if (avgs.length === 0) continue;
       doc.setFontSize(10);
       doc.text(`${s.student_number ?? "—"} ${s.student_name ?? "—"}`, 14, y);
@@ -58,11 +62,12 @@ export function exportClassReportPdf(payload: ClassReportPayload): void {
       autoTable(doc, {
         startY: y,
         head: [["Materie", "Medie"]],
-        body: avgs.map((a) => [a.subject_name ?? "—", String(a.average)]),
+        body: avgs.map((a) => [a?.subject_name ?? "—", String(a?.average ?? "—")]),
         margin: { left: 20 },
         theme: "grid",
       });
-      y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
+      const afterTable = (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY;
+      y = (afterTable ?? y) + 6;
       if (y > 260) {
         doc.addPage();
         y = 16;
