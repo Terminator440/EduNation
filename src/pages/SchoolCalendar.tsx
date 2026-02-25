@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/hooks/useAuth";
 import { useSchoolEventsForMonth } from "@/features/calendar/queries";
-import { supabase } from "@/integrations/supabase/client";
+import { createSchoolEvent, type EventType } from "@/features/calendar/services/schoolEvents.service";
 import { toast } from "@/hooks/use-toast";
 
 const DAYS_RO = ["Lun", "Mar", "Mie", "Joi", "Vin", "Sâm", "Dum"];
@@ -19,7 +19,6 @@ const MONTHS_RO = [
   "Iulie", "August", "Septembrie", "Octombrie", "Noiembrie", "Decembrie",
 ];
 
-type EventType = "holiday" | "event" | "test" | "homework";
 
 const eventTypeConfig: Record<EventType, { color: string; textColor: string; icon: LucideIcon; label: string }> = {
   holiday: { color: "bg-success", textColor: "text-success", icon: PartyPopper, label: "Vacanță/Sărbătoare" },
@@ -112,38 +111,37 @@ const SchoolCalendar = () => {
   });
 
   const createEvent = async () => {
-    if (!user || !newEvent.title || !newEvent.event_date) {
+    if (!user || !newEvent.title?.trim() || !newEvent.event_date) {
       toast({ title: 'Eroare', description: 'Completează titlul și data.', variant: 'destructive' });
       return;
     }
-    
-    const { error } = await supabase.from('school_events').insert({
-      event_date: newEvent.event_date,
-      event_time: newEvent.event_time || null,
-      type: newEvent.type,
-      title: newEvent.title,
-      subject: newEvent.subject || null,
-      description: newEvent.description || null,
-      created_by: user.id,
-    });
-    
-    if (error) {
-      toast({ title: 'Eroare', description: error.message, variant: 'destructive' });
-      return;
+    try {
+      await createSchoolEvent({
+        event_date: newEvent.event_date,
+        event_time: newEvent.event_time || null,
+        type: newEvent.type as EventType,
+        title: newEvent.title,
+        subject: newEvent.subject || null,
+        description: newEvent.description || null,
+        created_by: user.id,
+      });
+      toast({ title: 'Succes', description: 'Evenimentul a fost adăugat.' });
+      setNewEvent({
+        event_date: '',
+        event_time: '',
+        type: 'event',
+        title: '',
+        subject: '',
+        description: '',
+      });
+      eventsQuery.refetch();
+    } catch (e) {
+      toast({
+        title: 'Eroare',
+        description: e instanceof Error ? e.message : 'Nu s-a putut adăuga evenimentul.',
+        variant: 'destructive',
+      });
     }
-    
-    toast({ title: 'Succes', description: 'Evenimentul a fost adăugat.' });
-    // Reset form
-    setNewEvent({
-      event_date: '',
-      event_time: '',
-      type: 'event',
-      title: '',
-      subject: '',
-      description: '',
-    });
-    // Refetch events
-    eventsQuery.refetch();
   };
 
   return (

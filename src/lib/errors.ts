@@ -8,6 +8,24 @@ export type NormalizedError = {
 };
 
 /**
+ * Application error for consistent handling: log + throw from services.
+ * UI catches and shows toast or inline message.
+ */
+export class AppError extends Error {
+  readonly code?: string;
+  readonly context?: string;
+
+  constructor(message: string, options?: { code?: string; context?: string; cause?: unknown }) {
+    super(message);
+    this.name = "AppError";
+    this.code = options?.code;
+    this.context = options?.context;
+    if (options?.cause instanceof Error) this.cause = options.cause;
+    Object.setPrototypeOf(this, AppError.prototype);
+  }
+}
+
+/**
  * Normalize any thrown value to { message, code? }.
  * Use in try/catch and for toast/UI.
  */

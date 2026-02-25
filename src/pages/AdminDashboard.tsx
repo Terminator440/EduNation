@@ -6,6 +6,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { assertSupabaseOk } from "@/lib/supabase-helpers";
+import { addUserRole, removeUserRole } from "@/features/admin/services/user-management.service";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -97,23 +98,31 @@ const AdminDashboard = () => {
 
   const assignRole = async () => {
     if (!selectedUserId) return;
-    const { error } = await supabase.from('user_roles').insert({ user_id: selectedUserId, role: selectedRole });
-    if (error) {
-      toast({ title: 'Eroare', description: error.message, variant: 'destructive' });
-      return;
+    try {
+      await addUserRole(selectedUserId, selectedRole);
+      toast({ title: 'OK', description: 'Rol adăugat.' });
+      await usersQuery.refetch();
+    } catch (e) {
+      toast({
+        title: 'Eroare',
+        description: e instanceof Error ? e.message : 'Nu s-a putut adăuga rolul.',
+        variant: 'destructive',
+      });
     }
-    toast({ title: 'OK', description: 'Rol adăugat.' });
-    await usersQuery.refetch();
   };
 
   const removeRole = async (userId: string, role: Role) => {
-    const { error } = await supabase.from('user_roles').delete().eq('user_id', userId).eq('role', role);
-    if (error) {
-      toast({ title: 'Eroare', description: error.message, variant: 'destructive' });
-      return;
+    try {
+      await removeUserRole(userId, role);
+      toast({ title: 'OK', description: 'Rol șters.' });
+      await usersQuery.refetch();
+    } catch (e) {
+      toast({
+        title: 'Eroare',
+        description: e instanceof Error ? e.message : 'Nu s-a putut șterge rolul.',
+        variant: 'destructive',
+      });
     }
-    toast({ title: 'OK', description: 'Rol șters.' });
-    await usersQuery.refetch();
   };
 
   const currentUser = useMemo(() => usersQuery.data?.find(u => u.id === user?.id) ?? null, [usersQuery.data, user?.id]);

@@ -1,6 +1,9 @@
 import { supabase } from "@/integrations/supabase/client";
 import { getCurrentUserSchoolId } from "@/lib/supabase-helpers";
 import { handleServiceError } from "@/lib/error-handler";
+import { AppError } from "@/lib/errors";
+import { getFirstZodMessage } from "@/lib/zod-utils";
+import { assignRoleSchema, removeRoleSchema, createUserInviteSchema } from "../schemas/user-management.schema";
 
 export type UserWithRoles = {
   id: string;
@@ -87,9 +90,15 @@ export async function fetchUsers(
 }
 
 /**
- * Create a new user invitation (uses existing invitation system)
+ * Create a new user invitation (uses existing invitation system).
+ * Validates input with Zod (defensive) before calling RPC.
  */
 export async function inviteUser(input: CreateUserInput): Promise<{ invitation_id: string; code: string }> {
+  const parsed = createUserInviteSchema.safeParse(input);
+  if (!parsed.success) {
+    throw new AppError(getFirstZodMessage(parsed.error), { context: "inviteUser" });
+  }
+  const payload = parsed.data;
   const schoolId = await getCurrentUserSchoolId();
   if (!schoolId) {
     throw new Error("Nu aveți o școală asociată");
@@ -100,19 +109,18 @@ export async function inviteUser(input: CreateUserInput): Promise<{ invitation_i
     throw new Error("Utilizator neautentificat");
   }
 
-  // Use existing create_invitation RPC
   const { data, error } = await supabase.rpc("create_invitation", {
-    p_role: input.role as "teacher" | "student" | "parent",
+    p_role: payload.role as "teacher" | "student" | "parent",
     p_school_id: schoolId,
-    p_class_id: input.class_id || null,
-    p_student_id: input.student_id || null,
-    p_first_name: input.full_name.split(" ")[0] || null,
-    p_last_name: input.full_name.split(" ").slice(1).join(" ") || null,
-    p_invited_email: input.email,
-    p_invited_phone: input.phone || null,
+    p_class_id: payload.class_id || null,
+    p_student_id: payload.student_id || null,
+    p_first_name: payload.full_name.split(" ")[0] || null,
+    p_last_name: payload.full_name.split(" ").slice(1).join(" ") || null,
+    p_invited_email: payload.email,
+    p_invited_phone: payload.phone || null,
     p_created_by: user.id,
     p_max_uses: 1,
-    p_expires_hours: 168, // 7 days
+    p_expires_hours: 168,
   });
 
   if (error) {
@@ -224,14 +232,18 @@ export async function assignStudentToParent(
 }
 
 /**
- * Remove a role from a user
+ * Remove a role from a user. Validates with Zod (defensive).
  */
 export async function removeUserRole(userId: string, role: string): Promise<void> {
+  const parsed = removeRoleSchema.safeParse({ user_id: userId, role });
+  if (!parsed.success) {
+    throw new AppError(getFirstZodMessage(parsed.error), { context: "removeUserRole" });
+  }
   const { error } = await supabase
     .from("user_roles")
     .delete()
-    .eq("user_id", userId)
-    .eq("role", role);
+    .eq("user_id", parsed.data.user_id)
+    .eq("role", parsed.data.role);
 
   if (error) {
     handleServiceError(error, "Ștergere rol");
@@ -240,16 +252,19 @@ export async function removeUserRole(userId: string, role: string): Promise<void
 }
 
 /**
- * Add a role to a user
+ * Add a role to a user. Validates with Zod (defensive).
  */
 export async function addUserRole(userId: string, role: string): Promise<void> {
+  const parsed = assignRoleSchema.safeParse({ user_id: userId, role });
+  if (!parsed.success) {
+    throw new AppError(getFirstZodMessage(parsed.error), { context: "addUserRole" });
+  }
   const { error } = await supabase
     .from("user_roles")
-    .insert({ user_id: userId, role: role as "student" | "parent" | "teacher" | "homeroom_teacher" | "secretariat" | "director" | "uat_admin" })
+    .insert({ user_id: parsed.data.user_id, role: parsed.data.role as "student" | "parent" | "teacher" | "homeroom_teacher" | "secretariat" | "director" | "uat_admin" })
     .select();
 
   if (error) {
-    // If role already exists, ignore
     if (error.code !== "23505") {
       handleServiceError(error, "Adăugare rol");
       throw error;

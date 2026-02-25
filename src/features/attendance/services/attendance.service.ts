@@ -1,6 +1,9 @@
 import { supabase } from "@/integrations/supabase/client";
 import { assertSupabaseOk, getCurrentUserSchoolId } from "@/lib/supabase-helpers";
 import { handleServiceError } from "@/lib/error-handler";
+import { AppError } from "@/lib/errors";
+import { getFirstZodMessage } from "@/lib/zod-utils";
+import { attendanceInsertSchema } from "../schemas/attendance.schema";
 
 export type AttendanceRow = {
   id: string;
@@ -70,16 +73,21 @@ export async function fetchAttendanceForStudents(
 
 /**
  * Add or update attendance for a student/subject/date via RPC (mark_attendance upsert).
- * Server validates teacher assignment and school. No direct table writes.
+ * Validates payload with Zod (defensive) before calling DB.
  */
 export async function addAttendance(attendanceData: AttendanceInsert): Promise<AttendanceRow> {
-  const dateStr = attendanceData.date ?? new Date().toISOString().split("T")[0];
+  const parsed = attendanceInsertSchema.safeParse(attendanceData);
+  if (!parsed.success) {
+    throw new AppError(getFirstZodMessage(parsed.error), { context: "addAttendance" });
+  }
+  const payload = parsed.data;
+  const dateStr = payload.date ?? new Date().toISOString().split("T")[0];
   const { data: rpcData, error } = await supabase.rpc("mark_attendance", {
-    p_student_id: attendanceData.student_id,
-    p_subject_id: attendanceData.subject_id,
+    p_student_id: payload.student_id,
+    p_subject_id: payload.subject_id,
     p_date: dateStr,
-    p_status: attendanceData.status,
-    p_is_excused: attendanceData.is_excused ?? false,
+    p_status: payload.status,
+    p_is_excused: payload.is_excused ?? false,
   });
 
   if (error) {
@@ -105,9 +113,9 @@ export async function addAttendance(attendanceData: AttendanceInsert): Promise<A
   return {
     id: id ?? "",
     date: dateStr,
-    status: attendanceData.status,
-    student_id: attendanceData.student_id,
-    is_excused: attendanceData.is_excused ?? false,
+    status: payload.status,
+    student_id: payload.student_id,
+    is_excused: payload.is_excused ?? false,
     subject: null,
   } as AttendanceRow;
 }

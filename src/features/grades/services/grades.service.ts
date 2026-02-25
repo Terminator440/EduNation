@@ -1,6 +1,9 @@
 import { supabase } from "@/integrations/supabase/client";
 import { assertSupabaseOk, getCurrentUserSchoolId } from "@/lib/supabase-helpers";
 import { handleServiceError } from "@/lib/error-handler";
+import { AppError } from "@/lib/errors";
+import { getFirstZodMessage } from "@/lib/zod-utils";
+import { gradeInsertSchema } from "../schemas/grades.schema";
 
 export type GradeRow = {
   id: string;
@@ -199,21 +202,22 @@ export async function fetchGeneralAverages(
 
 /**
  * Add a new grade via RPC (server-side validation, teacher assignment, semester lock).
- * No direct table writes from frontend.
+ * Validates payload with Zod (defensive) before calling DB.
  */
 export async function addGrade(gradeData: GradeInsert): Promise<GradeRow> {
-  if (!validateGrade(gradeData.grade)) {
-    throw new Error("Nota trebuie să fie un număr întreg între 1 și 10");
+  const parsed = gradeInsertSchema.safeParse(gradeData);
+  if (!parsed.success) {
+    throw new AppError(getFirstZodMessage(parsed.error), { context: "addGrade" });
   }
-
-  const dateStr = gradeData.date ?? new Date().toISOString().split("T")[0];
+  const payload = parsed.data;
+  const dateStr = payload.date ?? new Date().toISOString().split("T")[0];
   const { data: rpcData, error } = await supabase.rpc("add_grade", {
-    p_student_id: gradeData.student_id,
-    p_subject_id: gradeData.subject_id,
-    p_value: gradeData.grade,
+    p_student_id: payload.student_id,
+    p_subject_id: payload.subject_id,
+    p_value: payload.grade,
     p_type: "oral",
     p_date: dateStr,
-    p_description: gradeData.description ?? null,
+    p_description: payload.description ?? null,
   });
 
   if (error) {
@@ -241,9 +245,9 @@ export async function addGrade(gradeData: GradeInsert): Promise<GradeRow> {
     return {
       id: gradeId,
       date: dateStr,
-      grade: gradeData.grade,
-      description: gradeData.description ?? null,
-      student_id: gradeData.student_id,
+      grade: payload.grade,
+      description: payload.description ?? null,
+      student_id: payload.student_id,
       subject: null,
     } as GradeRow;
   }

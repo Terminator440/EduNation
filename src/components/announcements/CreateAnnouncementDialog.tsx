@@ -20,7 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+import { createAnnouncement } from "@/features/announcements/services/announcements.service";
 import { toFriendlySupabaseError } from "@/utils/supabaseErrors";
 
 const TARGET_ROLE_OPTIONS = [
@@ -69,16 +69,12 @@ export function CreateAnnouncementDialog({
 
     setCreating(true);
     try {
-      const payload = {
+      await createAnnouncement({
         title: title.trim(),
         content: content.trim(),
         created_by: authorId,
         target_role: targetRole === "__all__" ? null : targetRole,
-      };
-
-      const { error } = await supabase.from("announcements").insert(payload);
-
-      if (error) throw error;
+      });
 
       toast({
         title: "Anunț publicat",

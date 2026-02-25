@@ -15,16 +15,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 import { Spinner } from "@/components/ui/spinner";
 import { supabase } from "@/integrations/supabase/client";
+import { createAnnouncement, fetchAnnouncements as fetchAnnouncementsService, type AnnouncementRow } from "@/features/announcements/services/announcements.service";
 import { toFriendlySupabaseError } from "@/utils/supabaseErrors";
-
-type AnnouncementRow = {
-  id: string;
-  title: string;
-  content: string;
-  created_at: string;
-  created_by: string;
-  target_role: string | null;
-};
 
 const ALL_ROLES = [
   "student",
@@ -55,14 +47,8 @@ const Announcements = () => {
   const fetchAnnouncements = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from("announcements")
-        .select("id,title,content,created_at,created_by,target_role")
-        .order("created_at", { ascending: false })
-        .limit(200);
-
-      if (error) throw error;
-      setAnnouncements((data ?? []) as AnnouncementRow[]);
+      const data = await fetchAnnouncementsService(200);
+      setAnnouncements(data);
     } catch (e: unknown) {
       toast({
         title: "Nu am putut încărca anunțurile",
@@ -89,21 +75,12 @@ const Announcements = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Nu ești autentificat");
 
-      type AnnouncementInsert = {
-        title: string;
-        content: string;
-        target_role: string | null;
-        created_by: string;
-      };
-      const payload: AnnouncementInsert = {
+      await createAnnouncement({
         title: title.trim(),
         content: content.trim(),
-        target_role: targetRole,
+        target_role: targetRole ?? null,
         created_by: user.id,
-      };
-
-      const { error } = await supabase.from("announcements").insert(payload);
-      if (error) throw error;
+      });
 
       setTitle("");
       setContent("");

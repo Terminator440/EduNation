@@ -1,19 +1,25 @@
 import { handleServiceError } from './error-handler';
+import { logError } from '@/lib/logger';
+import { AppError } from '@/lib/errors';
+import { toFriendlySupabaseError } from '@/utils/supabaseErrors';
 import { supabase } from '@/integrations/supabase/client';
 
 /**
  * Small helper to keep error handling consistent.
- * We never silently ignore Supabase errors in production.
+ * Logs error, shows toast, throws AppError so callers can handle.
  */
 export const assertSupabaseOk = <T>(
   result: { data: T; error: unknown | null },
   context: string
 ): T => {
   if (result.error) {
-    // eslint-disable-next-line no-console
-    console.error(`Supabase error in ${context}:`, result.error);
+    logError("Supabase error", result.error, { context });
     handleServiceError(result.error, context);
-    throw new Error(`Eroare la comunicarea cu serverul (${context}).`);
+    const message = toFriendlySupabaseError(result.error);
+    const code = result.error != null && typeof result.error === "object" && "code" in result.error
+      ? String((result.error as { code?: string }).code)
+      : undefined;
+    throw new AppError(message, { code, context, cause: result.error });
   }
   return result.data;
 };

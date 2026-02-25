@@ -1,17 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { fetchSchoolEvents, type SchoolEventRow } from './services/schoolEvents.service';
 
-// Types for school events
-export type SchoolEventRow = {
-  id: string;
-  event_date: string;
-  event_time: string | null;
-  type: 'test' | 'homework' | 'event' | 'holiday';
-  title: string;
-  subject: string | null;
-  description: string | null;
-  class_id: string | null;
-};
+export type { SchoolEventRow };
 
 export type LessonRow = {
   id: string;
@@ -23,43 +13,16 @@ export type LessonRow = {
   subject: { id: string; name: string } | null;
 };
 
-// Fetch school events for a specific month
+// Fetch school events for a specific month via service (no direct supabase in UI)
 export const useSchoolEventsForMonth = (year: number, monthIndex0: number) => {
+  const startDate = new Date(year, monthIndex0, 1);
+  const endDate = new Date(year, monthIndex0 + 1, 0);
+  const startStr = startDate.toISOString().split('T')[0];
+  const endStr = endDate.toISOString().split('T')[0];
+
   return useQuery({
     queryKey: ['school-events', year, monthIndex0],
-    queryFn: async (): Promise<SchoolEventRow[]> => {
-      // Calculate start and end dates for the month
-      const startDate = new Date(year, monthIndex0, 1);
-      const endDate = new Date(year, monthIndex0 + 1, 0);
-      
-      const startStr = startDate.toISOString().split('T')[0];
-      const endStr = endDate.toISOString().split('T')[0];
-      
-      const { data, error } = await supabase
-        .from('school_events')
-        .select('id, event_date, event_time, type, title, subject, description, class_id')
-        .gte('event_date', startStr)
-        .lte('event_date', endStr)
-        .order('event_date');
-      
-      if (error) {
-        // If table doesn't exist or RLS blocks, return empty
-        console.warn('Could not fetch school_events:', error.message);
-        return [];
-      }
-      
-      if (!data) return [];
-      
-      // Type guard to ensure data matches SchoolEventRow structure
-      return data.filter((row): row is SchoolEventRow => 
-        typeof row === 'object' &&
-        row !== null &&
-        'id' in row &&
-        'event_date' in row &&
-        'type' in row &&
-        'title' in row
-      );
-    },
+    queryFn: () => fetchSchoolEvents(startStr, endStr),
   });
 };
 
