@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { getSchoolName } from "@/features/schools/services/schools.service";
 import { exportMyData, softDeleteMyAccount } from "@/lib/gdpr";
 import { isDemoUser } from "@/lib/demo";
 import {
@@ -143,8 +144,8 @@ const Settings = () => {
     const loadSchoolAndClass = async () => {
       const schoolId = profile.school_id;
       if (schoolId) {
-        const { data: school } = await supabase.from("schools").select("name").eq("id", schoolId).maybeSingle();
-        setSchoolLabel(school?.name ?? "");
+        const name = await getSchoolName(schoolId);
+        setSchoolLabel(name);
       }
       if (!schoolId) return;
 

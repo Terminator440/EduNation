@@ -75,6 +75,53 @@ export type GlobalStats = {
   attendance: number;
 };
 
+export type UserWithRolesRow = {
+  id: string;
+  full_name: string;
+  email: string;
+  roles: string[];
+};
+
+/**
+ * Fetch all users with roles (for global admin panel). No school filter.
+ */
+const ADMIN_USERS_LIMIT = 500;
+
+export async function fetchAllUsersForAdmin(): Promise<UserWithRolesRow[]> {
+  const { data: profiles, error: pErr } = await supabase
+    .from("profiles")
+    .select("id, full_name, email")
+    .order("full_name", { ascending: true })
+    .limit(ADMIN_USERS_LIMIT);
+  if (pErr) {
+    logError("Admin: fetch profiles failed", pErr, {});
+    handleServiceError(pErr, "Listă utilizatori");
+    throw pErr;
+  }
+  if (!profiles?.length) return [];
+  const { data: rolesData, error: rErr } = await supabase
+    .from("user_roles")
+    .select("user_id, role")
+    .in("user_id", profiles.map((p) => p.id));
+  if (rErr) {
+    logError("Admin: fetch roles failed", rErr, {});
+    handleServiceError(rErr, "Listă roluri");
+    throw rErr;
+  }
+  const roleMap = new Map<string, string[]>();
+  (rolesData ?? []).forEach((r: { user_id: string; role: string }) => {
+    const arr = roleMap.get(r.user_id) ?? [];
+    if (r.role !== "developer") arr.push(r.role);
+    roleMap.set(r.user_id, arr);
+  });
+  return profiles.map((p) => ({
+    id: p.id,
+    full_name: p.full_name,
+    email: p.email,
+    roles: roleMap.get(p.id) ?? [],
+  }));
+}
+
 /**
  * Global statistics (all tenants). For uat_admin/developer dashboard.
  */

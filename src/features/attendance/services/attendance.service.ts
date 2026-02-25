@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { assertSupabaseOk, getCurrentUserSchoolId } from "@/lib/supabase-helpers";
 import { handleServiceError } from "@/lib/error-handler";
+import { logError } from "@/lib/logger";
 import { AppError } from "@/lib/errors";
 import { getFirstZodMessage } from "@/lib/zod-utils";
 import { attendanceInsertSchema } from "../schemas/attendance.schema";
@@ -47,6 +48,55 @@ export async function verifyTeacherAssignment(subjectId: string): Promise<boolea
     console.error("Error verifying teacher assignment:", error);
     return false;
   }
+}
+
+export type AttendanceBulkRow = {
+  student_id: string;
+  subject_id: string;
+  status: string;
+  teacher_id?: string | null;
+  date: string;
+};
+
+export async function saveAttendanceBulk(rows: AttendanceBulkRow[]): Promise<void> {
+  if (rows.length === 0) return;
+  const payload = rows.map((r) => ({
+    student_id: r.student_id,
+    subject_id: r.subject_id,
+    status: r.status,
+    teacher_id: r.teacher_id ?? null,
+    date: r.date,
+  }));
+  const { error } = await supabase
+    .from("attendance")
+    .upsert(payload as Record<string, unknown>[], { onConflict: "student_id,subject_id,date" });
+  if (error) {
+    logError("Save attendance bulk", error, { context: "saveAttendanceBulk" });
+    handleServiceError(error, "Salvare prezență");
+    throw new AppError(toFriendlySupabaseError(error), { context: "saveAttendanceBulk", cause: error });
+  }
+}
+
+export async function fetchAttendanceBySubjectAndDate(
+  subjectId: string,
+  dateKey: string,
+  studentIds: string[],
+  schoolId: string
+): Promise<Record<string, string>> {
+  if (studentIds.length === 0) return {};
+  const { data } = await supabase
+    .from("attendance")
+    .select("student_id, status")
+    .eq("subject_id", subjectId)
+    .eq("date", dateKey)
+    .eq("school_id", schoolId)
+    .is("deleted_at", null)
+    .in("student_id", studentIds);
+  const map: Record<string, string> = {};
+  (data ?? []).forEach((r: { student_id: string; status: string }) => {
+    map[r.student_id] = r.status;
+  });
+  return map;
 }
 
 export async function fetchAttendanceForStudents(

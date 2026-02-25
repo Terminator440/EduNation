@@ -215,9 +215,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       if (roles.length === 0 && metaRole) {
         try {
-          await supabase.from("user_roles").insert({ user_id: userId, role: metaRole });
+          if (metaRole === "uat_admin" && BOOTSTRAP_ADMIN_EMAILS.includes((authUser.email ?? "").toLowerCase())) {
+            const { data } = await supabase.rpc("ensure_bootstrap_admin_role");
+            if (data) {
+              roles = ["uat_admin"];
+            }
+          } else {
+            const { addUserRole } = await import("@/features/admin/services/user-management.service");
+            await addUserRole(userId, metaRole);
+          }
         } catch {
-          /* ignore */
+          /* ignore - role may already exist */
         }
       }
 

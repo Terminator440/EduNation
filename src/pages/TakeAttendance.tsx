@@ -20,8 +20,15 @@ import { cn } from "@/lib/utils";
 import { Spinner } from "@/components/ui/spinner";
 import { supabase } from "@/integrations/supabase/client";
 import { getCurrentUserSchoolId } from "@/lib/supabase-helpers";
-import type { Database } from "@/integrations/supabase/types";
-
+import {
+  fetchClassesByIds,
+  fetchSubjectsByIds,
+  fetchRegisterForTeacher,
+  fetchStudentsByClass,
+  fetchTimetableEntriesForTeacher,
+  signRegister,
+} from "@/features/teacher/services/teacherRegister.service";
+import { fetchAttendanceBySubjectAndDate, saveAttendanceBulk } from "@/features/attendance/services/attendance.service";
 // DB status values: present, unexcused, pending, motivated
 type AttendanceStatus = "present" | "unexcused" | "pending";
 
@@ -103,15 +110,7 @@ const TakeAttendance = () => {
       const selectedDate = new Date(dateKey + "T00:00:00");
       const weekday = getJsWeekday(selectedDate);
 
-      // Get timetable entries for this teacher on this weekday
-      const { data: entries, error: entriesErr } = await supabase
-        .from("timetable_entries")
-        .select("id, weekday, period, start_time, end_time, room, class_id, subject_id")
-        .eq("teacher_id", user.id)
-        .eq("weekday", weekday)
-        .order("period", { ascending: true });
-
-      if (entriesErr) throw entriesErr;
+      const entries = await fetchTimetableEntriesForTeacher(user.id, weekday);
 
       if (!entries || entries.length === 0) {
         setSlots([]);
@@ -130,26 +129,15 @@ const TakeAttendance = () => {
         return;
       }
 
-      const [classesRes, subjectsRes, registerRes] = await Promise.all([
-        classIds.length > 0
-          ? supabase.from("classes").select("id, name").in("id", classIds).eq("school_id", schoolId)
-          : { data: [], error: null },
-        subjectIds.length > 0
-          ? supabase.from("subjects").select("id, name").in("id", subjectIds).eq("school_id", schoolId)
-          : { data: [], error: null },
-        supabase
-          .from("teacher_register")
-          .select("id, timetable_entry_id")
-          .eq("teacher_id", user.id)
-          .eq("date", dateKey),
+      const [classesList, subjectsList, registerList] = await Promise.all([
+        classIds.length > 0 ? fetchClassesByIds(classIds, schoolId) : [],
+        subjectIds.length > 0 ? fetchSubjectsByIds(subjectIds, schoolId) : [],
+        fetchRegisterForTeacher(user.id, dateKey),
       ]);
 
-      type ClassRow = { id: string; name: string };
-      type SubjectRow = { id: string; name: string };
-      type RegisterRow = { id: string; timetable_entry_id: string };
-      const classMap = new Map((classesRes.data || []).map((c: ClassRow) => [c.id, c.name]));
-      const subjectMap = new Map((subjectsRes.data || []).map((s: SubjectRow) => [s.id, s.name]));
-      const signedMap = new Map((registerRes.data || []).map((r: RegisterRow) => [r.timetable_entry_id, r.id]));
+      const classMap = new Map(classesList.map((c) => [c.id, c.name]));
+      const subjectMap = new Map(subjectsList.map((s) => [s.id, s.name]));
+      const signedMap = new Map(registerList.map((r) => [r.timetable_entry_id, r.id]));
 
       const mapped: TimetableSlot[] = entries.map((e) => ({
         id: e.id,
@@ -214,43 +202,21 @@ const TakeAttendance = () => {
         return;
       }
 
-      const { data: studentsData, error } = await supabase
-        .from("students")
-        .select("id, student_number, full_name")
-        .eq("class_id", slot.class_id)
-        .eq("school_id", schoolId)
-        .order("student_number", { ascending: true });
-
-      if (error) throw error;
-
-      const studentList = (studentsData || []) as StudentRow[];
+      const studentList = await fetchStudentsByClass(slot.class_id, schoolId);
       setStudents(studentList);
 
-      // Load existing attendance for this date + subject
-      if (slot.subject_id) {
-        const studentIds = studentList.map(s => s.id);
-        if (studentIds.length > 0) {
-          const { data: existingAttendance } = await supabase
-            .from("attendance")
-            .select("student_id, status")
-            .eq("subject_id", slot.subject_id)
-            .eq("date", dateKey)
-            .eq("school_id", schoolId)
-            .is("deleted_at", null)
-            .in("student_id", studentIds);
-
-          const existingMap: Record<string, AttendanceStatus> = {};
-          type ExistingAttendanceRow = { student_id: string; status: AttendanceStatus };
-          ((existingAttendance ?? []) as ExistingAttendanceRow[]).forEach((a) => {
-            existingMap[a.student_id] = a.status;
-          });
-
-          const initial: Record<string, AttendanceStatus> = {};
-          studentList.forEach((s) => {
-            initial[s.id] = existingMap[s.id] || "present";
-          });
-          setStatuses(initial);
-        }
+      if (slot.subject_id && studentList.length > 0) {
+        const existingMap = await fetchAttendanceBySubjectAndDate(
+          slot.subject_id,
+          dateKey,
+          studentList.map((s) => s.id),
+          schoolId
+        );
+        const initial: Record<string, AttendanceStatus> = {};
+        studentList.forEach((s) => {
+          initial[s.id] = (existingMap[s.id] as AttendanceStatus) || "present";
+        });
+        setStatuses(initial);
       }
     } catch (e: unknown) {
       const errorMessage = e instanceof Error ? e.message : "Nu am putut încărca elevii.";
@@ -267,7 +233,7 @@ const TakeAttendance = () => {
     if (!user || slot.signed) return;
     setSigning(true);
     try {
-      const { error } = await supabase.from("teacher_register").insert({
+      await signRegister({
         timetable_entry_id: slot.id,
         teacher_id: user.id,
         class_id: slot.class_id,
@@ -275,8 +241,6 @@ const TakeAttendance = () => {
         date: dateKey,
         notes: registerNotes.trim() || null,
       });
-
-      if (error) throw error;
 
       toast({
         title: "Condică semnată!",
@@ -354,11 +318,7 @@ const TakeAttendance = () => {
 
     setSaving(true);
     try {
-      type AttendanceInsert = Database["public"]["Tables"]["attendance"]["Insert"];
-      const { error } = await supabase
-        .from("attendance")
-        .upsert(rows as AttendanceInsert[], { onConflict: "student_id,subject_id,date" });
-      if (error) throw error;
+      await saveAttendanceBulk(rows);
 
       toast({
         title: "Prezența salvată!",

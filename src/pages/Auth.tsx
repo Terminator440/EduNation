@@ -9,6 +9,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { useAuth, type AppRole } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { validateInvitationCode, claimInvitation, getRoleLabelRo, type Invitation, type InvitationRole } from "@/lib/invitations";
+import { createStudentOnSignup, createParentStudentRelation } from "@/features/auth/services/authOnboarding.service";
 import { checkLoginRateLimit, recordLoginAttempt } from "@/lib/rate-limit";
 import { getDemoCredentials, type DemoRole } from "@/lib/demo";
 import { getLoginErrorMessage } from "@/lib/errors";
@@ -144,19 +145,17 @@ export default function Auth() {
           full_name: string;
           student_number: number | null;
         };
-        await supabase.from("students").insert({
+        await createStudentOnSignup({
           user_id: authData.user.id,
           class_id: claimResult.class_id,
           full_name: claimFullName,
           student_number: typeof claimStudentNumber === "number" ? claimStudentNumber : null,
-        } as StudentInsert);
+          school_id: claimResult.school_id,
+        });
       }
 
       if (role === "parent" && claimResult.student_id) {
-        await supabase.from("parent_student_relations").insert({
-          parent_user_id: authData.user.id,
-          student_id: claimResult.student_id,
-        });
+        await createParentStudentRelation(authData.user.id, claimResult.student_id);
       }
 
       toast({

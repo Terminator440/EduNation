@@ -5,14 +5,23 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { assertSupabaseOk } from "@/lib/supabase-helpers";
+import type { Database } from "@/integrations/supabase/types";
 import { addUserRole, removeUserRole } from "@/features/admin/services/user-management.service";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
-import type { Database } from "@/integrations/supabase/types";
-import { fetchSchoolsForGlobalAdmin } from "@/features/admin/services/global-admin.service";
+import { fetchSchoolsForGlobalAdmin, fetchGlobalStats, fetchAllUsersForAdmin } from "@/features/admin/services/global-admin.service";
 import { BillingSection } from "@/features/billing/components/BillingSection";
 import { SchoolOnboardingWizard } from "@/features/onboarding/components/SchoolOnboardingWizard";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -20,9 +29,6 @@ import { Spinner } from "@/components/ui/spinner";
 
 type AppRoleEnum = Database["public"]["Enums"]["app_role"];
 type Role = Exclude<AppRoleEnum, "developer">; // Exclude developer from admin assignable roles
-
-type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
-type UserRoleRow = Database["public"]["Tables"]["user_roles"]["Row"];
 
 type UserRow = {
   id: string;
@@ -47,19 +53,13 @@ const AdminDashboard = () => {
   const statsQuery = useQuery({
     queryKey: ['admin-stats'],
     queryFn: async () => {
-      const [profiles, classes, students, grades, attendance] = await Promise.all([
-        supabase.from('profiles').select('id', { count: 'exact', head: true }),
-        supabase.from('classes').select('id', { count: 'exact', head: true }),
-        supabase.from('students').select('id', { count: 'exact', head: true }),
-        supabase.from('grades').select('id', { count: 'exact', head: true }).is('deleted_at', null),
-        supabase.from('attendance').select('id', { count: 'exact', head: true }).is('deleted_at', null),
-      ]);
+      const stats = await fetchGlobalStats();
       return {
-        profiles: profiles.count ?? 0,
-        classes: classes.count ?? 0,
-        students: students.count ?? 0,
-        grades: grades.count ?? 0,
-        attendance: attendance.count ?? 0,
+        profiles: stats.users,
+        classes: stats.classes,
+        students: stats.students,
+        grades: stats.grades,
+        attendance: stats.attendance,
         events: 0,
       };
     },
@@ -67,34 +67,12 @@ const AdminDashboard = () => {
 
   const usersQuery = useQuery({
     queryKey: ['admin-users'],
-    queryFn: async (): Promise<UserRow[]> => {
-      const pRes = await supabase.from('profiles').select('id,full_name,email').order('full_name', { ascending: true });
-      const profiles = assertSupabaseOk(pRes, 'profiles.select(admin)') as ProfileRow[];
-
-      const rRes = await supabase.from('user_roles').select('user_id,role');
-      const roles = assertSupabaseOk(rRes, 'user_roles.select(admin)') as UserRoleRow[];
-
-      const roleMap = new Map<string, Role[]>();
-      for (const r of roles) {
-        const arr = roleMap.get(r.user_id) ?? [];
-        const role = r.role as Role;
-        if (role !== "developer") {
-          arr.push(role);
-          roleMap.set(r.user_id, arr);
-        }
-      }
-
-      return (profiles || []).map(p => ({
-        id: p.id,
-        full_name: p.full_name,
-        email: p.email,
-        roles: (roleMap.get(p.id) ?? []) as Role[],
-      }));
-    },
+    queryFn: (): Promise<UserRow[]> => fetchAllUsersForAdmin() as Promise<UserRow[]>,
   });
 
   const [selectedUserId, setSelectedUserId] = useState<string>('');
   const [selectedRole, setSelectedRole] = useState<Role>('teacher');
+  const [removeRoleConfirm, setRemoveRoleConfirm] = useState<{ userId: string; role: Role; userName: string } | null>(null);
 
   const assignRole = async () => {
     if (!selectedUserId) return;
@@ -111,7 +89,14 @@ const AdminDashboard = () => {
     }
   };
 
-  const removeRole = async (userId: string, role: Role) => {
+  const confirmRemoveRole = (userId: string, role: Role, userName: string) => {
+    setRemoveRoleConfirm({ userId, role, userName });
+  };
+
+  const removeRole = async () => {
+    if (!removeRoleConfirm) return;
+    const { userId, role } = removeRoleConfirm;
+    setRemoveRoleConfirm(null);
     try {
       await removeUserRole(userId, role);
       toast({ title: 'OK', description: 'Rol șters.' });
@@ -233,6 +218,23 @@ const AdminDashboard = () => {
             </div>
           )}
 
+          <AlertDialog open={!!removeRoleConfirm} onOpenChange={(o) => !o && setRemoveRoleConfirm(null)}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Confirmare ștergere rol</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Sigur doriți să ștergeți rolul {removeRoleConfirm?.role} pentru {removeRoleConfirm?.userName}? Această acțiune poate limita accesul utilizatorului.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Anulare</AlertDialogCancel>
+                <AlertDialogAction onClick={removeRole} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                  Șterge rol
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+
           {isGlobalAdmin && (
             <div className="space-y-6">
               <SchoolOnboardingWizard />
@@ -271,7 +273,7 @@ const AdminDashboard = () => {
                           {u.roles.length ? u.roles.map(r => (
                             <span key={r} className="inline-flex items-center gap-2 px-2 py-1 rounded-lg bg-primary/10 text-primary text-xs">
                               {r}
-                              <button className="hover:text-destructive" title="Șterge rol" onClick={() => removeRole(u.id, r)}>
+                              <button className="hover:text-destructive" title="Șterge rol" onClick={() => confirmRemoveRole(u.id, r, u.full_name)}>
                                 <Trash2 className="w-3 h-3" />
                               </button>
                             </span>

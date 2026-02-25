@@ -10,6 +10,8 @@ import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { usePagination } from "@/hooks/usePagination";
 import { supabase } from "@/integrations/supabase/client";
 import { getCurrentUserSchoolId } from "@/lib/supabase-helpers";
+import { fetchDirectorStats } from "@/features/director/services/directorDashboard.service";
+import { fetchRecentAnnouncementsForSchool } from "@/features/announcements/services/announcements.service";
 import { CreateInvitationDialog } from "@/components/invitations/CreateInvitationDialog";
 import { CreateAnnouncementDialog } from "@/components/announcements/CreateAnnouncementDialog";
 import { CloseSemesterDialog } from "@/components/semester/CloseSemesterDialog";
@@ -245,14 +247,8 @@ const DirectorDashboard = () => {
         setRecentAnnouncements([]);
         return;
       }
-      const { data, error } = await supabase
-        .from('announcements')
-        .select('id, title, content, created_at, target_role')
-        .eq('school_id', schoolId)
-        .order('created_at', { ascending: false })
-        .limit(5);
-      if (error) throw error;
-      setRecentAnnouncements((data ?? []) as AnnouncementRow[]);
+      const data = await fetchRecentAnnouncementsForSchool(schoolId, 5);
+      setRecentAnnouncements(data);
     } catch {
       setRecentAnnouncements([]);
     }
@@ -266,62 +262,10 @@ const DirectorDashboard = () => {
         setLoading(false);
         return;
       }
-
-      const [
-        { count: studentsCount },
-        { count: classesCount },
-        { count: teachersCount },
-        { data: gradesStatsData },
-        { data: gradesDistData },
-        { count: absencesCount },
-        { count: activeUsersCount },
-        { data: logsData },
-      ] = await Promise.all([
-        supabase.from('students').select('*', { count: 'exact', head: true }).eq('school_id', schoolId),
-        supabase.from('classes').select('*', { count: 'exact', head: true }).eq('school_id', schoolId),
-        supabase
-          .from('user_roles')
-          .select('*', { count: 'exact', head: true })
-          .in('role', ['teacher', 'homeroom_teacher']),
-        supabase.rpc('get_school_grades_stats'),
-        supabase.rpc('get_grades_distribution'),
-        supabase
-          .from('attendance')
-          .select('*', { count: 'exact', head: true })
-          .eq('school_id', schoolId)
-          .is('deleted_at', null)
-          .in('status', ['unexcused', 'pending']),
-        supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('school_id', schoolId),
-        supabase
-          .from('audit_logs')
-          .select('id, user_name, active_role, action, entity_type, created_at')
-          .eq('school_id', schoolId)
-          .order('created_at', { ascending: false })
-          .limit(100),
-      ]);
-
-      const gradesStats = Array.isArray(gradesStatsData) && gradesStatsData.length > 0
-        ? gradesStatsData[0] as { total_count: number | null; average_grade: number | null }
-        : null;
-      const totalGrades = Number(gradesStats?.total_count ?? 0);
-      const avgGrade = gradesStats?.average_grade != null ? Number(gradesStats.average_grade) : 0;
-
-      setStats({
-        totalStudents: studentsCount || 0,
-        totalTeachers: teachersCount || 0,
-        totalClasses: classesCount || 0,
-        totalGrades,
-        averageGrade: avgGrade,
-        totalAbsences: absencesCount || 0,
-        activeUsers: activeUsersCount || 0,
-      });
-
-      setAuditLogs(logsData || []);
-
-      const distRows = (gradesDistData ?? []) as { grade: number; cnt: number }[];
-      setGradesDistributionRaw(distRows);
-
-      // attendance_excuse_requests table doesn't exist yet - skip
+      const { stats, gradesDistribution, auditLogs } = await fetchDirectorStats(schoolId);
+      setStats(stats);
+      setGradesDistributionRaw(gradesDistribution);
+      setAuditLogs(auditLogs);
       setPendingExcuseRequests([]);
     } catch (error) {
       console.error('Error fetching data:', error);

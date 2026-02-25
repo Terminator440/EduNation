@@ -58,3 +58,8 @@ export async function fetchAnnouncements(limit = 100): Promise<AnnouncementRow[]
   }
   return (data ?? []) as AnnouncementRow[];
 }
+
+/** Fetch recent announcements for director dashboard (limit 5). */
+export async function fetchRecentAnnouncementsForSchool(_schoolId: string, limit = 5): Promise<AnnouncementRow[]> {
+  return fetchAnnouncements(limit);
+}

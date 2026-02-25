@@ -8,6 +8,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -38,8 +48,11 @@ export function CloseSemesterDialog({
 }: CloseSemesterDialogProps) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [academicYear, setAcademicYear] = useState<number>(getCurrentAcademicYear());
   const [semester, setSemester] = useState<1 | 2>(getCurrentSemester());
+
+  const requestClose = () => setConfirmOpen(true);
 
   const handleClose = async () => {
     if (!academicYear || !semester) {
@@ -61,6 +74,7 @@ export function CloseSemesterDialog({
           description: result.message,
         });
         onSuccess?.();
+        setConfirmOpen(false);
         onOpenChange(false);
       } else {
         toast({
@@ -153,7 +167,7 @@ export function CloseSemesterDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
             Anulează
           </Button>
-          <Button onClick={handleClose} disabled={loading}>
+          <Button onClick={requestClose} disabled={loading}>
             {loading ? (
               <>
                 <Spinner className="mr-2 h-4 w-4" />
@@ -167,6 +181,24 @@ export function CloseSemesterDialog({
             )}
           </Button>
         </DialogFooter>
+
+        <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Confirmare închidere semestru</AlertDialogTitle>
+              <AlertDialogDescription>
+                Sigur doriți să închideți semestrul {semester} din anul școlar {academicYear}-{academicYear + 1}? 
+                După închidere, notele nu vor mai putea fi modificate.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Anulare</AlertDialogCancel>
+              <AlertDialogAction onClick={handleClose} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                Închide semestrul
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </DialogContent>
     </Dialog>
   );

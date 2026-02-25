@@ -23,8 +23,17 @@ import ThemeToggle from "@/components/ThemeToggle";
 import { cn } from "@/lib/utils";
 import { Spinner } from "@/components/ui/spinner";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
 import { getCurrentUserSchoolId } from "@/lib/supabase-helpers";
+import {
+  addStudent,
+  createClass,
+  fetchAbsencesForClass,
+  fetchStudentNumbersForClass,
+  checkStudentNumberInUse,
+  motivateAbsences,
+  fetchHomeroomDashboardData,
+  generateStudentActivationCode,
+} from "@/features/homeroom/services/homeroom.service";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -170,150 +179,18 @@ const HomeroomDashboard = () => {
     setLoading(true);
     try {
       const schoolId = await getCurrentUserSchoolId();
-      if (!schoolId) {
+      if (!schoolId || !user?.id) {
         setLoading(false);
         return;
       }
 
-      const { data: classData } = await supabase
-        .from("classes")
-        .select("id, name, section, year, school_id")
-        .eq("teacher_id", user?.id)
-        .eq("school_id", schoolId)
-        .maybeSingle();
+      const data = await fetchHomeroomDashboardData(schoolId, user.id);
+      if (!data) return;
 
-      if (!classData) return;
-
-      setClassInfo(classData);
-
-      const { data: studentsData } = await supabase
-        .from("students")
-        .select("id, student_number, full_name, is_active, user_id")
-        .eq("class_id", classData.id)
-        .eq("school_id", schoolId)
-        .order("student_number", { ascending: true });
-
-      if (studentsData) {
-        const enrichedStudents = await Promise.all(
-          studentsData.map(async (student) => {
-            let activationCode: string | null = null;
-            let profileData: { email: string } | null = null;
-
-            const { data: activationData } = await supabase
-              .from("student_activations")
-              .select("activation_code")
-              .eq("student_id", student.id)
-              .eq("is_used", false)
-              .maybeSingle();
-
-            if (activationData) {
-              activationCode = activationData.activation_code;
-            }
-
-            if (student.user_id) {
-              const { data: prof } = await supabase
-                .from("profiles")
-                .select("email")
-                .eq("id", student.user_id)
-                .eq("school_id", schoolId)
-                .maybeSingle();
-
-              profileData = prof ?? null;
-            }
-
-            return {
-              ...student,
-              activation_code: activationCode,
-              profile: profileData,
-            } satisfies Student;
-          })
-        );
-
-        setStudents(enrichedStudents);
-      }
-
-      const { data: allStudentIds } = await supabase
-        .from("students")
-        .select("id")
-        .eq("class_id", classData.id)
-        .eq("school_id", schoolId);
-
-      if (!allStudentIds || allStudentIds.length === 0) return;
-
-      const studentIds = allStudentIds.map((s) => s.id);
-
-      const { data: grades } = await supabase
-        .from("grades")
-        .select("grade, student_id")
-        .in("student_id", studentIds)
-        .eq("school_id", schoolId)
-        .is("deleted_at", null);
-
-      const { data: attendance } = await supabase
-        .from("attendance")
-        .select("status, student_id")
-        .in("student_id", studentIds)
-        .eq("school_id", schoolId)
-        .is("deleted_at", null);
-
-      const totalGrades = grades?.length || 0;
-
-      const avgGrade =
-        grades && grades.length > 0
-          ? grades.reduce((sum, g) => sum + Number(g.grade), 0) / grades.length
-          : 0;
-
-      const absencesCount =
-        attendance?.filter((a) => ["unexcused", "pending"].includes(a.status)).length || 0;
-
-      const motivated =
-        attendance?.filter((a) => a.status === "motivated").length || 0;
-
-      setClassStats({
-        totalGrades,
-        averageGrade: avgGrade,
-        totalAbsences: absencesCount,
-        motivatedAbsences: motivated,
-      });
-
-      type AttendanceRow = { status: string; student_id: string };
-      type GradeRow = { grade: number; student_id: string };
-      type StudentRow = { id: string; student_number: string | number | null; full_name: string | null; is_active: boolean; user_id: string | null };
-
-      const absByStudent = new Map<string, number>();
-      (attendance || []).forEach((a: AttendanceRow) => {
-        if (!["unexcused", "pending"].includes(a.status)) return;
-        absByStudent.set(
-          a.student_id,
-          (absByStudent.get(a.student_id) || 0) + 1
-        );
-      });
-
-      const gradesByStudent = new Map<string, number>();
-      (grades || []).forEach((g: GradeRow) => {
-        gradesByStudent.set(g.student_id, (gradesByStudent.get(g.student_id) || 0) + 1);
-      });
-
-      const threshold = 10;
-
-      const manyAbsences: Student[] = (studentsData || [])
-        .filter((s: StudentRow) => (absByStudent.get(s.id) || 0) >= threshold)
-        .sort(
-          (a: StudentRow, b: StudentRow) =>
-            (absByStudent.get(b.id) || 0) - (absByStudent.get(a.id) || 0)
-        )
-        .map((s: StudentRow) => ({ ...s, activation_code: null }));
-
-      const noGrades: Student[] = (studentsData || [])
-        .filter((s: StudentRow) => (gradesByStudent.get(s.id) || 0) === 0)
-        .sort(
-          (a: StudentRow, b: StudentRow) =>
-            (parseStudentNumberNumeric(a.student_number) ?? 9999) -
-            (parseStudentNumberNumeric(b.student_number) ?? 9999)
-        )
-        .map((s: StudentRow) => ({ ...s, activation_code: null }));
-
-      setAlerts({ manyAbsences, noGrades });
+      setClassInfo(data.classInfo);
+      setStudents(data.students);
+      setClassStats(data.classStats);
+      setAlerts(data.alerts);
     } catch (err) {
       console.error("Error fetching data:", err);
     } finally {
@@ -322,22 +199,10 @@ const HomeroomDashboard = () => {
   };
 
   const handleGenerateCode = async (studentId: string) => {
+    if (!user?.id) return;
     setGeneratingCode(studentId);
     try {
-      const code = Math.random().toString(36).substring(2, 10).toUpperCase();
-      const expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + 30);
-
-      const { error: insertError } = await supabase
-        .from("student_activations")
-        .insert({
-          student_id: studentId,
-          activation_code: code,
-          created_by: user?.id,
-          expires_at: expiresAt.toISOString(),
-        });
-
-      if (insertError) throw insertError;
+      const code = await generateStudentActivationCode(studentId, user.id);
 
       toast({
         title: "Cod generat!",
@@ -401,12 +266,7 @@ const HomeroomDashboard = () => {
         }
         finalNumberNumeric = parsed;
       } else {
-        const { data: existingStudents } = await supabase
-          .from("students")
-          .select("student_number")
-          .eq("class_id", classInfo.id);
-
-        const existing = (existingStudents ?? []).map((s) => s.student_number);
+        const existing = await fetchStudentNumbersForClass(classInfo.id);
         finalNumberDisplay = getNextStudentNumber(existing);
 
         const parsed = parseStudentNumberNumeric(finalNumberDisplay);
@@ -421,14 +281,8 @@ const HomeroomDashboard = () => {
         finalNumberNumeric = parsed;
       }
 
-      const { data: existingWithNumber } = await supabase
-        .from("students")
-        .select("id")
-        .eq("class_id", classInfo.id)
-        .eq("student_number", finalNumberNumeric)
-        .maybeSingle();
-
-      if (existingWithNumber) {
+      const inUse = await checkStudentNumberInUse(classInfo.id, finalNumberNumeric);
+      if (inUse) {
         toast({
           title: "Eroare",
           description: `Acest număr matricol (${finalNumberDisplay}) este deja atribuit.`,
@@ -437,21 +291,18 @@ const HomeroomDashboard = () => {
         return;
       }
 
-      // Schema students: NOT NULL doar class_id; restul au default sau sunt nullable.
-      type StudentInsert = {
-        class_id: string;
-        full_name: string;
-        student_number: number;
-        is_active: boolean;
-        cnp?: string | null;
-        birth_date?: string | null;
-        gender?: string | null;
-      };
-      const payload: StudentInsert = {
+      const schoolId = await getCurrentUserSchoolId();
+      if (!schoolId) throw new Error("Nu aveți o școală asociată");
+
+      const payload = {
         class_id: classInfo.id,
+        school_id: schoolId,
         full_name: newStudent.fullName.trim(),
         student_number: finalNumberNumeric,
         is_active: false,
+        cnp: undefined as string | null | undefined,
+        birth_date: undefined as string | null | undefined,
+        gender: undefined as string | null | undefined,
       };
       if (newStudent.cnp.trim() && validateCNP(newStudent.cnp.trim())) {
         const parsed = parseCNP(newStudent.cnp.trim());
@@ -462,9 +313,7 @@ const HomeroomDashboard = () => {
         }
       }
 
-      const { error: insertError } = await supabase.from("students").insert(payload);
-
-      if (insertError) throw insertError;
+      await addStudent(payload);
 
       toast({
         title: "Elev adăugat!",
@@ -486,49 +335,11 @@ const HomeroomDashboard = () => {
 
   const fetchAbsences = async () => {
     if (!classInfo) return;
-
     try {
-      const { data: studentIds } = await supabase
-        .from("students")
-        .select("id, full_name")
-        .eq("class_id", classInfo.id);
-
-      if (!studentIds || studentIds.length === 0) return;
-
-      const ids = studentIds.map((s) => s.id);
-      const studentMap = Object.fromEntries(
-        studentIds.map((s) => [s.id, s.full_name || "Necunoscut"])
-      );
-
-      const { data: absenceData } = await supabase
-        .from("attendance")
-        .select("id, date, status, student_id, subject_id")
-        .in("student_id", ids)
-        .in("status", ["unexcused", "pending"])
-        .is("deleted_at", null)
-        .order("date", { ascending: false });
-
-      if (!absenceData) return;
-
-      type AbsenceDataRow = { id: string; date: string; status: string; student_id: string; subject_id: string };
-      const subjectIds = [...new Set(absenceData.map((a: AbsenceDataRow) => a.subject_id))];
-      const { data: subjects } = await supabase
-        .from("subjects")
-        .select("id, name")
-        .in("id", subjectIds);
-
-      const subjectMap = Object.fromEntries((subjects || []).map((s) => [s.id, s.name]));
-
-      setAbsences(
-        absenceData.map((a: AbsenceDataRow) => ({
-          id: a.id,
-          date: a.date,
-          status: a.status,
-          student_id: a.student_id,
-          student_name: studentMap[a.student_id],
-          subject_name: subjectMap[a.subject_id] || "Necunoscut",
-        }))
-      );
+      const sid = await getCurrentUserSchoolId();
+      if (!sid) return;
+      const data = await fetchAbsencesForClass(classInfo.id, sid);
+      setAbsences(data);
     } catch (err) {
       console.error("Error fetching absences:", err);
     }
@@ -550,25 +361,10 @@ const HomeroomDashboard = () => {
         excuse_reason: string | null;
         excused_at: string;
       };
-      const updatePayload: AttendanceUpdate = {
-        status: "motivated",
-        excuse_reason: motivateReason.trim() ? motivateReason.trim() : null,
-        excused_at: new Date().toISOString(),
-      };
-
-      const { error: updateError } = await supabase
-        .from("attendance")
-        .update(updatePayload)
-        .in("id", selectedAbsences);
-
-      if (updateError) {
-        const { error: fallbackError } = await supabase
-          .from("attendance")
-          .update({ status: "motivated" })
-          .in("id", selectedAbsences);
-
-        if (fallbackError) throw fallbackError;
-      }
+      await motivateAbsences(
+        selectedAbsences,
+        motivateReason.trim() ? motivateReason.trim() : null
+      );
 
       toast({
         title: "Succes!",
@@ -601,15 +397,17 @@ const HomeroomDashboard = () => {
     }
 
     try {
+      const schoolId = await getCurrentUserSchoolId();
+      if (!schoolId || !user?.id) throw new Error("Nu aveți o școală asociată");
+
       const className = newClass.name || `Clasa ${newClass.year}${newClass.section}`;
-      const { error: insertError } = await supabase.from("classes").insert({
+      await createClass({
         year: parseInt(newClass.year, 10),
         section: newClass.section.toUpperCase(),
         name: className,
-        teacher_id: user?.id,
+        teacher_id: user.id,
+        school_id: schoolId,
       });
-
-      if (insertError) throw insertError;
 
       toast({
         title: "Clasă creată!",

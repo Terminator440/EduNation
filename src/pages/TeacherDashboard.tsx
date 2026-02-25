@@ -9,8 +9,23 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { Spinner } from "@/components/ui/spinner";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
 import { getCurrentUserSchoolId } from "@/lib/supabase-helpers";
+import { getProfileSchoolId } from "@/features/profiles/services/profiles.service";
+import { updateOnboardingTourCompleted } from "@/features/profiles/services/profiles.service";
+import {
+  fetchHomeroomClassId,
+  fetchTimetableEntriesForTeacher,
+  fetchClassesByIds,
+  fetchSubjectsByIds,
+  fetchRegisterForTeacher,
+  signRegister,
+  fetchTeacherAssignmentClassId,
+  fetchStudentsForClass,
+  fetchProfilesByIds,
+  fetchSubjectsForTeacherClass,
+} from "@/features/teacher/services/teacherRegister.service";
+import { gradeInsertSchema } from "@/features/grades/schemas/grades.schema";
+import { safeParseWithErrors } from "@/lib/zod-utils";
 import { fetchGradesForStudents } from "@/features/grades/services/grades.service";
 import { fetchAttendanceForStudents } from "@/features/attendance/services/attendance.service";
 import type { GradeRow } from "@/features/grades/services/grades.service";
@@ -177,28 +192,10 @@ const TeacherDashboard = () => {
 
         setInvitesLoading(true);
 
-        const { data: profileData, error: profileErr } = await supabase
-          .from("profiles")
-          .select("school_id")
-          .eq("id", user.id)
-          .maybeSingle();
-
-        if (profileErr) throw profileErr;
-
-        const sid = profileData?.school_id ?? null;
+        const sid = await getProfileSchoolId(user.id);
         setSchoolId(sid);
 
-        const { data: classData, error: classErr } = await supabase
-          .from("classes")
-          .select("id")
-          .eq("teacher_id", user.id)
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        if (classErr) throw classErr;
-
-        const cid = classData?.id ?? null;
+        const cid = sid ? await fetchHomeroomClassId(sid, user.id) : null;
         setHomeroomClassId(cid);
 
         if (sid && cid) {
@@ -239,14 +236,7 @@ const TeacherDashboard = () => {
       const weekday = getJsWeekday(today);
       const dateStr = toDateKey(today);
 
-      const { data: entries, error: entriesErr } = await supabase
-        .from("timetable_entries")
-        .select("id, weekday, period, start_time, end_time, room, class_id, subject_id")
-        .eq("teacher_id", user.id)
-        .eq("weekday", weekday)
-        .order("period", { ascending: true });
-
-      if (entriesErr) throw entriesErr;
+      const entries = await fetchTimetableEntriesForTeacher(user.id, weekday);
 
       if (!entries || entries.length === 0) {
         setTimetableEntries([]);
@@ -254,29 +244,18 @@ const TeacherDashboard = () => {
         return;
       }
 
-      // Fetch class + subject names
       const classIds = [...new Set(entries.map(e => e.class_id).filter(Boolean))] as string[];
       const subjectIds = [...new Set(entries.map(e => e.subject_id).filter(Boolean))] as string[];
 
-      const [classesRes, subjectsRes, registerRes] = await Promise.all([
-        classIds.length > 0
-          ? supabase.from("classes").select("id, name").in("id", classIds)
-          : { data: [], error: null },
-        subjectIds.length > 0
-          ? supabase.from("subjects").select("id, name").in("id", subjectIds)
-          : { data: [], error: null },
-        supabase
-          .from("teacher_register")
-          .select("id, timetable_entry_id")
-          .eq("teacher_id", user.id)
-          .eq("date", dateStr),
+      const [classesList, subjectsList, registerList] = await Promise.all([
+        classIds.length > 0 ? fetchClassesByIds(classIds) : [],
+        subjectIds.length > 0 ? fetchSubjectsByIds(subjectIds) : [],
+        fetchRegisterForTeacher(user.id, dateStr),
       ]);
 
-      type IdNameRow = { id: string; name: string };
-      type RegisterRow = { timetable_entry_id: string };
-      const classMap = new Map(((classesRes.data ?? []) as IdNameRow[]).map((c) => [c.id, c.name]));
-      const subjectMap = new Map(((subjectsRes.data ?? []) as IdNameRow[]).map((s) => [s.id, s.name]));
-      const signedIds = new Set(((registerRes.data ?? []) as RegisterRow[]).map((r) => r.timetable_entry_id));
+      const classMap = new Map(classesList.map((c) => [c.id, c.name]));
+      const subjectMap = new Map(subjectsList.map((s) => [s.id, s.name]));
+      const signedIds = new Set(registerList.map((r) => r.timetable_entry_id));
 
       const mapped: TimetableEntry[] = entries.map((e) => ({
         id: e.id,
@@ -306,17 +285,13 @@ const TeacherDashboard = () => {
     if (!user) return;
     try {
       const entry = timetableEntries.find(e => e.id === timetableEntryId);
-      const dateStr = toDateKey(new Date());
-
-      const { error } = await supabase.from("teacher_register").insert({
+      await signRegister({
         timetable_entry_id: timetableEntryId,
         teacher_id: user.id,
-        class_id: entry?.class_id || null,
-        subject_id: entry?.subject_id || null,
-        date: dateStr,
+        class_id: entry?.class_id ?? null,
+        subject_id: entry?.subject_id ?? null,
+        date: toDateKey(new Date()),
       });
-
-      if (error) throw error;
 
       toast({
         title: "Condică semnată!",
@@ -343,69 +318,28 @@ const TeacherDashboard = () => {
         return;
       }
 
-      let classId: string | null = null;
-
-      const { data: homeroomClass } = await supabase
-        .from("classes")
-        .select("id")
-        .eq("teacher_id", user.id)
-        .eq("school_id", schoolId)
-        .maybeSingle();
-      if (homeroomClass?.id) {
-        classId = homeroomClass.id;
+      let classId: string | null = await fetchHomeroomClassId(schoolId, user.id);
+      if (!classId) {
+        classId = await fetchTeacherAssignmentClassId(schoolId, user.id);
       }
 
       if (!classId) {
         setCurrentClassId(null);
-        const { data: assignments } = await supabase
-          .from("teacher_assignments")
-          .select("class_id")
-          .eq("teacher_id", user.id)
-          .eq("school_id", schoolId)
-          .limit(1);
-        const first = (assignments ?? [])[0] as { class_id: string } | undefined;
-        if (first?.class_id) classId = first.class_id;
       }
 
       if (classId) {
         setCurrentClassId(classId);
-        const { data: studentsData } = await supabase
-          .from("students")
-          .select(`
-            id,
-            user_id,
-            student_number,
-            full_name
-          `)
-          .eq("class_id", classId)
-          .eq("school_id", schoolId);
+        const studentRows = await fetchStudentsForClass(classId, schoolId);
 
-        if (studentsData) {
-          // Fetch related data in bulk to avoid N+1 queries (production performance)
-          type StudentListRow = {
-            id: string;
-            user_id: string | null;
-            student_number: number | null;
-            full_name: string | null;
-          };
-          const studentRows = (studentsData ?? []) as StudentListRow[];
+        if (studentRows.length > 0) {
           const studentIds = studentRows.map((s) => s.id);
           const userIds = studentRows
             .map((s) => s.user_id)
             .filter((id): id is string => typeof id === "string" && id.length > 0);
 
-          type ProfileLite = { id: string; full_name: string | null; email: string };
-          const profilesById = new Map<string, ProfileLite>();
-          if (userIds.length > 0) {
-            const { data: profilesData, error: profilesErr } = await supabase
-              .from('profiles')
-              .select('id, full_name, email')
-              .in('id', userIds)
-              .eq('school_id', schoolId);
-
-            if (profilesErr) throw profilesErr;
-            ((profilesData ?? []) as ProfileLite[]).forEach((p) => profilesById.set(p.id, p));
-          }
+          const profilesById = userIds.length > 0
+            ? await fetchProfilesByIds(userIds, schoolId)
+            : new Map<string, { id: string; full_name: string | null; email: string }>();
 
           // Use services from features instead of direct Supabase calls
           const [gradesData, attendanceData] = await Promise.all([
@@ -452,30 +386,8 @@ const TeacherDashboard = () => {
           setCurrentClassId(null);
         }
 
-        const { data: assignedSubjects } = await supabase
-          .from("teacher_assignments")
-          .select("subject_id")
-          .eq("teacher_id", user.id)
-          .eq("class_id", classId)
-          .eq("school_id", schoolId);
-        const subjectIds = (assignedSubjects ?? [])
-          .map((r: { subject_id: string }) => r.subject_id)
-          .filter(Boolean);
-        if (subjectIds.length > 0) {
-          const { data: subjectsData } = await supabase
-            .from("subjects")
-            .select("id, name")
-            .in("id", subjectIds)
-            .eq("school_id", schoolId);
-          setSubjects(subjectsData || []);
-        } else {
-          const { data: subjectsData } = await supabase
-            .from("subjects")
-            .select("id, name")
-            .eq("class_id", classId)
-            .eq("school_id", schoolId);
-          setSubjects(subjectsData || []);
-        }
+        const subjectsData = await fetchSubjectsForTeacherClass(user.id, classId, schoolId);
+        setSubjects(subjectsData);
       }
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -494,24 +406,25 @@ const TeacherDashboard = () => {
       return;
     }
 
-    const gradeValue = Math.round(parseFloat(newGrade.grade));
-    if (gradeValue < 1 || gradeValue > 10 || !Number.isInteger(gradeValue)) {
+    const payload = {
+      student_id: selectedStudent.id,
+      subject_id: newGrade.subjectId,
+      grade: Number(newGrade.grade),
+      description: newGrade.description?.trim() || null,
+      date: new Date().toISOString().split("T")[0],
+    };
+    const parsed = safeParseWithErrors(gradeInsertSchema, payload);
+    if (!parsed.success) {
       toast({
-        title: "Eroare",
-        description: "Nota trebuie să fie un număr întreg între 1 și 10",
+        title: "Eroare validare",
+        description: parsed.errors[0] ?? "Date invalide",
         variant: "destructive",
       });
       return;
     }
 
     try {
-      await addGradeMutation.mutateAsync({
-        student_id: selectedStudent.id,
-        subject_id: newGrade.subjectId,
-        grade: gradeValue,
-        description: newGrade.description || null,
-        date: new Date().toISOString().split('T')[0],
-      });
+      await addGradeMutation.mutateAsync(parsed.data);
 
       setIsAddGradeOpen(false);
       setNewGrade({ grade: "", subjectId: "", description: "" });
@@ -655,7 +568,7 @@ const TeacherDashboard = () => {
   const handleOnboardingComplete = async () => {
     if (!user?.id) return;
     try {
-      await supabase.from("profiles").update({ onboarding_tour_completed: true }).eq("id", user.id);
+      await updateOnboardingTourCompleted(user.id);
       await refetchProfile();
     } catch (e) {
       console.error("Failed to save onboarding tour completed:", e);

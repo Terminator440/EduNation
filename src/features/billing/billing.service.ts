@@ -4,6 +4,9 @@
  */
 import { supabase } from "@/integrations/supabase/client";
 import { handleServiceError } from "@/lib/error-handler";
+import { AppError } from "@/lib/errors";
+import { getFirstZodMessage } from "@/lib/zod-utils";
+import { markInvoicePaidSchema, generateInvoiceSchema } from "./schemas/billing.schema";
 
 export const DEFAULT_PRICE_PER_STUDENT = 60;
 export const CURRENCY = "RON";
@@ -135,10 +138,15 @@ export async function fetchSchoolsWithBilling(): Promise<SchoolWithBilling[]> {
 /**
  * Generează factură pentru școală și an (doar super admin). RPC.
  */
-export async function generateInvoice(schoolId: string, year: number): Promise<string> {
+export async function generateInvoice(schoolId: string, year?: number): Promise<string> {
+  const parsed = generateInvoiceSchema.safeParse({ school_id: schoolId, billing_year: year });
+  if (!parsed.success) {
+    throw new AppError(getFirstZodMessage(parsed.error), { context: "generateInvoice" });
+  }
+  const y = parsed.data.billing_year ?? new Date().getFullYear();
   const { data, error } = await supabase.rpc("generate_invoice", {
     p_school_id: schoolId,
-    p_year: year,
+    p_year: y,
   });
   if (error) {
     handleServiceError(error, "Generare factură");
@@ -151,8 +159,12 @@ export async function generateInvoice(schoolId: string, year: number): Promise<s
  * Marchează factura ca plătită (doar super admin). RPC.
  */
 export async function markInvoicePaid(invoiceId: string): Promise<boolean> {
+  const parsed = markInvoicePaidSchema.safeParse({ invoice_id: invoiceId });
+  if (!parsed.success) {
+    throw new AppError(getFirstZodMessage(parsed.error), { context: "markInvoicePaid" });
+  }
   const { data, error } = await supabase.rpc("mark_invoice_paid", {
-    p_invoice_id: invoiceId,
+    p_invoice_id: parsed.data.invoice_id,
   });
   if (error) {
     handleServiceError(error, "Marcare factură plătită");
