@@ -125,7 +125,12 @@ src/
 
    Editează `.env` și adaugă valorile tale:
    ```env
+   # Recomandat (sursa principală)
    VITE_SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
+
+   # Opțional: dacă lipsește URL, aplicația îl poate construi din project id
+   VITE_SUPABASE_PROJECT_ID=YOUR_PROJECT_REF
+
    VITE_SUPABASE_PUBLISHABLE_KEY=YOUR_SUPABASE_ANON_KEY
    
    # Opțional: cod pentru înregistrare staff
@@ -133,6 +138,11 @@ src/
    
    # Opțional: bootstrap admin accounts
    VITE_BOOTSTRAP_ADMIN_EMAILS=admin@example.com
+   ```
+
+   Verifică rapid configurația Supabase:
+   ```bash
+   npm run check:supabase
    ```
 
 4. **Pornește serverul de dezvoltare**
@@ -290,10 +300,20 @@ Setează următoarele variabile în platforma de hosting:
 
 - ✅ Variabilele de mediu sunt validate la startup
 - ✅ Orice lipsă produce eroare explicită
+- ✅ Mismatch URL/API key Supabase este detectat la startup
 - ✅ Separarea clară între control UI și securitate DB
 - ✅ Model de roluri extensibil pentru scenarii administrative complexe
 - ✅ Error handling global cu notificări utilizator
 - ✅ Retry logic pentru erori temporare de rețea
+
+### Troubleshooting login: `NetworkError when attempting to fetch resource`
+
+1. Rulează `npm run check:supabase`.
+2. Verifică că:
+   - `VITE_SUPABASE_URL` este de forma `https://<project_ref>.supabase.co`
+   - `VITE_SUPABASE_PUBLISHABLE_KEY` este anon key din același proiect
+   - URL-ul proiectului rezolvă DNS și endpoint-ul `/auth/v1/health` răspunde
+3. Dacă folosești doar `VITE_SUPABASE_PROJECT_ID`, aplicația construiește automat URL-ul.
 
 ## 📚 Resurse
 

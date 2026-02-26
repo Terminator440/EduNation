@@ -51,6 +51,14 @@ export function normalizeError(err: unknown): NormalizedError {
 export function getLoginErrorMessage(err: unknown): string {
   const { message } = normalizeError(err);
   const lower = message.toLowerCase();
+  if (
+    lower.includes("networkerror when attempting to fetch resource") ||
+    lower.includes("failed to fetch") ||
+    lower.includes("fetch failed") ||
+    lower.includes("network request failed")
+  ) {
+    return "Nu ne putem conecta la API-ul Supabase. Verificați VITE_SUPABASE_URL și cheia publică (VITE_SUPABASE_PUBLISHABLE_KEY).";
+  }
   if (lower.includes("invalid login") || lower.includes("invalid_credentials")) {
     return "Email sau parolă incorectă. Verificați datele și încercați din nou.";
   }

@@ -1,9 +1,40 @@
 import { z } from "zod";
 
 const EnvSchema = z.object({
-  VITE_SUPABASE_URL: z.string().url(),
+  VITE_SUPABASE_URL: z.string().url().optional(),
+  VITE_SUPABASE_PROJECT_ID: z
+    .string()
+    .trim()
+    .regex(/^[a-z0-9]{20}$/)
+    .optional(),
   VITE_SUPABASE_PUBLISHABLE_KEY: z.string().min(1),
 });
+
+const stripTrailingSlash = (value: string) => value.replace(/\/+$/, "");
+
+const extractProjectRefFromUrl = (supabaseUrl: string): string | null => {
+  try {
+    const hostname = new URL(supabaseUrl).hostname.toLowerCase();
+    const match = hostname.match(/^([a-z0-9]{20})\.supabase\.co$/);
+    return match ? match[1] : null;
+  } catch {
+    return null;
+  }
+};
+
+const extractProjectRefFromAnonKey = (publishableKey: string): string | null => {
+  try {
+    const [, payload] = publishableKey.split(".");
+    if (!payload) return null;
+    const normalizedPayload = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const paddedPayload =
+      normalizedPayload + "=".repeat((4 - (normalizedPayload.length % 4)) % 4);
+    const decodedPayload = JSON.parse(atob(paddedPayload)) as { ref?: unknown };
+    return typeof decodedPayload.ref === "string" ? decodedPayload.ref : null;
+  } catch {
+    return null;
+  }
+};
 
 /**
  * Runtime environment variables validated at startup.
@@ -13,6 +44,7 @@ const EnvSchema = z.object({
 export const env = (() => {
   const parsed = EnvSchema.safeParse({
     VITE_SUPABASE_URL: import.meta.env.VITE_SUPABASE_URL,
+    VITE_SUPABASE_PROJECT_ID: import.meta.env.VITE_SUPABASE_PROJECT_ID,
     VITE_SUPABASE_PUBLISHABLE_KEY: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
   });
 
@@ -23,5 +55,38 @@ export const env = (() => {
     throw new Error("Missing/invalid VITE_ environment variables. Check your deployment settings.");
   }
 
-  return parsed.data;
+  const publishableKey = parsed.data.VITE_SUPABASE_PUBLISHABLE_KEY.trim();
+  const resolvedSupabaseUrl = parsed.data.VITE_SUPABASE_URL
+    ? stripTrailingSlash(parsed.data.VITE_SUPABASE_URL.trim())
+    : parsed.data.VITE_SUPABASE_PROJECT_ID
+      ? `https://${parsed.data.VITE_SUPABASE_PROJECT_ID}.supabase.co`
+      : null;
+
+  if (!resolvedSupabaseUrl) {
+    throw new Error(
+      "Missing Supabase API URL. Set VITE_SUPABASE_URL or VITE_SUPABASE_PROJECT_ID."
+    );
+  }
+
+  const urlProjectRef = extractProjectRefFromUrl(resolvedSupabaseUrl);
+  const keyProjectRef = extractProjectRefFromAnonKey(publishableKey);
+  const configuredProjectId = parsed.data.VITE_SUPABASE_PROJECT_ID ?? null;
+
+  if (configuredProjectId && urlProjectRef && configuredProjectId !== urlProjectRef) {
+    throw new Error(
+      "Supabase config mismatch: VITE_SUPABASE_PROJECT_ID does not match VITE_SUPABASE_URL."
+    );
+  }
+
+  if (urlProjectRef && keyProjectRef && urlProjectRef !== keyProjectRef) {
+    throw new Error(
+      "Supabase config mismatch: VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY belong to different projects."
+    );
+  }
+
+  return {
+    VITE_SUPABASE_URL: resolvedSupabaseUrl,
+    VITE_SUPABASE_PROJECT_ID: configuredProjectId ?? urlProjectRef ?? keyProjectRef ?? undefined,
+    VITE_SUPABASE_PUBLISHABLE_KEY: publishableKey,
+  };
 })();
