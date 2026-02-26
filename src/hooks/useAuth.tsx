@@ -119,6 +119,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setUser(nextSession?.user ?? null);
 
       if (nextSession?.user) {
+        setLoading(true);
         setTimeout(() => {
           fetchUserData(nextSession.user.id);
         }, 0);
@@ -135,6 +136,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setUser(existingSession?.user ?? null);
 
       if (existingSession?.user) {
+        setLoading(true);
         fetchUserData(existingSession.user.id);
       } else {
         setLoading(false);
@@ -288,20 +290,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signIn = async (email: string, password: string) => {
+    const normalizedEmail = email.trim().toLowerCase();
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
-        email,
+        email: normalizedEmail,
         password,
       });
 
       if (error) {
         import("@/lib/logAuth").then(({ logLoginEvent }) =>
-          logLoginEvent({ email, success: false }).catch(() => {})
+          logLoginEvent({ email: normalizedEmail, success: false }).catch(() => {})
         );
         throw error;
       }
       import("@/lib/logAuth").then(({ logLoginEvent }) =>
-        logLoginEvent({ email, success: true, user_id: data.user?.id }).catch(() => {})
+        logLoginEvent({ email: normalizedEmail, success: true, user_id: data.user?.id }).catch(() => {})
       );
       return { error: null };
     } catch (error) {

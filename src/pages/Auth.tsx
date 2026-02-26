@@ -28,7 +28,7 @@ const routeMap: Record<AppRole, string> = {
 export default function Auth() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { signIn, user, loading } = useAuth();
+  const { signIn, user, loading, activeRole } = useAuth();
 
   const [isLogin, setIsLogin] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
@@ -194,7 +194,7 @@ export default function Auth() {
     setLoginError(null);
     setIsLoading(true);
     try {
-      const { error } = await signIn(email, password);
+      const { error } = await signIn(identifier, password);
       if (error) {
         await recordLoginAttempt(identifier, false);
         const msg = getLoginErrorMessage(error);
@@ -228,9 +228,9 @@ export default function Auth() {
   // Redirecționare automată dacă userul este deja logat
   useEffect(() => {
     if (user && !loading) {
-      navigate("/dashboard");
+      navigate(activeRole ? routeMap[activeRole] : "/dashboard", { replace: true });
     }
-  }, [user, loading, navigate]);
+  }, [user, loading, activeRole, navigate]);
 
   if (loading) {
     return (
