@@ -57,7 +57,7 @@ export function getLoginErrorMessage(err: unknown): string {
     lower.includes("fetch failed") ||
     lower.includes("network request failed")
   ) {
-    return "Nu ne putem conecta la API-ul Supabase. Verificați VITE_SUPABASE_URL și cheia publică (VITE_SUPABASE_PUBLISHABLE_KEY).";
+    return "Nu ne putem conecta la server. Verificați conexiunea la internet și încercați din nou.";
   }
   if (lower.includes("invalid login") || lower.includes("invalid_credentials")) {
     return "Email sau parolă incorectă. Verificați datele și încercați din nou.";
