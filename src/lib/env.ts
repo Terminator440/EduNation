@@ -22,7 +22,11 @@ const extractProjectRefFromUrl = (supabaseUrl: string): string | null => {
   }
 };
 
-const extractProjectRefFromAnonKey = (publishableKey: string): string | null => {
+const isSupabasePublishableKey = (publishableKey: string): boolean =>
+  publishableKey.startsWith("sb_publishable_") || publishableKey.split(".").length === 3;
+
+const extractProjectRefFromPublishableKey = (publishableKey: string): string | null => {
+  if (publishableKey.startsWith("sb_publishable_")) return null;
   try {
     const [, payload] = publishableKey.split(".");
     if (!payload) return null;
@@ -56,6 +60,16 @@ export const env = (() => {
   }
 
   const publishableKey = parsed.data.VITE_SUPABASE_PUBLISHABLE_KEY.trim();
+  if (publishableKey.includes("REPLACE_WITH_")) {
+    throw new Error(
+      "VITE_SUPABASE_PUBLISHABLE_KEY is placeholder. Replace it with your Supabase publishable key."
+    );
+  }
+  if (!isSupabasePublishableKey(publishableKey)) {
+    throw new Error(
+      "Invalid VITE_SUPABASE_PUBLISHABLE_KEY format. Use a Supabase publishable key (sb_publishable_...) or a legacy JWT anon key."
+    );
+  }
   const resolvedSupabaseUrl = parsed.data.VITE_SUPABASE_URL
     ? stripTrailingSlash(parsed.data.VITE_SUPABASE_URL.trim())
     : parsed.data.VITE_SUPABASE_PROJECT_ID
@@ -69,7 +83,7 @@ export const env = (() => {
   }
 
   const urlProjectRef = extractProjectRefFromUrl(resolvedSupabaseUrl);
-  const keyProjectRef = extractProjectRefFromAnonKey(publishableKey);
+  const keyProjectRef = extractProjectRefFromPublishableKey(publishableKey);
   const configuredProjectId = parsed.data.VITE_SUPABASE_PROJECT_ID ?? null;
 
   if (configuredProjectId && urlProjectRef && configuredProjectId !== urlProjectRef) {

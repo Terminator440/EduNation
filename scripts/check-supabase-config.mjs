@@ -38,7 +38,15 @@ function getProjectRefFromUrl(supabaseUrl) {
   }
 }
 
-function getProjectRefFromAnonKey(publishableKey) {
+function isSupabasePublishableKey(publishableKey) {
+  return (
+    publishableKey.startsWith("sb_publishable_") ||
+    publishableKey.split(".").length === 3
+  );
+}
+
+function getProjectRefFromPublishableKey(publishableKey) {
+  if (publishableKey.startsWith("sb_publishable_")) return null;
   try {
     const [, payload] = publishableKey.split(".");
     if (!payload) return null;
@@ -107,7 +115,11 @@ async function main() {
   if (!publishableKey) {
     issues.push("Lipsește VITE_SUPABASE_PUBLISHABLE_KEY.");
   } else if (publishableKey.includes("REPLACE_WITH_")) {
-    issues.push("VITE_SUPABASE_PUBLISHABLE_KEY este placeholder. Înlocuiește cu anon key real.");
+    issues.push("VITE_SUPABASE_PUBLISHABLE_KEY este placeholder. Înlocuiește cu publishable key real.");
+  } else if (!isSupabasePublishableKey(publishableKey)) {
+    issues.push(
+      "VITE_SUPABASE_PUBLISHABLE_KEY are format invalid. Folosește o cheie Supabase publishable (sb_publishable_...) sau o cheie anon JWT legacy."
+    );
   }
 
   if (issues.length > 0) {
@@ -125,17 +137,13 @@ async function main() {
   }
 
   const urlProjectRef = getProjectRefFromUrl(supabaseUrl);
-  const keyProjectRef = getProjectRefFromAnonKey(publishableKey);
+  const keyProjectRef = getProjectRefFromPublishableKey(publishableKey);
   const dbProjectRef = dbUrl ? getProjectRefFromDbUrl(dbUrl) : null;
 
   if (configuredProjectId && urlProjectRef && configuredProjectId !== urlProjectRef) {
     issues.push(
       `Project mismatch: VITE_SUPABASE_PROJECT_ID=${configuredProjectId} dar URL ref=${urlProjectRef}.`
     );
-  }
-
-  if (!keyProjectRef) {
-    issues.push("VITE_SUPABASE_PUBLISHABLE_KEY nu pare un JWT valid (anon key Supabase).");
   }
 
   if (urlProjectRef && keyProjectRef && urlProjectRef !== keyProjectRef) {
@@ -174,8 +182,10 @@ async function main() {
       const healthUrl = `${supabaseUrl.replace(/\/+$/, "")}/auth/v1/health`;
       const response = await fetch(healthUrl, { method: "GET" });
       console.log(`Health check ${healthUrl} -> HTTP ${response.status}`);
-      if (!response.ok) {
+      if (response.status >= 500) {
         issues.push(`Auth health endpoint a răspuns cu HTTP ${response.status}.`);
+      } else if (response.status === 401 || response.status === 403) {
+        console.log("Auth endpoint este accesibil (401/403 fără autentificare este acceptat).");
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

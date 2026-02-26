@@ -101,7 +101,7 @@ src/
 ### Cerințe
 
 - **Node.js 18+** sau Bun
-- **Proiect Supabase** (URL + anon key)
+- **Proiect Supabase** (URL + publishable key)
 
 ### Instalare
 
@@ -131,7 +131,7 @@ src/
    # Opțional: dacă lipsește URL, aplicația îl poate construi din project id
    VITE_SUPABASE_PROJECT_ID=YOUR_PROJECT_REF
 
-   VITE_SUPABASE_PUBLISHABLE_KEY=YOUR_SUPABASE_ANON_KEY
+   VITE_SUPABASE_PUBLISHABLE_KEY=YOUR_SUPABASE_PUBLISHABLE_KEY
 
    # Opțional (pentru scripturi/CLI, NU prefixa cu VITE_)
    SUPABASE_DB_URL=postgresql://postgres:<password>@db.YOUR_PROJECT_REF.supabase.co:5432/postgres
@@ -315,7 +315,7 @@ Setează următoarele variabile în platforma de hosting:
 1. Rulează `npm run check:supabase`.
 2. Verifică că:
    - `VITE_SUPABASE_URL` este de forma `https://<project_ref>.supabase.co`
-   - `VITE_SUPABASE_PUBLISHABLE_KEY` este anon key din același proiect
+   - `VITE_SUPABASE_PUBLISHABLE_KEY` este publishable key din același proiect (`sb_publishable_...` sau anon JWT legacy)
    - dacă folosești `SUPABASE_DB_URL`/`DATABASE_URL`, host-ul DB conține același `<project_ref>`
    - URL-ul proiectului rezolvă DNS și endpoint-ul `/auth/v1/health` răspunde
 3. Dacă folosești doar `VITE_SUPABASE_PROJECT_ID`, aplicația construiește automat URL-ul.
@@ -334,6 +334,6 @@ Proiect privat - toate drepturile rezervate.
 
 ---
 
-**Cum se rulează proiectul:** `npm install` → `cp .env.example .env` (completează cu Supabase URL și anon key) → `npm run dev`. Aplică migrațiile Supabase: `supabase db push`.
+**Cum se rulează proiectul:** `npm install` → `cp .env.example .env` (completează cu Supabase URL și publishable key) → `npm run dev`. Aplică migrațiile Supabase: `supabase db push`.
 
 **TODO-uri opționale rămase:** integrare Sentry pentru error logging; teste E2E Playwright (flux profesor adaugă notă / elev vede notă); trigger email la notă nouă/absență (backend); paginare pe toate listele mari.
