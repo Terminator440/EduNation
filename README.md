@@ -132,6 +132,10 @@ src/
    VITE_SUPABASE_PROJECT_ID=YOUR_PROJECT_REF
 
    VITE_SUPABASE_PUBLISHABLE_KEY=YOUR_SUPABASE_ANON_KEY
+
+   # Opțional (pentru scripturi/CLI, NU prefixa cu VITE_)
+   SUPABASE_DB_URL=postgresql://postgres:<password>@db.YOUR_PROJECT_REF.supabase.co:5432/postgres
+   DATABASE_URL=postgresql://postgres:<password>@db.YOUR_PROJECT_REF.supabase.co:5432/postgres
    
    # Opțional: cod pentru înregistrare staff
    VITE_STAFF_SIGNUP_CODE=CHANGE_ME_TO_A_LONG_RANDOM_STRING
@@ -312,6 +316,7 @@ Setează următoarele variabile în platforma de hosting:
 2. Verifică că:
    - `VITE_SUPABASE_URL` este de forma `https://<project_ref>.supabase.co`
    - `VITE_SUPABASE_PUBLISHABLE_KEY` este anon key din același proiect
+   - dacă folosești `SUPABASE_DB_URL`/`DATABASE_URL`, host-ul DB conține același `<project_ref>`
    - URL-ul proiectului rezolvă DNS și endpoint-ul `/auth/v1/health` răspunde
 3. Dacă folosești doar `VITE_SUPABASE_PROJECT_ID`, aplicația construiește automat URL-ul.
 

@@ -73,13 +73,15 @@ export const env = (() => {
   const configuredProjectId = parsed.data.VITE_SUPABASE_PROJECT_ID ?? null;
 
   if (configuredProjectId && urlProjectRef && configuredProjectId !== urlProjectRef) {
-    throw new Error(
+    // eslint-disable-next-line no-console
+    console.error(
       "Supabase config mismatch: VITE_SUPABASE_PROJECT_ID does not match VITE_SUPABASE_URL."
     );
   }
 
   if (urlProjectRef && keyProjectRef && urlProjectRef !== keyProjectRef) {
-    throw new Error(
+    // eslint-disable-next-line no-console
+    console.error(
       "Supabase config mismatch: VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY belong to different projects."
     );
   }

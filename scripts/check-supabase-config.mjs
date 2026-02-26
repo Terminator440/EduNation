@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { readFileSync } from "node:fs";
-import { resolve4 } from "node:dns/promises";
+import { resolve4, resolve6 } from "node:dns/promises";
 
 function parseDotEnv(rawContent) {
   const values = {};
@@ -53,12 +53,48 @@ function getProjectRefFromAnonKey(publishableKey) {
   }
 }
 
+function getProjectRefFromDbUrl(dbUrl) {
+  try {
+    const parsed = new URL(dbUrl);
+    const host = parsed.hostname.toLowerCase();
+
+    const directMatch = host.match(/^db\.([a-z0-9]{20})\.supabase\.co$/);
+    if (directMatch) return directMatch[1];
+
+    // Pooler URLs are region-based; project ref is encoded in username: postgres.<project_ref>
+    if (host.endsWith(".pooler.supabase.com")) {
+      const username = decodeURIComponent(parsed.username || "");
+      const userMatch = username.match(/^[^.]+\.([a-z0-9]{20})$/);
+      if (userMatch) return userMatch[1];
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+async function canResolveHost(host) {
+  try {
+    await resolve4(host);
+    return true;
+  } catch {
+    try {
+      await resolve6(host);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+}
+
 async function main() {
   const envRaw = readFileSync(new URL("../.env", import.meta.url), "utf8");
   const env = parseDotEnv(envRaw);
 
   const publishableKey = env.VITE_SUPABASE_PUBLISHABLE_KEY?.trim() ?? "";
   const configuredProjectId = env.VITE_SUPABASE_PROJECT_ID?.trim() ?? "";
+  const dbUrl = env.SUPABASE_DB_URL?.trim() || env.DATABASE_URL?.trim() || "";
   const supabaseUrl =
     env.VITE_SUPABASE_URL?.trim() ||
     (configuredProjectId ? `https://${configuredProjectId}.supabase.co` : "");
@@ -70,6 +106,8 @@ async function main() {
   }
   if (!publishableKey) {
     issues.push("Lipsește VITE_SUPABASE_PUBLISHABLE_KEY.");
+  } else if (publishableKey.includes("REPLACE_WITH_")) {
+    issues.push("VITE_SUPABASE_PUBLISHABLE_KEY este placeholder. Înlocuiește cu anon key real.");
   }
 
   if (issues.length > 0) {
@@ -88,11 +126,16 @@ async function main() {
 
   const urlProjectRef = getProjectRefFromUrl(supabaseUrl);
   const keyProjectRef = getProjectRefFromAnonKey(publishableKey);
+  const dbProjectRef = dbUrl ? getProjectRefFromDbUrl(dbUrl) : null;
 
   if (configuredProjectId && urlProjectRef && configuredProjectId !== urlProjectRef) {
     issues.push(
       `Project mismatch: VITE_SUPABASE_PROJECT_ID=${configuredProjectId} dar URL ref=${urlProjectRef}.`
     );
+  }
+
+  if (!keyProjectRef) {
+    issues.push("VITE_SUPABASE_PUBLISHABLE_KEY nu pare un JWT valid (anon key Supabase).");
   }
 
   if (urlProjectRef && keyProjectRef && urlProjectRef !== keyProjectRef) {
@@ -101,12 +144,27 @@ async function main() {
     );
   }
 
+  if (dbUrl && !dbProjectRef) {
+    issues.push("SUPABASE_DB_URL/DATABASE_URL nu conține un project_ref Supabase valid.");
+  }
+
+  if (dbProjectRef && configuredProjectId && dbProjectRef !== configuredProjectId) {
+    issues.push(
+      `Project mismatch: DB ref=${dbProjectRef} dar VITE_SUPABASE_PROJECT_ID=${configuredProjectId}.`
+    );
+  }
+
+  if (dbProjectRef && urlProjectRef && dbProjectRef !== urlProjectRef) {
+    issues.push(
+      `Project mismatch: DB ref=${dbProjectRef} dar URL ref=${urlProjectRef}.`
+    );
+  }
+
   if (parsedUrl) {
     const host = parsedUrl.hostname;
-    try {
-      await resolve4(host);
+    if (await canResolveHost(host)) {
       console.log(`DNS OK pentru host: ${host}`);
-    } catch {
+    } else {
       issues.push(
         `DNS resolution eșuat pentru ${host}. URL-ul proiectului Supabase pare invalid/dezactivat.`
       );
@@ -122,6 +180,19 @@ async function main() {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       issues.push(`Nu s-a putut accesa endpoint-ul de health pentru Auth: ${message}`);
+    }
+  }
+
+  if (dbUrl) {
+    try {
+      const dbHost = new URL(dbUrl).hostname;
+      if (await canResolveHost(dbHost)) {
+        console.log(`DNS OK pentru DB host: ${dbHost}`);
+      } else {
+        issues.push(`DNS resolution eșuat pentru DB host: ${dbHost}.`);
+      }
+    } catch {
+      issues.push("SUPABASE_DB_URL/DATABASE_URL invalid (nu poate fi parsat ca URL).");
     }
   }
 
