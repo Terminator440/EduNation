@@ -57,7 +57,7 @@ export function getLoginErrorMessage(err: unknown): string {
     lower.includes("fetch failed") ||
     lower.includes("network request failed")
   ) {
-    return "Nu ne putem conecta la server. Verificați conexiunea la internet și încercați din nou.";
+    return "Serviciul de autentificare nu răspunde momentan. Verificați conexiunea, apoi configurația Supabase (URL + cheie publică) dacă problema persistă.";
   }
   if (lower.includes("invalid login") || lower.includes("invalid_credentials")) {
     return "Email sau parolă incorectă. Verificați datele și încercați din nou.";

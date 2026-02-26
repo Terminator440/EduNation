@@ -71,6 +71,20 @@ const BOOTSTRAP_ADMIN_EMAILS =
     .map((s) => s.trim().toLowerCase())
     .filter(Boolean) ?? [];
 
+const isNetworkLikeError = (err: unknown): boolean => {
+  const message =
+    err instanceof Error ? err.message : typeof err === "string" ? err : "";
+  const lower = message.toLowerCase();
+  return (
+    lower.includes("networkerror when attempting to fetch resource") ||
+    lower.includes("failed to fetch") ||
+    lower.includes("fetch failed") ||
+    lower.includes("network request failed")
+  );
+};
+
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
 export interface Profile {
   id: string;
   full_name: string;
@@ -291,25 +305,37 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signIn = async (email: string, password: string) => {
     const normalizedEmail = email.trim().toLowerCase();
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: normalizedEmail,
-        password,
-      });
+    let lastError: Error | null = null;
 
-      if (error) {
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: normalizedEmail,
+          password,
+        });
+
+        if (error) throw error;
+
         import("@/lib/logAuth").then(({ logLoginEvent }) =>
-          logLoginEvent({ email: normalizedEmail, success: false }).catch(() => {})
+          logLoginEvent({ email: normalizedEmail, success: true, user_id: data.user?.id }).catch(() => {})
         );
-        throw error;
+        return { error: null };
+      } catch (error) {
+        lastError = error as Error;
+
+        if (!isNetworkLikeError(error) || attempt === 1) {
+          import("@/lib/logAuth").then(({ logLoginEvent }) =>
+            logLoginEvent({ email: normalizedEmail, success: false }).catch(() => {})
+          );
+          return { error: lastError };
+        }
+
+        // Mobile/unstable connections may fail first fetch; retry once.
+        await sleep(450 * (attempt + 1));
       }
-      import("@/lib/logAuth").then(({ logLoginEvent }) =>
-        logLoginEvent({ email: normalizedEmail, success: true, user_id: data.user?.id }).catch(() => {})
-      );
-      return { error: null };
-    } catch (error) {
-      return { error: error as Error };
     }
+
+    return { error: lastError };
   };
 
   const signOut = async () => {

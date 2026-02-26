@@ -13,6 +13,7 @@ import { createStudentOnSignup, createParentStudentRelation } from "@/features/a
 import { checkLoginRateLimit, recordLoginAttempt } from "@/lib/rate-limit";
 import { getDemoCredentials, type DemoRole } from "@/lib/demo";
 import { getLoginErrorMessage } from "@/lib/errors";
+import { env } from "@/lib/env";
 
 const routeMap: Record<AppRole, string> = {
   student: "/dashboard",
@@ -45,6 +46,29 @@ export default function Auth() {
   const [codeError, setCodeError] = useState<string | null>(null);
   const [demoRole, setDemoRole] = useState<DemoRole | "">("");
   const [loginError, setLoginError] = useState<string | null>(null);
+  const [authEndpointReachable, setAuthEndpointReachable] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 5000);
+    const healthUrl = `${env.VITE_SUPABASE_URL.replace(/\/+$/, "")}/auth/v1/health`;
+
+    fetch(healthUrl, { method: "GET", signal: controller.signal })
+      .then((response) => {
+        if (!cancelled) setAuthEndpointReachable(response.ok);
+      })
+      .catch(() => {
+        if (!cancelled) setAuthEndpointReachable(false);
+      })
+      .finally(() => window.clearTimeout(timeoutId));
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+      window.clearTimeout(timeoutId);
+    };
+  }, []);
 
   // Validare cod în timp real (Debounce)
   useEffect(() => {
@@ -313,6 +337,11 @@ export default function Auth() {
             {isLogin && loginError && (
               <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
                 {loginError}
+              </div>
+            )}
+            {isLogin && authEndpointReachable === false && !loginError && (
+              <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                Serviciul de autentificare nu răspunde. Dacă problema persistă, verificați configurația Supabase (URL + cheie publică).
               </div>
             )}
 
