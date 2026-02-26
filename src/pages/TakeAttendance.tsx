@@ -18,7 +18,6 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 import { Spinner } from "@/components/ui/spinner";
-import { supabase } from "@/integrations/supabase/client";
 import { getCurrentUserSchoolId } from "@/lib/supabase-helpers";
 import {
   fetchClassesByIds,

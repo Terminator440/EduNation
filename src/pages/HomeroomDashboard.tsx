@@ -356,11 +356,6 @@ const HomeroomDashboard = () => {
     }
 
     try {
-      type AttendanceUpdate = {
-        status: string;
-        excuse_reason: string | null;
-        excused_at: string;
-      };
       await motivateAbsences(
         selectedAbsences,
         motivateReason.trim() ? motivateReason.trim() : null

@@ -4,7 +4,6 @@ import Sidebar from "@/components/dashboard/Sidebar";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { addUserRole, removeUserRole } from "@/features/admin/services/user-management.service";
 import { Button } from "@/components/ui/button";

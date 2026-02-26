@@ -3,11 +3,6 @@
  * All DB access here; no direct supabase in UI.
  */
 import { supabase } from "@/integrations/supabase/client";
-import { getCurrentUserSchoolId } from "@/lib/supabase-helpers";
-import { logError } from "@/lib/logger";
-import { handleServiceError } from "@/lib/error-handler";
-import { AppError } from "@/lib/errors";
-import { toFriendlySupabaseError } from "@/utils/supabaseErrors";
 
 export type DirectorStats = {
   totalStudents: number;

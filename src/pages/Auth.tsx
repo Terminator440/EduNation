@@ -123,7 +123,14 @@ export default function Auth() {
           : resolvedFullName;
       const claimPhone = (claimResult.invited_phone && claimResult.invited_phone.trim()) || resolvedPhone;
       const rawStudentNum = claimResult.invited_student_number ?? invStudentNumber ?? null;
-      const claimStudentNumber = rawStudentNum != null ? String(rawStudentNum) : null;
+      const parsedStudentNumber =
+        rawStudentNum != null && String(rawStudentNum).trim() !== ""
+          ? Number(rawStudentNum)
+          : null;
+      const claimStudentNumber =
+        parsedStudentNumber != null && Number.isFinite(parsedStudentNumber)
+          ? parsedStudentNumber
+          : null;
 
       // 3. Update Profil: school_id, full_name, phone from invitation
       const profileUpdates: { school_id?: string; full_name?: string; phone?: string | null } = {};
@@ -139,17 +146,11 @@ export default function Auth() {
 
       // 4. Logica specifică rolului (Student/Parent)
       if (role === "student" && claimResult.class_id) {
-        type StudentInsert = {
-          user_id: string;
-          class_id: string;
-          full_name: string;
-          student_number: number | null;
-        };
         await createStudentOnSignup({
           user_id: authData.user.id,
           class_id: claimResult.class_id,
           full_name: claimFullName,
-          student_number: typeof claimStudentNumber === "number" ? claimStudentNumber : null,
+          student_number: claimStudentNumber,
           school_id: claimResult.school_id,
         });
       }

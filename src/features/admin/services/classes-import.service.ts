@@ -3,7 +3,6 @@
  * Extinde fluxul de import; nu duplică BulkImport.
  */
 import { supabase } from "@/integrations/supabase/client";
-import { getCurrentUserSchoolId } from "@/lib/supabase-helpers";
 import { handleServiceError } from "@/lib/error-handler";
 
 export type ClassImportRow = { rowIndex: number; name: string; errors: string[] };
