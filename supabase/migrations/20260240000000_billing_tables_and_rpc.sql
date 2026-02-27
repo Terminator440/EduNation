@@ -56,19 +56,19 @@ ALTER TABLE public.invoices ENABLE ROW LEVEL SECURITY;
 
 -- RLS: doar director/uat_admin/developer văd facturile și billing-ul
 CREATE POLICY "billing_select_admin" ON public.school_billing FOR SELECT
-  USING (public.get_user_school_id() = school_id OR public.has_role(auth.uid(), 'uat_admin'::public.app_role) OR public.has_role(auth.uid(), 'developer'::public.app_role));
+  USING (public.get_user_school_id() = school_id OR public.has_role((select auth.uid()), 'uat_admin'::public.app_role) OR public.has_role((select auth.uid()), 'developer'::public.app_role));
 CREATE POLICY "subscriptions_select_admin" ON public.subscriptions FOR SELECT
-  USING (public.get_user_school_id() = school_id OR public.has_role(auth.uid(), 'uat_admin'::public.app_role) OR public.has_role(auth.uid(), 'developer'::public.app_role));
+  USING (public.get_user_school_id() = school_id OR public.has_role((select auth.uid()), 'uat_admin'::public.app_role) OR public.has_role((select auth.uid()), 'developer'::public.app_role));
 CREATE POLICY "invoices_select_admin" ON public.invoices FOR SELECT
-  USING (public.get_user_school_id() = school_id OR public.has_role(auth.uid(), 'uat_admin'::public.app_role) OR public.has_role(auth.uid(), 'developer'::public.app_role));
+  USING (public.get_user_school_id() = school_id OR public.has_role((select auth.uid()), 'uat_admin'::public.app_role) OR public.has_role((select auth.uid()), 'developer'::public.app_role));
 
 -- Super admin poate gestiona orice
 CREATE POLICY "billing_all_super_admin" ON public.school_billing FOR ALL
-  USING (public.has_role(auth.uid(), 'uat_admin'::public.app_role) OR public.has_role(auth.uid(), 'developer'::public.app_role));
+  USING (public.has_role((select auth.uid()), 'uat_admin'::public.app_role) OR public.has_role((select auth.uid()), 'developer'::public.app_role));
 CREATE POLICY "subscriptions_all_super_admin" ON public.subscriptions FOR ALL
-  USING (public.has_role(auth.uid(), 'uat_admin'::public.app_role) OR public.has_role(auth.uid(), 'developer'::public.app_role));
+  USING (public.has_role((select auth.uid()), 'uat_admin'::public.app_role) OR public.has_role((select auth.uid()), 'developer'::public.app_role));
 CREATE POLICY "invoices_all_super_admin" ON public.invoices FOR ALL
-  USING (public.has_role(auth.uid(), 'uat_admin'::public.app_role) OR public.has_role(auth.uid(), 'developer'::public.app_role));
+  USING (public.has_role((select auth.uid()), 'uat_admin'::public.app_role) OR public.has_role((select auth.uid()), 'developer'::public.app_role));
 
 -- Numără elevii activi ai școlii (is_active = true sau NULL; folosim school_id din students)
 CREATE OR REPLACE FUNCTION public.count_active_students_for_school(p_school_id UUID)
@@ -96,10 +96,10 @@ DECLARE
   v_total NUMERIC(12,2);
   v_invoice_id UUID;
 BEGIN
-  IF auth.uid() IS NULL THEN
+  IF (select auth.uid()) IS NULL THEN
     RAISE EXCEPTION 'Not authenticated';
   END IF;
-  IF NOT (public.has_role(auth.uid(), 'uat_admin'::public.app_role) OR public.has_role(auth.uid(), 'developer'::public.app_role)) THEN
+  IF NOT (public.has_role((select auth.uid()), 'uat_admin'::public.app_role) OR public.has_role((select auth.uid()), 'developer'::public.app_role)) THEN
     RAISE EXCEPTION 'Only super admin can generate invoices';
   END IF;
 
@@ -138,10 +138,10 @@ DECLARE
   v_school_id UUID;
   v_year INTEGER;
 BEGIN
-  IF auth.uid() IS NULL THEN
+  IF (select auth.uid()) IS NULL THEN
     RAISE EXCEPTION 'Not authenticated';
   END IF;
-  IF NOT (public.has_role(auth.uid(), 'uat_admin'::public.app_role) OR public.has_role(auth.uid(), 'developer'::public.app_role)) THEN
+  IF NOT (public.has_role((select auth.uid()), 'uat_admin'::public.app_role) OR public.has_role((select auth.uid()), 'developer'::public.app_role)) THEN
     RAISE EXCEPTION 'Only super admin can mark invoices paid';
   END IF;
 

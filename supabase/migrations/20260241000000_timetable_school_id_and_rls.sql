@@ -22,9 +22,9 @@ CREATE POLICY "timetable_select_school_scope"
   USING (
     school_id IS NOT NULL
     AND (
-      school_id IN (SELECT school_id FROM public.profiles WHERE id = auth.uid() AND school_id IS NOT NULL)
-      OR has_role(auth.uid(), 'uat_admin'::app_role)
-      OR has_role(auth.uid(), 'developer'::app_role)
+      school_id IN (SELECT school_id FROM public.profiles WHERE id = (select auth.uid()) AND school_id IS NOT NULL)
+      OR has_role((select auth.uid()), 'uat_admin'::app_role)
+      OR has_role((select auth.uid()), 'developer'::app_role)
     )
   );
 
@@ -32,7 +32,7 @@ CREATE POLICY "timetable_select_school_scope"
 CREATE POLICY "timetable_select_legacy_developer"
   ON public.timetable_entries
   FOR SELECT
-  USING (school_id IS NULL AND has_role(auth.uid(), 'developer'::app_role));
+  USING (school_id IS NULL AND has_role((select auth.uid()), 'developer'::app_role));
 
 -- Staff manage only their school's entries
 DROP POLICY IF EXISTS "Staff can manage all timetable entries" ON public.timetable_entries;
@@ -40,14 +40,14 @@ CREATE POLICY "timetable_staff_manage_school"
   ON public.timetable_entries
   FOR ALL
   USING (
-    (has_role(auth.uid(), 'secretariat'::app_role) OR has_role(auth.uid(), 'director'::app_role))
+    (has_role((select auth.uid()), 'secretariat'::app_role) OR has_role((select auth.uid()), 'director'::app_role))
     AND (
-      school_id IN (SELECT school_id FROM public.profiles WHERE id = auth.uid())
-      OR has_role(auth.uid(), 'uat_admin'::app_role)
+      school_id IN (SELECT school_id FROM public.profiles WHERE id = (select auth.uid()))
+      OR has_role((select auth.uid()), 'uat_admin'::app_role)
     )
   );
 
 -- Teachers manage own entries (unchanged but ensure school scope in app)
--- "Teachers can manage own timetable entries" remains: teacher_id = auth.uid()
+-- "Teachers can manage own timetable entries" remains: teacher_id = (select auth.uid())
 
 COMMENT ON COLUMN public.timetable_entries.school_id IS 'School scope for multi-tenant RLS; backfilled from class.';

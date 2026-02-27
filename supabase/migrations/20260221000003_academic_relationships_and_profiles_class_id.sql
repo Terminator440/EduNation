@@ -77,8 +77,8 @@ CREATE POLICY "Users can view class_subjects from their school" ON public.class_
   FOR SELECT
   USING (
     school_id = public.get_user_school_id() OR
-    public.has_role(auth.uid(), 'uat_admin'::app_role) OR
-    public.has_role(auth.uid(), 'developer'::app_role)
+    public.has_role((select auth.uid()), 'uat_admin'::app_role) OR
+    public.has_role((select auth.uid()), 'developer'::app_role)
   );
 
 DROP POLICY IF EXISTS "Staff can manage class_subjects" ON public.class_subjects;
@@ -88,23 +88,23 @@ CREATE POLICY "Staff can manage class_subjects" ON public.class_subjects
     (
       school_id = public.get_user_school_id() AND
       (
-        public.has_role(auth.uid(), 'director'::app_role) OR
-        public.has_role(auth.uid(), 'secretariat'::app_role)
+        public.has_role((select auth.uid()), 'director'::app_role) OR
+        public.has_role((select auth.uid()), 'secretariat'::app_role)
       )
     ) OR
-    public.has_role(auth.uid(), 'uat_admin'::app_role) OR
-    public.has_role(auth.uid(), 'developer'::app_role)
+    public.has_role((select auth.uid()), 'uat_admin'::app_role) OR
+    public.has_role((select auth.uid()), 'developer'::app_role)
   )
   WITH CHECK (
     (
       school_id = public.get_user_school_id() AND
       (
-        public.has_role(auth.uid(), 'director'::app_role) OR
-        public.has_role(auth.uid(), 'secretariat'::app_role)
+        public.has_role((select auth.uid()), 'director'::app_role) OR
+        public.has_role((select auth.uid()), 'secretariat'::app_role)
       )
     ) OR
-    public.has_role(auth.uid(), 'uat_admin'::app_role) OR
-    public.has_role(auth.uid(), 'developer'::app_role)
+    public.has_role((select auth.uid()), 'uat_admin'::app_role) OR
+    public.has_role((select auth.uid()), 'developer'::app_role)
   );
 
 -- ============================================================================
@@ -201,33 +201,33 @@ CREATE POLICY "Students can view own class" ON public.classes
   USING (
     -- Student can see their own class (via profiles.class_id)
     id IN (
-      SELECT class_id FROM public.profiles WHERE id = auth.uid() AND class_id IS NOT NULL
+      SELECT class_id FROM public.profiles WHERE id = (select auth.uid()) AND class_id IS NOT NULL
     )
     OR
     -- Student can see their class via students table
     id IN (
-      SELECT class_id FROM public.students WHERE user_id = auth.uid()
+      SELECT class_id FROM public.students WHERE user_id = (select auth.uid())
     )
     OR
     -- Teachers can see classes where they teach subjects
     id IN (
       SELECT DISTINCT cs.class_id
       FROM public.class_subjects cs
-      WHERE cs.teacher_id = auth.uid()
+      WHERE cs.teacher_id = (select auth.uid())
     )
     OR
     -- Staff can see all classes from their school
     (
       school_id = public.get_user_school_id() AND
       (
-        public.has_role(auth.uid(), 'director'::app_role) OR
-        public.has_role(auth.uid(), 'secretariat'::app_role) OR
-        public.has_role(auth.uid(), 'homeroom_teacher'::app_role)
+        public.has_role((select auth.uid()), 'director'::app_role) OR
+        public.has_role((select auth.uid()), 'secretariat'::app_role) OR
+        public.has_role((select auth.uid()), 'homeroom_teacher'::app_role)
       )
     )
     OR
-    public.has_role(auth.uid(), 'uat_admin'::app_role) OR
-    public.has_role(auth.uid(), 'developer'::app_role)
+    public.has_role((select auth.uid()), 'uat_admin'::app_role) OR
+    public.has_role((select auth.uid()), 'developer'::app_role)
   );
 
 -- Ensure subjects RLS policies allow students to see only their subjects
@@ -238,33 +238,33 @@ CREATE POLICY "Students can view own subjects" ON public.subjects
   USING (
     -- Student can see subjects from their class
     class_id IN (
-      SELECT class_id FROM public.profiles WHERE id = auth.uid() AND class_id IS NOT NULL
+      SELECT class_id FROM public.profiles WHERE id = (select auth.uid()) AND class_id IS NOT NULL
     )
     OR
     class_id IN (
-      SELECT class_id FROM public.students WHERE user_id = auth.uid()
+      SELECT class_id FROM public.students WHERE user_id = (select auth.uid())
     )
     OR
     -- Teachers can see subjects they teach
     id IN (
       SELECT DISTINCT cs.subject_id
       FROM public.class_subjects cs
-      WHERE cs.teacher_id = auth.uid()
+      WHERE cs.teacher_id = (select auth.uid())
     )
     OR
     -- Staff can see all subjects from their school
     (
       school_id = public.get_user_school_id() AND
       (
-        public.has_role(auth.uid(), 'director'::app_role) OR
-        public.has_role(auth.uid(), 'secretariat'::app_role) OR
-        public.has_role(auth.uid(), 'teacher'::app_role) OR
-        public.has_role(auth.uid(), 'homeroom_teacher'::app_role)
+        public.has_role((select auth.uid()), 'director'::app_role) OR
+        public.has_role((select auth.uid()), 'secretariat'::app_role) OR
+        public.has_role((select auth.uid()), 'teacher'::app_role) OR
+        public.has_role((select auth.uid()), 'homeroom_teacher'::app_role)
       )
     )
     OR
-    public.has_role(auth.uid(), 'uat_admin'::app_role) OR
-    public.has_role(auth.uid(), 'developer'::app_role)
+    public.has_role((select auth.uid()), 'uat_admin'::app_role) OR
+    public.has_role((select auth.uid()), 'developer'::app_role)
   );
 
 COMMIT;

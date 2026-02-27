@@ -7,7 +7,7 @@ DROP POLICY IF EXISTS "Users can view own profile" ON public.profiles;
 CREATE POLICY "Users can view own profile"
   ON public.profiles
   FOR SELECT
-  USING (auth.uid() IS NOT NULL AND id = auth.uid());
+  USING ((select auth.uid()) IS NOT NULL AND id = (select auth.uid()));
 
 -- Helper: role rank for comparison (higher = more privilege)
 -- student=1, parent=1, teacher=2, homeroom_teacher=2, secretariat=3, director=4, uat_admin=4, developer=5
@@ -36,20 +36,20 @@ CREATE POLICY "Profiles: update if higher or equal role"
   ON public.profiles
   FOR UPDATE
   USING (
-    auth.uid() IS NOT NULL
+    (select auth.uid()) IS NOT NULL
     AND (
       -- Editing own profile: staff (teacher+) can update
-      (id = auth.uid() AND (
+      (id = (select auth.uid()) AND (
         public.profile_role_rank(COALESCE(
-          (SELECT ur.role FROM public.user_roles ur WHERE ur.user_id = auth.uid() LIMIT 1),
+          (SELECT ur.role FROM public.user_roles ur WHERE ur.user_id = (select auth.uid()) LIMIT 1),
           'student'::public.app_role
         )) >= 2
       ))
       OR
       -- Editing another user: director/uat_admin only
-      (id != auth.uid() AND (
-        has_role(auth.uid(), 'director'::public.app_role)
-        OR has_role(auth.uid(), 'uat_admin'::public.app_role)
+      (id != (select auth.uid()) AND (
+        has_role((select auth.uid()), 'director'::public.app_role)
+        OR has_role((select auth.uid()), 'uat_admin'::public.app_role)
       ))
     )
   );

@@ -1,7 +1,7 @@
 -- =============================================================================
 -- IMPLEMENTĂRI OBLIGATORII ÎN BACKEND
 --
--- 1. Eliminare USING (true) – politici stricte cu auth.uid() și school_id
+-- 1. Eliminare USING (true) – politici stricte cu (select auth.uid()) și school_id
 -- 2. Prevenire escaladare roluri – user nu modifică propriul rol, staff nu creează admin
 -- 3. Constrângeri și indexuri suplimentare
 -- 4. Invitații – policy single-use, verificare school_id
@@ -23,12 +23,12 @@ DROP POLICY IF EXISTS "schools_select_all" ON public.schools;
 CREATE POLICY "schools_select_auth_or_own" ON public.schools
   FOR SELECT
   USING (
-    auth.uid() IS NOT NULL
+    (select auth.uid()) IS NOT NULL
     AND (
       -- Utilizator văzută propria școală (din profiles)
-      id = (SELECT school_id FROM public.profiles WHERE id = auth.uid())
-      OR public.has_role(auth.uid(), 'uat_admin'::public.app_role)
-      OR public.has_role(auth.uid(), 'developer'::public.app_role)
+      id = (SELECT school_id FROM public.profiles WHERE id = (select auth.uid()))
+      OR public.has_role((select auth.uid()), 'uat_admin'::public.app_role)
+      OR public.has_role((select auth.uid()), 'developer'::public.app_role)
     )
   );
 
@@ -37,12 +37,12 @@ DROP POLICY IF EXISTS "roles_select_all" ON public.roles;
 CREATE POLICY "roles_select_restricted" ON public.roles
   FOR SELECT
   USING (
-    auth.uid() IS NOT NULL
+    (select auth.uid()) IS NOT NULL
     AND (
-      public.has_role(auth.uid(), 'director'::public.app_role)
-      OR public.has_role(auth.uid(), 'secretariat'::public.app_role)
-      OR public.has_role(auth.uid(), 'uat_admin'::public.app_role)
-      OR public.has_role(auth.uid(), 'developer'::public.app_role)
+      public.has_role((select auth.uid()), 'director'::public.app_role)
+      OR public.has_role((select auth.uid()), 'secretariat'::public.app_role)
+      OR public.has_role((select auth.uid()), 'uat_admin'::public.app_role)
+      OR public.has_role((select auth.uid()), 'developer'::public.app_role)
     )
   );
 
@@ -51,7 +51,7 @@ DROP POLICY IF EXISTS "features_select_authenticated" ON public.features;
 DROP POLICY IF EXISTS "features_select" ON public.features;
 CREATE POLICY "features_select_authenticated" ON public.features
   FOR SELECT
-  USING (auth.uid() IS NOT NULL);
+  USING ((select auth.uid()) IS NOT NULL);
 
 -- =============================================================================
 -- 2. PREVENIRE ESCALADARE ROLURI – user_roles
@@ -69,15 +69,15 @@ DROP POLICY IF EXISTS "Developers can view all user_roles" ON public.user_roles;
 CREATE POLICY "user_roles_select_strict" ON public.user_roles
   FOR SELECT
   USING (
-    auth.uid() IS NOT NULL
+    (select auth.uid()) IS NOT NULL
     AND (
       -- Director/secretariat: doar utilizatori din aceeași școală
       (
-        (public.has_role(auth.uid(), 'director'::public.app_role) OR public.has_role(auth.uid(), 'secretariat'::public.app_role))
+        (public.has_role((select auth.uid()), 'director'::public.app_role) OR public.has_role((select auth.uid()), 'secretariat'::public.app_role))
         AND user_id IN (SELECT id FROM public.profiles WHERE school_id = public.get_user_school_id())
       )
-      OR public.has_role(auth.uid(), 'uat_admin'::public.app_role)
-      OR public.has_role(auth.uid(), 'developer'::public.app_role)
+      OR public.has_role((select auth.uid()), 'uat_admin'::public.app_role)
+      OR public.has_role((select auth.uid()), 'developer'::public.app_role)
     )
   );
 
@@ -87,15 +87,15 @@ CREATE POLICY "user_roles_select_strict" ON public.user_roles
 CREATE POLICY "user_roles_insert_no_escalation" ON public.user_roles
   FOR INSERT
   WITH CHECK (
-    auth.uid() IS NOT NULL
+    (select auth.uid()) IS NOT NULL
     AND (
       -- Alt user: staff/admin conform regulilor
-      (user_id != auth.uid()
+      (user_id != (select auth.uid())
         AND (
-          (public.has_role(auth.uid(), 'uat_admin'::public.app_role) OR public.has_role(auth.uid(), 'developer'::public.app_role))
+          (public.has_role((select auth.uid()), 'uat_admin'::public.app_role) OR public.has_role((select auth.uid()), 'developer'::public.app_role))
           OR
           (
-            (public.has_role(auth.uid(), 'director'::public.app_role) OR public.has_role(auth.uid(), 'secretariat'::public.app_role))
+            (public.has_role((select auth.uid()), 'director'::public.app_role) OR public.has_role((select auth.uid()), 'secretariat'::public.app_role))
             AND role NOT IN ('uat_admin'::public.app_role, 'developer'::public.app_role)
             AND user_id IN (SELECT id FROM public.profiles WHERE school_id = public.get_user_school_id())
           )
@@ -103,9 +103,9 @@ CREATE POLICY "user_roles_insert_no_escalation" ON public.user_roles
       )
       OR
       -- Propriul rol: doar dacă 0 roluri și doar roluri non-admin (claim invitație)
-      (user_id = auth.uid()
+      (user_id = (select auth.uid())
         AND role NOT IN ('uat_admin'::public.app_role, 'developer'::public.app_role)
-        AND NOT EXISTS (SELECT 1 FROM public.user_roles ur WHERE ur.user_id = auth.uid()))
+        AND NOT EXISTS (SELECT 1 FROM public.user_roles ur WHERE ur.user_id = (select auth.uid())))
     )
   );
 
@@ -113,26 +113,26 @@ CREATE POLICY "user_roles_insert_no_escalation" ON public.user_roles
 CREATE POLICY "user_roles_update_no_escalation" ON public.user_roles
   FOR UPDATE
   USING (
-    auth.uid() IS NOT NULL
-    AND user_id != auth.uid()
+    (select auth.uid()) IS NOT NULL
+    AND user_id != (select auth.uid())
     AND (
-      (public.has_role(auth.uid(), 'uat_admin'::public.app_role) OR public.has_role(auth.uid(), 'developer'::public.app_role))
+      (public.has_role((select auth.uid()), 'uat_admin'::public.app_role) OR public.has_role((select auth.uid()), 'developer'::public.app_role))
       OR
       (
-        (public.has_role(auth.uid(), 'director'::public.app_role) OR public.has_role(auth.uid(), 'secretariat'::public.app_role))
+        (public.has_role((select auth.uid()), 'director'::public.app_role) OR public.has_role((select auth.uid()), 'secretariat'::public.app_role))
         AND role NOT IN ('uat_admin'::public.app_role, 'developer'::public.app_role)
         AND user_id IN (SELECT id FROM public.profiles WHERE school_id = public.get_user_school_id())
       )
     )
   )
   WITH CHECK (
-    auth.uid() IS NOT NULL
-    AND user_id != auth.uid()
+    (select auth.uid()) IS NOT NULL
+    AND user_id != (select auth.uid())
     AND (
-      (public.has_role(auth.uid(), 'uat_admin'::public.app_role) OR public.has_role(auth.uid(), 'developer'::public.app_role))
+      (public.has_role((select auth.uid()), 'uat_admin'::public.app_role) OR public.has_role((select auth.uid()), 'developer'::public.app_role))
       OR
       (
-        (public.has_role(auth.uid(), 'director'::public.app_role) OR public.has_role(auth.uid(), 'secretariat'::public.app_role))
+        (public.has_role((select auth.uid()), 'director'::public.app_role) OR public.has_role((select auth.uid()), 'secretariat'::public.app_role))
         AND role NOT IN ('uat_admin'::public.app_role, 'developer'::public.app_role)
       )
     )
@@ -142,13 +142,13 @@ CREATE POLICY "user_roles_update_no_escalation" ON public.user_roles
 CREATE POLICY "user_roles_delete_no_escalation" ON public.user_roles
   FOR DELETE
   USING (
-    auth.uid() IS NOT NULL
-    AND user_id != auth.uid()
+    (select auth.uid()) IS NOT NULL
+    AND user_id != (select auth.uid())
     AND (
-      (public.has_role(auth.uid(), 'uat_admin'::public.app_role) OR public.has_role(auth.uid(), 'developer'::public.app_role))
+      (public.has_role((select auth.uid()), 'uat_admin'::public.app_role) OR public.has_role((select auth.uid()), 'developer'::public.app_role))
       OR
       (
-        (public.has_role(auth.uid(), 'director'::public.app_role) OR public.has_role(auth.uid(), 'secretariat'::public.app_role))
+        (public.has_role((select auth.uid()), 'director'::public.app_role) OR public.has_role((select auth.uid()), 'secretariat'::public.app_role))
         AND user_id IN (SELECT id FROM public.profiles WHERE school_id = public.get_user_school_id())
       )
     )
@@ -236,7 +236,7 @@ DECLARE
   v_user_name TEXT;
 BEGIN
   v_action := TG_OP;
-  v_user_name := COALESCE((SELECT full_name FROM public.profiles WHERE id = auth.uid()), 'system');
+  v_user_name := COALESCE((SELECT full_name FROM public.profiles WHERE id = (select auth.uid())), 'system');
 
   IF TG_OP = 'DELETE' THEN
     v_old_data := to_jsonb(OLD);
@@ -258,9 +258,9 @@ BEGIN
   IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'audit_logs') THEN
     INSERT INTO public.audit_logs (user_id, user_name, active_role, action, entity_type, entity_id, old_data, new_data, school_id)
     VALUES (
-      auth.uid(),
+      (select auth.uid()),
       v_user_name,
-      COALESCE((SELECT active_role FROM public.profiles WHERE id = auth.uid() LIMIT 1), 'student'::public.app_role),
+      COALESCE((SELECT active_role FROM public.profiles WHERE id = (select auth.uid()) LIMIT 1), 'student'::public.app_role),
       v_action,
       v_entity_type,
       v_entity_id,
@@ -310,7 +310,7 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
-  v_uid UUID := auth.uid();
+  v_uid UUID := (select auth.uid());
   v_email TEXT;
   v_bootstrap_emails TEXT[] := ARRAY[
     'admin@eduro.local',

@@ -44,7 +44,7 @@ CREATE POLICY "Students can view own final grades" ON public.final_grades
       SELECT 1
       FROM public.students s
       WHERE s.id = final_grades.student_id
-        AND s.user_id = auth.uid()
+        AND s.user_id = (select auth.uid())
         AND s.user_id IS NOT NULL
         AND s.school_id = public.get_user_school_id()
     )
@@ -59,7 +59,7 @@ CREATE POLICY "Parents can view children final grades" ON public.final_grades
       FROM public.parent_student_relations psr
       JOIN public.students s ON s.id = psr.student_id
       WHERE psr.student_id = final_grades.student_id
-        AND psr.parent_user_id = auth.uid()
+        AND psr.parent_user_id = (select auth.uid())
         AND s.school_id = public.get_user_school_id()
     )
   );
@@ -74,7 +74,7 @@ CREATE POLICY "Teachers can view final grades for assigned classes" ON public.fi
       JOIN public.students s ON s.class_id = cs.class_id
       WHERE cs.subject_id = final_grades.subject_id
         AND s.id = final_grades.student_id
-        AND cs.teacher_id = auth.uid()
+        AND cs.teacher_id = (select auth.uid())
         AND cs.school_id = public.get_user_school_id()
         AND s.school_id = public.get_user_school_id()
     )
@@ -85,7 +85,7 @@ CREATE POLICY "Teachers can view final grades for assigned classes" ON public.fi
       JOIN public.students s ON s.class_id = sub.class_id
       WHERE sub.id = final_grades.subject_id
         AND s.id = final_grades.student_id
-        AND sub.teacher_id = auth.uid()
+        AND sub.teacher_id = (select auth.uid())
         AND sub.school_id = public.get_user_school_id()
         AND s.school_id = public.get_user_school_id()
     )
@@ -98,13 +98,13 @@ CREATE POLICY "Staff can view final grades from school" ON public.final_grades
     (
       school_id = public.get_user_school_id() AND
       (
-        public.has_role(auth.uid(), 'director'::app_role) OR
-        public.has_role(auth.uid(), 'secretariat'::app_role)
+        public.has_role((select auth.uid()), 'director'::app_role) OR
+        public.has_role((select auth.uid()), 'secretariat'::app_role)
       )
     )
     OR
-    public.has_role(auth.uid(), 'uat_admin'::app_role) OR
-    public.has_role(auth.uid(), 'developer'::app_role)
+    public.has_role((select auth.uid()), 'uat_admin'::app_role) OR
+    public.has_role((select auth.uid()), 'developer'::app_role)
   );
 
 -- RLS: Only directors/secretariat can insert final grades (via RPC)
@@ -114,13 +114,13 @@ CREATE POLICY "Staff can insert final grades" ON public.final_grades
     (
       school_id = public.get_user_school_id() AND
       (
-        public.has_role(auth.uid(), 'director'::app_role) OR
-        public.has_role(auth.uid(), 'secretariat'::app_role)
+        public.has_role((select auth.uid()), 'director'::app_role) OR
+        public.has_role((select auth.uid()), 'secretariat'::app_role)
       )
     )
     OR
-    public.has_role(auth.uid(), 'uat_admin'::app_role) OR
-    public.has_role(auth.uid(), 'developer'::app_role)
+    public.has_role((select auth.uid()), 'uat_admin'::app_role) OR
+    public.has_role((select auth.uid()), 'developer'::app_role)
   );
 
 -- Trigger to update updated_at
@@ -243,7 +243,7 @@ DECLARE
   v_final_grade INTEGER;
 BEGIN
   -- Get current user
-  v_user_id := auth.uid();
+  v_user_id := (select auth.uid());
   
   -- Verify user has permission (director or secretariat from the school)
   IF NOT (

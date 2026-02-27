@@ -28,7 +28,7 @@ BEGIN
     RETURN jsonb_build_object('success', false, 'error', 'Clasă invalidă', 'count', 0);
   END IF;
 
-  v_teacher_id := auth.uid();
+  v_teacher_id := (select auth.uid());
   IF NOT EXISTS (
     SELECT 1 FROM teacher_assignments
     WHERE teacher_id = v_teacher_id AND class_id = p_class_id AND subject_id = p_subject_id AND school_id = v_school_id

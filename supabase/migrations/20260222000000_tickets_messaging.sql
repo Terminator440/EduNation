@@ -37,12 +37,12 @@ ALTER TABLE public.tickets ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Parents can create tickets for their children"
   ON public.tickets FOR INSERT
   WITH CHECK (
-    auth.uid() = from_user_id
+    (select auth.uid()) = from_user_id
     AND school_id = public.get_user_school_id()
     AND EXISTS (
       SELECT 1 FROM public.parent_student_relations psr
       WHERE psr.student_id = tickets.student_id
-        AND psr.parent_user_id = auth.uid()
+        AND psr.parent_user_id = (select auth.uid())
     )
   );
 
@@ -50,7 +50,7 @@ CREATE POLICY "Parents can create tickets for their children"
 CREATE POLICY "Parents can view their sent tickets"
   ON public.tickets FOR SELECT
   USING (
-    from_user_id = auth.uid()
+    from_user_id = (select auth.uid())
     AND school_id = public.get_user_school_id()
   );
 
@@ -58,15 +58,15 @@ CREATE POLICY "Parents can view their sent tickets"
 CREATE POLICY "Teachers can view tickets sent to them"
   ON public.tickets FOR SELECT
   USING (
-    to_user_id = auth.uid()
+    to_user_id = (select auth.uid())
     AND school_id = public.get_user_school_id()
   );
 
 -- Teachers: can update only to set read_at (mark as read)
 CREATE POLICY "Teachers can update tickets sent to them (mark read)"
   ON public.tickets FOR UPDATE
-  USING (to_user_id = auth.uid() AND school_id = public.get_user_school_id())
-  WITH CHECK (to_user_id = auth.uid());
+  USING (to_user_id = (select auth.uid()) AND school_id = public.get_user_school_id())
+  WITH CHECK (to_user_id = (select auth.uid()));
 
 -- Staff/admin: can view all tickets of their school (optional, for support)
 CREATE POLICY "Staff can view all school tickets"
@@ -74,8 +74,8 @@ CREATE POLICY "Staff can view all school tickets"
   USING (
     school_id = public.get_user_school_id()
     AND (
-      public.has_role(auth.uid(), 'director'::app_role)
-      OR public.has_role(auth.uid(), 'secretariat'::app_role)
+      public.has_role((select auth.uid()), 'director'::app_role)
+      OR public.has_role((select auth.uid()), 'secretariat'::app_role)
     )
   );
 

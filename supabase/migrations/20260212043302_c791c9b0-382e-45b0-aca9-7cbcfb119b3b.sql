@@ -21,7 +21,7 @@ DROP POLICY IF EXISTS "Teachers can view own register entries" ON public.teacher
 CREATE POLICY "Teachers can view own register entries"
 ON public.teacher_register
 FOR SELECT
-USING (signed_by = auth.uid());
+USING (signed_by = (select auth.uid()));
 
 -- Teachers can insert their own register entries
 DROP POLICY IF EXISTS "Teachers can sign register" ON public.teacher_register;
@@ -29,10 +29,10 @@ CREATE POLICY "Teachers can sign register"
 ON public.teacher_register
 FOR INSERT
 WITH CHECK (
-  signed_by = auth.uid()
+  signed_by = (select auth.uid())
   AND EXISTS (
     SELECT 1 FROM public.timetable_entries te
-    WHERE te.id = timetable_entry_id AND te.teacher_id = auth.uid()
+    WHERE te.id = timetable_entry_id AND te.teacher_id = (select auth.uid())
   )
 );
 
@@ -42,8 +42,8 @@ CREATE POLICY "Directors can view all register entries"
 ON public.teacher_register
 FOR SELECT
 USING (
-  has_role(auth.uid(), 'director'::app_role) OR 
-  has_role(auth.uid(), 'secretariat'::app_role)
+  has_role((select auth.uid()), 'director'::app_role) OR 
+  has_role((select auth.uid()), 'secretariat'::app_role)
 );
 
 -- Developers can view all register entries
@@ -51,7 +51,7 @@ DROP POLICY IF EXISTS "Developers can view all register entries" ON public.teach
 CREATE POLICY "Developers can view all register entries"
 ON public.teacher_register
 FOR SELECT
-USING (has_role(auth.uid(), 'developer'::app_role));
+USING (has_role((select auth.uid()), 'developer'::app_role));
 
 -- Add unique constraint on attendance for upsert support
 DO $$

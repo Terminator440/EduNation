@@ -15,12 +15,12 @@ CREATE POLICY "Only uat_admin and developer can manage app_settings"
   ON public.app_settings
   FOR ALL
   USING (
-    public.has_role(auth.uid(), 'uat_admin'::public.app_role) OR
-    public.has_role(auth.uid(), 'developer'::public.app_role)
+    public.has_role((select auth.uid()), 'uat_admin'::public.app_role) OR
+    public.has_role((select auth.uid()), 'developer'::public.app_role)
   )
   WITH CHECK (
-    public.has_role(auth.uid(), 'uat_admin'::public.app_role) OR
-    public.has_role(auth.uid(), 'developer'::public.app_role)
+    public.has_role((select auth.uid()), 'uat_admin'::public.app_role) OR
+    public.has_role((select auth.uid()), 'developer'::public.app_role)
   );
 
 -- Seed default: maintenance_mode off
@@ -36,7 +36,7 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
-  v_uid UUID := auth.uid();
+  v_uid UUID := (select auth.uid());
   v_val BOOLEAN;
 BEGIN
   IF v_uid IS NULL THEN
@@ -66,7 +66,7 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
-  v_uid UUID := auth.uid();
+  v_uid UUID := (select auth.uid());
 BEGIN
   IF v_uid IS NULL THEN
     RAISE EXCEPTION 'Unauthorized';
@@ -94,7 +94,7 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
-  v_uid UUID := auth.uid();
+  v_uid UUID := (select auth.uid());
 BEGIN
   IF v_uid IS NULL THEN
     RETURN;

@@ -77,16 +77,16 @@ ALTER TABLE public.grade_change_requests ENABLE ROW LEVEL SECURITY;
 -- Requester can read own requests
 DROP POLICY IF EXISTS "Users can view own grade change requests" ON public.grade_change_requests;
 CREATE POLICY "Users can view own grade change requests" ON public.grade_change_requests
-  FOR SELECT USING (requested_by = auth.uid());
+  FOR SELECT USING (requested_by = (select auth.uid()));
 
 -- Teachers can create requests for grades they created
 DROP POLICY IF EXISTS "Teachers can create grade change requests" ON public.grade_change_requests;
 CREATE POLICY "Teachers can create grade change requests" ON public.grade_change_requests
   FOR INSERT WITH CHECK (
-    requested_by = auth.uid()
+    requested_by = (select auth.uid())
     AND EXISTS (
       SELECT 1 FROM public.grades g
-      WHERE g.id = grade_id AND g.teacher_id = auth.uid()
+      WHERE g.id = grade_id AND g.teacher_id = (select auth.uid())
     )
   );
 
@@ -94,9 +94,9 @@ CREATE POLICY "Teachers can create grade change requests" ON public.grade_change
 DROP POLICY IF EXISTS "Staff can manage grade change requests" ON public.grade_change_requests;
 CREATE POLICY "Staff can manage grade change requests" ON public.grade_change_requests
   FOR ALL USING (
-    has_role(auth.uid(), 'director'::app_role) OR
-    has_role(auth.uid(), 'secretariat'::app_role) OR
-    has_role(auth.uid(), 'uat_admin'::app_role)
+    has_role((select auth.uid()), 'director'::app_role) OR
+    has_role((select auth.uid()), 'secretariat'::app_role) OR
+    has_role((select auth.uid()), 'uat_admin'::app_role)
   );
 
 CREATE TABLE IF NOT EXISTS public.attendance_excuse_requests (
@@ -115,23 +115,23 @@ ALTER TABLE public.attendance_excuse_requests ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Users can view own attendance excuse requests" ON public.attendance_excuse_requests;
 CREATE POLICY "Users can view own attendance excuse requests" ON public.attendance_excuse_requests
-  FOR SELECT USING (requested_by = auth.uid());
+  FOR SELECT USING (requested_by = (select auth.uid()));
 
 -- Parents can create requests for their linked students; students can create for themselves
 DROP POLICY IF EXISTS "Users can create attendance excuse requests" ON public.attendance_excuse_requests;
 CREATE POLICY "Users can create attendance excuse requests" ON public.attendance_excuse_requests
   FOR INSERT WITH CHECK (
-    requested_by = auth.uid()
+    requested_by = (select auth.uid())
     AND EXISTS (
       SELECT 1
       FROM public.attendance a
       JOIN public.students s ON s.id = a.student_id
       WHERE a.id = attendance_id
         AND (
-          s.user_id = auth.uid()
+          s.user_id = (select auth.uid())
           OR EXISTS (
             SELECT 1 FROM public.parent_student_relations psr
-            WHERE psr.parent_user_id = auth.uid() AND psr.student_id = s.id
+            WHERE psr.parent_user_id = (select auth.uid()) AND psr.student_id = s.id
           )
         )
     )
@@ -141,13 +141,13 @@ CREATE POLICY "Users can create attendance excuse requests" ON public.attendance
 DROP POLICY IF EXISTS "Homeroom can manage excuse requests" ON public.attendance_excuse_requests;
 CREATE POLICY "Homeroom can manage excuse requests" ON public.attendance_excuse_requests
   FOR ALL USING (
-    has_role(auth.uid(), 'homeroom_teacher'::app_role)
+    has_role((select auth.uid()), 'homeroom_teacher'::app_role)
     AND EXISTS (
       SELECT 1
       FROM public.attendance a
       JOIN public.students s ON s.id = a.student_id
       JOIN public.classes c ON c.id = s.class_id
-      WHERE a.id = attendance_id AND c.teacher_id = auth.uid()
+      WHERE a.id = attendance_id AND c.teacher_id = (select auth.uid())
     )
   );
 
@@ -155,9 +155,9 @@ CREATE POLICY "Homeroom can manage excuse requests" ON public.attendance_excuse_
 DROP POLICY IF EXISTS "Staff can manage attendance excuse requests" ON public.attendance_excuse_requests;
 CREATE POLICY "Staff can manage attendance excuse requests" ON public.attendance_excuse_requests
   FOR ALL USING (
-    has_role(auth.uid(), 'director'::app_role) OR
-    has_role(auth.uid(), 'secretariat'::app_role) OR
-    has_role(auth.uid(), 'uat_admin'::app_role)
+    has_role((select auth.uid()), 'director'::app_role) OR
+    has_role((select auth.uid()), 'secretariat'::app_role) OR
+    has_role((select auth.uid()), 'uat_admin'::app_role)
   );
 
 -- 4) Allow homeroom teacher to excuse absences in their class (update attendance rows)
@@ -165,21 +165,21 @@ CREATE POLICY "Staff can manage attendance excuse requests" ON public.attendance
 DROP POLICY IF EXISTS "Homeroom can update attendance for own class" ON public.attendance;
 CREATE POLICY "Homeroom can update attendance for own class" ON public.attendance
   FOR UPDATE USING (
-    has_role(auth.uid(), 'homeroom_teacher'::app_role)
+    has_role((select auth.uid()), 'homeroom_teacher'::app_role)
     AND student_id IN (
       SELECT s.id
       FROM public.students s
       JOIN public.classes c ON c.id = s.class_id
-      WHERE c.teacher_id = auth.uid()
+      WHERE c.teacher_id = (select auth.uid())
     )
   )
   WITH CHECK (
-    has_role(auth.uid(), 'homeroom_teacher'::app_role)
+    has_role((select auth.uid()), 'homeroom_teacher'::app_role)
     AND student_id IN (
       SELECT s.id
       FROM public.students s
       JOIN public.classes c ON c.id = s.class_id
-      WHERE c.teacher_id = auth.uid()
+      WHERE c.teacher_id = (select auth.uid())
     )
   );
 
@@ -232,17 +232,17 @@ CREATE TRIGGER trg_restrict_homeroom_attendance_update
 DROP POLICY IF EXISTS "Staff can manage grades" ON public.grades;
 CREATE POLICY "Staff can manage grades" ON public.grades
   FOR ALL USING (
-    has_role(auth.uid(), 'director'::app_role) OR
-    has_role(auth.uid(), 'secretariat'::app_role) OR
-    has_role(auth.uid(), 'uat_admin'::app_role)
+    has_role((select auth.uid()), 'director'::app_role) OR
+    has_role((select auth.uid()), 'secretariat'::app_role) OR
+    has_role((select auth.uid()), 'uat_admin'::app_role)
   );
 
 DROP POLICY IF EXISTS "Staff can manage attendance" ON public.attendance;
 CREATE POLICY "Staff can manage attendance" ON public.attendance
   FOR ALL USING (
-    has_role(auth.uid(), 'director'::app_role) OR
-    has_role(auth.uid(), 'secretariat'::app_role) OR
-    has_role(auth.uid(), 'uat_admin'::app_role)
+    has_role((select auth.uid()), 'director'::app_role) OR
+    has_role((select auth.uid()), 'secretariat'::app_role) OR
+    has_role((select auth.uid()), 'uat_admin'::app_role)
   );
 
 -- 5) Timetable + teacher register (condica)
@@ -264,14 +264,14 @@ ALTER TABLE public.timetable_entries ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Users can view timetable entries" ON public.timetable_entries;
 CREATE POLICY "Users can view timetable entries" ON public.timetable_entries
-  FOR SELECT USING (auth.role() = 'authenticated');
+  FOR SELECT USING ((select auth.role()) = 'authenticated');
 
 DROP POLICY IF EXISTS "Staff can manage timetable entries" ON public.timetable_entries;
 CREATE POLICY "Staff can manage timetable entries" ON public.timetable_entries
   FOR ALL USING (
-    has_role(auth.uid(), 'secretariat'::app_role) OR
-    has_role(auth.uid(), 'director'::app_role) OR
-    has_role(auth.uid(), 'uat_admin'::app_role)
+    has_role((select auth.uid()), 'secretariat'::app_role) OR
+    has_role((select auth.uid()), 'director'::app_role) OR
+    has_role((select auth.uid()), 'uat_admin'::app_role)
   );
 
 CREATE TABLE IF NOT EXISTS public.teacher_register (
@@ -290,24 +290,24 @@ ALTER TABLE public.teacher_register ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Teachers can view own register" ON public.teacher_register;
 CREATE POLICY "Teachers can view own register" ON public.teacher_register
-  FOR SELECT USING (signed_by = auth.uid());
+  FOR SELECT USING (signed_by = (select auth.uid()));
 
 DROP POLICY IF EXISTS "Teachers can sign own register" ON public.teacher_register;
 CREATE POLICY "Teachers can sign own register" ON public.teacher_register
   FOR INSERT WITH CHECK (
-    signed_by = auth.uid()
+    signed_by = (select auth.uid())
     AND EXISTS (
       SELECT 1 FROM public.timetable_entries te
-      WHERE te.id = timetable_entry_id AND te.teacher_id = auth.uid()
+      WHERE te.id = timetable_entry_id AND te.teacher_id = (select auth.uid())
     )
   );
 
 DROP POLICY IF EXISTS "Staff can view all register" ON public.teacher_register;
 CREATE POLICY "Staff can view all register" ON public.teacher_register
   FOR SELECT USING (
-    has_role(auth.uid(), 'secretariat'::app_role) OR
-    has_role(auth.uid(), 'director'::app_role) OR
-    has_role(auth.uid(), 'uat_admin'::app_role)
+    has_role((select auth.uid()), 'secretariat'::app_role) OR
+    has_role((select auth.uid()), 'director'::app_role) OR
+    has_role((select auth.uid()), 'uat_admin'::app_role)
   );
 
 -- 6) Automatic audit logging triggers (grades, attendance, teacher_register)

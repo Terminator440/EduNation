@@ -19,17 +19,17 @@ ALTER TABLE public.announcements ENABLE ROW LEVEL SECURITY;
 -- Anyone authenticated can read announcements (target_role is filtered by the app; RLS keeps it simple).
 DROP POLICY IF EXISTS "Authenticated can read announcements" ON public.announcements;
 CREATE POLICY "Authenticated can read announcements" ON public.announcements
-  FOR SELECT USING (auth.uid() IS NOT NULL);
+  FOR SELECT USING ((select auth.uid()) IS NOT NULL);
 
 -- Staff can publish announcements.
 DROP POLICY IF EXISTS "Staff can publish announcements" ON public.announcements;
 CREATE POLICY "Staff can publish announcements" ON public.announcements
   FOR INSERT WITH CHECK (
-    created_by = auth.uid()
+    created_by = (select auth.uid())
     AND (
-      has_role(auth.uid(), 'director'::app_role)
-      OR has_role(auth.uid(), 'secretariat'::app_role)
-      OR has_role(auth.uid(), 'uat_admin'::app_role)
+      has_role((select auth.uid()), 'director'::app_role)
+      OR has_role((select auth.uid()), 'secretariat'::app_role)
+      OR has_role((select auth.uid()), 'uat_admin'::app_role)
     )
   );
 
@@ -37,25 +37,25 @@ CREATE POLICY "Staff can publish announcements" ON public.announcements
 DROP POLICY IF EXISTS "Staff can update announcements" ON public.announcements;
 CREATE POLICY "Staff can update announcements" ON public.announcements
   FOR UPDATE USING (
-    created_by = auth.uid()
-    OR has_role(auth.uid(), 'director'::app_role)
-    OR has_role(auth.uid(), 'secretariat'::app_role)
-    OR has_role(auth.uid(), 'uat_admin'::app_role)
+    created_by = (select auth.uid())
+    OR has_role((select auth.uid()), 'director'::app_role)
+    OR has_role((select auth.uid()), 'secretariat'::app_role)
+    OR has_role((select auth.uid()), 'uat_admin'::app_role)
   )
   WITH CHECK (
-    created_by = auth.uid()
-    OR has_role(auth.uid(), 'director'::app_role)
-    OR has_role(auth.uid(), 'secretariat'::app_role)
-    OR has_role(auth.uid(), 'uat_admin'::app_role)
+    created_by = (select auth.uid())
+    OR has_role((select auth.uid()), 'director'::app_role)
+    OR has_role((select auth.uid()), 'secretariat'::app_role)
+    OR has_role((select auth.uid()), 'uat_admin'::app_role)
   );
 
 DROP POLICY IF EXISTS "Staff can delete announcements" ON public.announcements;
 CREATE POLICY "Staff can delete announcements" ON public.announcements
   FOR DELETE USING (
-    created_by = auth.uid()
-    OR has_role(auth.uid(), 'director'::app_role)
-    OR has_role(auth.uid(), 'secretariat'::app_role)
-    OR has_role(auth.uid(), 'uat_admin'::app_role)
+    created_by = (select auth.uid())
+    OR has_role((select auth.uid()), 'director'::app_role)
+    OR has_role((select auth.uid()), 'secretariat'::app_role)
+    OR has_role((select auth.uid()), 'uat_admin'::app_role)
   );
 
 COMMIT;

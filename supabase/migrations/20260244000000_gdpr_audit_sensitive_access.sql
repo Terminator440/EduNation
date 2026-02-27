@@ -7,7 +7,7 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
-  v_uid UUID := auth.uid();
+  v_uid UUID := (select auth.uid());
   v_profile JSONB;
   v_roles JSONB;
   v_grades JSONB;
@@ -81,7 +81,7 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
-  v_uid UUID := auth.uid();
+  v_uid UUID := (select auth.uid());
   v_user_name TEXT;
   v_role app_role;
 BEGIN

@@ -17,13 +17,13 @@ DROP POLICY IF EXISTS "Students can view own grades" ON public.grades;
 CREATE POLICY "Students can view own grades" ON public.grades
   FOR SELECT
   USING (
-    -- Student can view their own grades (auth.uid() matches students.user_id)
+    -- Student can view their own grades ((select auth.uid()) matches students.user_id)
     -- AND student belongs to user's school (via students.school_id)
     EXISTS (
       SELECT 1
       FROM public.students s
       WHERE s.id = grades.student_id
-        AND s.user_id = auth.uid()
+        AND s.user_id = (select auth.uid())
         AND s.user_id IS NOT NULL
         AND s.school_id = public.get_user_school_id()
     )
@@ -41,7 +41,7 @@ CREATE POLICY "Parents can view children grades" ON public.grades
       FROM public.parent_student_relations psr
       JOIN public.students s ON s.id = psr.student_id
       WHERE psr.student_id = grades.student_id
-        AND psr.parent_user_id = auth.uid()
+        AND psr.parent_user_id = (select auth.uid())
         AND s.school_id = public.get_user_school_id()
     )
   );
@@ -59,7 +59,7 @@ CREATE POLICY "Teachers can view grades for assigned classes" ON public.grades
       JOIN public.students s ON s.class_id = cs.class_id
       WHERE cs.subject_id = grades.subject_id
         AND s.id = grades.student_id
-        AND cs.teacher_id = auth.uid()
+        AND cs.teacher_id = (select auth.uid())
         AND cs.school_id = public.get_user_school_id()
         AND s.school_id = public.get_user_school_id()
     )
@@ -71,7 +71,7 @@ CREATE POLICY "Teachers can view grades for assigned classes" ON public.grades
       JOIN public.students s ON s.class_id = sub.class_id
       WHERE sub.id = grades.subject_id
         AND s.id = grades.student_id
-        AND sub.teacher_id = auth.uid()
+        AND sub.teacher_id = (select auth.uid())
         AND sub.school_id = public.get_user_school_id()
         AND s.school_id = public.get_user_school_id()
     )
@@ -95,7 +95,7 @@ CREATE POLICY "Teachers can insert grades for assigned classes" ON public.grades
       JOIN public.students s ON s.class_id = cs.class_id
       WHERE cs.subject_id = subject_id
         AND s.id = student_id
-        AND cs.teacher_id = auth.uid()
+        AND cs.teacher_id = (select auth.uid())
         AND cs.school_id = public.get_user_school_id()
         AND s.school_id = public.get_user_school_id()
     )
@@ -108,7 +108,7 @@ CREATE POLICY "Teachers can insert grades for assigned classes" ON public.grades
         JOIN public.students s ON s.class_id = sub.class_id
         WHERE sub.id = subject_id
           AND s.id = student_id
-          AND sub.teacher_id = auth.uid()
+          AND sub.teacher_id = (select auth.uid())
           AND sub.school_id = public.get_user_school_id()
           AND s.school_id = public.get_user_school_id()
       )
@@ -117,14 +117,14 @@ CREATE POLICY "Teachers can insert grades for assigned classes" ON public.grades
     -- Staff (director/secretariat) can insert grades even if semester is locked (for corrections)
     (
       (
-        public.has_role(auth.uid(), 'director'::app_role) OR
-        public.has_role(auth.uid(), 'secretariat'::app_role)
+        public.has_role((select auth.uid()), 'director'::app_role) OR
+        public.has_role((select auth.uid()), 'secretariat'::app_role)
       ) AND school_id = public.get_user_school_id()
     )
     OR
     -- UAT Admin and Developer can insert
-    public.has_role(auth.uid(), 'uat_admin'::app_role) OR
-    public.has_role(auth.uid(), 'developer'::app_role)
+    public.has_role((select auth.uid()), 'uat_admin'::app_role) OR
+    public.has_role((select auth.uid()), 'developer'::app_role)
   );
 
 -- Update UPDATE policy to explicitly check school_id
@@ -145,7 +145,7 @@ CREATE POLICY "Teachers can update grades for assigned classes" ON public.grades
       JOIN public.students s ON s.class_id = cs.class_id
       WHERE cs.subject_id = subject_id
         AND s.id = student_id
-        AND cs.teacher_id = auth.uid()
+        AND cs.teacher_id = (select auth.uid())
         AND cs.school_id = public.get_user_school_id()
         AND s.school_id = public.get_user_school_id()
     )
@@ -158,7 +158,7 @@ CREATE POLICY "Teachers can update grades for assigned classes" ON public.grades
         JOIN public.students s ON s.class_id = sub.class_id
         WHERE sub.id = subject_id
           AND s.id = student_id
-          AND sub.teacher_id = auth.uid()
+          AND sub.teacher_id = (select auth.uid())
           AND sub.school_id = public.get_user_school_id()
           AND s.school_id = public.get_user_school_id()
       )
@@ -167,14 +167,14 @@ CREATE POLICY "Teachers can update grades for assigned classes" ON public.grades
     -- Staff (director/secretariat) can update grades even if semester is locked (for corrections)
     (
       (
-        public.has_role(auth.uid(), 'director'::app_role) OR
-        public.has_role(auth.uid(), 'secretariat'::app_role)
+        public.has_role((select auth.uid()), 'director'::app_role) OR
+        public.has_role((select auth.uid()), 'secretariat'::app_role)
       ) AND school_id = public.get_user_school_id()
     )
     OR
     -- UAT Admin and Developer can update
-    public.has_role(auth.uid(), 'uat_admin'::app_role) OR
-    public.has_role(auth.uid(), 'developer'::app_role)
+    public.has_role((select auth.uid()), 'uat_admin'::app_role) OR
+    public.has_role((select auth.uid()), 'developer'::app_role)
   )
   WITH CHECK (
     -- Same conditions for WITH CHECK (check NEW date for updated grade)
@@ -189,7 +189,7 @@ CREATE POLICY "Teachers can update grades for assigned classes" ON public.grades
         JOIN public.students s ON s.class_id = cs.class_id
         WHERE cs.subject_id = subject_id
           AND s.id = student_id
-          AND cs.teacher_id = auth.uid()
+          AND cs.teacher_id = (select auth.uid())
           AND cs.school_id = public.get_user_school_id()
           AND s.school_id = public.get_user_school_id()
       )
@@ -200,20 +200,20 @@ CREATE POLICY "Teachers can update grades for assigned classes" ON public.grades
         JOIN public.students s ON s.class_id = sub.class_id
         WHERE sub.id = subject_id
           AND s.id = student_id
-          AND sub.teacher_id = auth.uid()
+          AND sub.teacher_id = (select auth.uid())
           AND sub.school_id = public.get_user_school_id()
           AND s.school_id = public.get_user_school_id()
       )
       OR
       (
         (
-          public.has_role(auth.uid(), 'director'::app_role) OR
-          public.has_role(auth.uid(), 'secretariat'::app_role)
+          public.has_role((select auth.uid()), 'director'::app_role) OR
+          public.has_role((select auth.uid()), 'secretariat'::app_role)
         ) AND school_id = public.get_user_school_id()
       )
       OR
-      public.has_role(auth.uid(), 'uat_admin'::app_role) OR
-      public.has_role(auth.uid(), 'developer'::app_role)
+      public.has_role((select auth.uid()), 'uat_admin'::app_role) OR
+      public.has_role((select auth.uid()), 'developer'::app_role)
     )
   );
 
@@ -235,7 +235,7 @@ CREATE POLICY "Teachers can delete grades for assigned classes" ON public.grades
       JOIN public.students s ON s.class_id = cs.class_id
       WHERE cs.subject_id = subject_id
         AND s.id = student_id
-        AND cs.teacher_id = auth.uid()
+        AND cs.teacher_id = (select auth.uid())
         AND cs.school_id = public.get_user_school_id()
         AND s.school_id = public.get_user_school_id()
     )
@@ -248,7 +248,7 @@ CREATE POLICY "Teachers can delete grades for assigned classes" ON public.grades
         JOIN public.students s ON s.class_id = sub.class_id
         WHERE sub.id = subject_id
           AND s.id = student_id
-          AND sub.teacher_id = auth.uid()
+          AND sub.teacher_id = (select auth.uid())
           AND sub.school_id = public.get_user_school_id()
           AND s.school_id = public.get_user_school_id()
       )
@@ -257,14 +257,14 @@ CREATE POLICY "Teachers can delete grades for assigned classes" ON public.grades
     -- Staff (director/secretariat) can delete grades even if semester is locked (for corrections)
     (
       (
-        public.has_role(auth.uid(), 'director'::app_role) OR
-        public.has_role(auth.uid(), 'secretariat'::app_role)
+        public.has_role((select auth.uid()), 'director'::app_role) OR
+        public.has_role((select auth.uid()), 'secretariat'::app_role)
       ) AND school_id = public.get_user_school_id()
     )
     OR
     -- UAT Admin and Developer can delete
-    public.has_role(auth.uid(), 'uat_admin'::app_role) OR
-    public.has_role(auth.uid(), 'developer'::app_role)
+    public.has_role((select auth.uid()), 'uat_admin'::app_role) OR
+    public.has_role((select auth.uid()), 'developer'::app_role)
   );
 
 -- ============================================================================
@@ -282,7 +282,7 @@ CREATE POLICY "Students can view own attendance" ON public.attendance
       SELECT 1
       FROM public.students s
       WHERE s.id = attendance.student_id
-        AND s.user_id = auth.uid()
+        AND s.user_id = (select auth.uid())
         AND s.user_id IS NOT NULL
         AND s.school_id = public.get_user_school_id()
     )
@@ -300,7 +300,7 @@ CREATE POLICY "Parents can view children attendance" ON public.attendance
       FROM public.parent_student_relations psr
       JOIN public.students s ON s.id = psr.student_id
       WHERE psr.student_id = attendance.student_id
-        AND psr.parent_user_id = auth.uid()
+        AND psr.parent_user_id = (select auth.uid())
         AND s.school_id = public.get_user_school_id()
     )
   );
@@ -318,7 +318,7 @@ CREATE POLICY "Teachers can view attendance for assigned classes" ON public.atte
       JOIN public.students s ON s.class_id = cs.class_id
       WHERE cs.subject_id = attendance.subject_id
         AND s.id = attendance.student_id
-        AND cs.teacher_id = auth.uid()
+        AND cs.teacher_id = (select auth.uid())
         AND cs.school_id = public.get_user_school_id()
         AND s.school_id = public.get_user_school_id()
     )
@@ -330,7 +330,7 @@ CREATE POLICY "Teachers can view attendance for assigned classes" ON public.atte
       JOIN public.students s ON s.class_id = sub.class_id
       WHERE sub.id = attendance.subject_id
         AND s.id = attendance.student_id
-        AND sub.teacher_id = auth.uid()
+        AND sub.teacher_id = (select auth.uid())
         AND sub.school_id = public.get_user_school_id()
         AND s.school_id = public.get_user_school_id()
     )
@@ -351,7 +351,7 @@ CREATE POLICY "Teachers can manage attendance for assigned classes" ON public.at
       JOIN public.students s ON s.class_id = cs.class_id
       WHERE cs.subject_id = attendance.subject_id
         AND s.id = attendance.student_id
-        AND cs.teacher_id = auth.uid()
+        AND cs.teacher_id = (select auth.uid())
         AND cs.school_id = public.get_user_school_id()
         AND s.school_id = public.get_user_school_id()
     )
@@ -364,7 +364,7 @@ CREATE POLICY "Teachers can manage attendance for assigned classes" ON public.at
         JOIN public.students s ON s.class_id = sub.class_id
         WHERE sub.id = attendance.subject_id
           AND s.id = attendance.student_id
-          AND sub.teacher_id = auth.uid()
+          AND sub.teacher_id = (select auth.uid())
           AND sub.school_id = public.get_user_school_id()
           AND s.school_id = public.get_user_school_id()
       )
@@ -373,14 +373,14 @@ CREATE POLICY "Teachers can manage attendance for assigned classes" ON public.at
     -- Staff (director/secretariat) can manage attendance
     (
       (
-        public.has_role(auth.uid(), 'director'::app_role) OR
-        public.has_role(auth.uid(), 'secretariat'::app_role)
+        public.has_role((select auth.uid()), 'director'::app_role) OR
+        public.has_role((select auth.uid()), 'secretariat'::app_role)
       ) AND school_id = public.get_user_school_id()
     )
     OR
     -- UAT Admin and Developer can manage
-    public.has_role(auth.uid(), 'uat_admin'::app_role) OR
-    public.has_role(auth.uid(), 'developer'::app_role)
+    public.has_role((select auth.uid()), 'uat_admin'::app_role) OR
+    public.has_role((select auth.uid()), 'developer'::app_role)
   )
   WITH CHECK (
     -- Same conditions for WITH CHECK
@@ -393,7 +393,7 @@ CREATE POLICY "Teachers can manage attendance for assigned classes" ON public.at
         JOIN public.students s ON s.class_id = cs.class_id
         WHERE cs.subject_id = attendance.subject_id
           AND s.id = attendance.student_id
-          AND cs.teacher_id = auth.uid()
+          AND cs.teacher_id = (select auth.uid())
           AND cs.school_id = public.get_user_school_id()
           AND s.school_id = public.get_user_school_id()
       )
@@ -404,20 +404,20 @@ CREATE POLICY "Teachers can manage attendance for assigned classes" ON public.at
         JOIN public.students s ON s.class_id = sub.class_id
         WHERE sub.id = attendance.subject_id
           AND s.id = attendance.student_id
-          AND sub.teacher_id = auth.uid()
+          AND sub.teacher_id = (select auth.uid())
           AND sub.school_id = public.get_user_school_id()
           AND s.school_id = public.get_user_school_id()
       )
       OR
       (
         (
-          public.has_role(auth.uid(), 'director'::app_role) OR
-          public.has_role(auth.uid(), 'secretariat'::app_role)
+          public.has_role((select auth.uid()), 'director'::app_role) OR
+          public.has_role((select auth.uid()), 'secretariat'::app_role)
         ) AND school_id = public.get_user_school_id()
       )
       OR
-      public.has_role(auth.uid(), 'uat_admin'::app_role) OR
-      public.has_role(auth.uid(), 'developer'::app_role)
+      public.has_role((select auth.uid()), 'uat_admin'::app_role) OR
+      public.has_role((select auth.uid()), 'developer'::app_role)
     )
   );
 
@@ -432,8 +432,8 @@ CREATE POLICY "Users can view students from their school" ON public.students
   FOR SELECT
   USING (
     school_id = public.get_user_school_id() OR
-    public.has_role(auth.uid(), 'uat_admin'::app_role) OR
-    public.has_role(auth.uid(), 'developer'::app_role)
+    public.has_role((select auth.uid()), 'uat_admin'::app_role) OR
+    public.has_role((select auth.uid()), 'developer'::app_role)
   );
 
 -- ============================================================================
@@ -446,8 +446,8 @@ CREATE POLICY "Users can view subjects from their school" ON public.subjects
   FOR SELECT
   USING (
     school_id = public.get_user_school_id() OR
-    public.has_role(auth.uid(), 'uat_admin'::app_role) OR
-    public.has_role(auth.uid(), 'developer'::app_role)
+    public.has_role((select auth.uid()), 'uat_admin'::app_role) OR
+    public.has_role((select auth.uid()), 'developer'::app_role)
   );
 
 -- ============================================================================
@@ -460,8 +460,8 @@ CREATE POLICY "Users can view classes from their school" ON public.classes
   FOR SELECT
   USING (
     school_id = public.get_user_school_id() OR
-    public.has_role(auth.uid(), 'uat_admin'::app_role) OR
-    public.has_role(auth.uid(), 'developer'::app_role)
+    public.has_role((select auth.uid()), 'uat_admin'::app_role) OR
+    public.has_role((select auth.uid()), 'developer'::app_role)
   );
 
 -- ============================================================================
@@ -475,7 +475,7 @@ CREATE POLICY "Parents can view their relations" ON public.parent_student_relati
   USING (
     -- Parent can view their relations
     -- AND student belongs to parent's school
-    parent_user_id = auth.uid()
+    parent_user_id = (select auth.uid())
     AND
     EXISTS (
       SELECT 1

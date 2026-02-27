@@ -104,8 +104,8 @@ CREATE POLICY "Secretariat can view school audit logs"
   ON public.audit_logs
   FOR SELECT
   USING (
-    has_role(auth.uid(), 'secretariat'::app_role) OR
-    has_role(auth.uid(), 'homeroom_teacher'::app_role)
+    has_role((select auth.uid()), 'secretariat'::app_role) OR
+    has_role((select auth.uid()), 'homeroom_teacher'::app_role)
   );
 
 -- =============================================
@@ -121,7 +121,7 @@ CREATE POLICY "Parents can view children grades"
     student_id IN (
       SELECT psr.student_id 
       FROM public.parent_student_relations psr 
-      WHERE psr.parent_user_id = auth.uid()
+      WHERE psr.parent_user_id = (select auth.uid())
     )
   );
 
@@ -134,7 +134,7 @@ CREATE POLICY "Parents can view children attendance"
     student_id IN (
       SELECT psr.student_id 
       FROM public.parent_student_relations psr 
-      WHERE psr.parent_user_id = auth.uid()
+      WHERE psr.parent_user_id = (select auth.uid())
     )
   );
 
@@ -147,7 +147,7 @@ CREATE POLICY "Parents can view children records"
     id IN (
       SELECT psr.student_id 
       FROM public.parent_student_relations psr 
-      WHERE psr.parent_user_id = auth.uid()
+      WHERE psr.parent_user_id = (select auth.uid())
     )
   );
 

@@ -1,9 +1,9 @@
 -- Migration: Audit triggers (DB-level, impossible to bypass) + RLS block when year closed
--- Triggers save auth.uid(), OLD, NEW, server-side timestamp
+-- Triggers save (select auth.uid()), OLD, NEW, server-side timestamp
 
 BEGIN;
 
--- 1) Enhance audit_row_change to use auth.uid() directly (server-side)
+-- 1) Enhance audit_row_change to use (select auth.uid()) directly (server-side)
 CREATE OR REPLACE FUNCTION public.audit_row_change()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -18,7 +18,7 @@ DECLARE
   details jsonb;
   school_id_val uuid;
 BEGIN
-  uid := auth.uid();
+  uid := (select auth.uid());
   IF uid IS NULL THEN
     RETURN COALESCE(NEW, OLD);
   END IF;
@@ -193,10 +193,10 @@ CREATE TRIGGER trg_disciplinary_block_closed_year
 CREATE POLICY "Staff can manage disciplinary_actions"
   ON public.disciplinary_actions FOR ALL
   USING (
-    has_role(auth.uid(), 'director'::app_role) OR
-    has_role(auth.uid(), 'secretariat'::app_role) OR
-    has_role(auth.uid(), 'uat_admin'::app_role) OR
-    has_role(auth.uid(), 'homeroom_teacher'::app_role)
+    has_role((select auth.uid()), 'director'::app_role) OR
+    has_role((select auth.uid()), 'secretariat'::app_role) OR
+    has_role((select auth.uid()), 'uat_admin'::app_role) OR
+    has_role((select auth.uid()), 'homeroom_teacher'::app_role)
   );
 
 CREATE POLICY "Parents can view children disciplinary"
@@ -204,7 +204,7 @@ CREATE POLICY "Parents can view children disciplinary"
   USING (
     student_id IN (
       SELECT psr.student_id FROM public.parent_student_relations psr
-      WHERE psr.parent_user_id = auth.uid()
+      WHERE psr.parent_user_id = (select auth.uid())
     )
   );
 

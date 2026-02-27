@@ -25,7 +25,7 @@ DECLARE
   v_creator_id uuid;
 BEGIN
   -- Determine the creator
-  v_creator_id := COALESCE(p_created_by, auth.uid());
+  v_creator_id := COALESCE(p_created_by, (select auth.uid()));
   
   IF v_creator_id IS NULL THEN
     RETURN QUERY SELECT NULL::uuid, NULL::text, 'User not authenticated'::text;

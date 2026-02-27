@@ -37,14 +37,14 @@ ALTER TABLE public.subject_averages ENABLE ROW LEVEL SECURITY;
 -- RLS: same visibility as grades (student, parent, teacher, staff)
 DROP POLICY IF EXISTS "subject_averages_select" ON public.subject_averages;
 CREATE POLICY "subject_averages_select" ON public.subject_averages FOR SELECT USING (
-  EXISTS (SELECT 1 FROM public.students s WHERE s.id = subject_averages.student_id AND s.user_id = auth.uid())
-  OR EXISTS (SELECT 1 FROM public.parent_student_relations psr WHERE psr.student_id = subject_averages.student_id AND psr.parent_user_id = auth.uid())
-  OR public.has_role(auth.uid(), 'teacher'::public.app_role)
-  OR public.has_role(auth.uid(), 'homeroom_teacher'::public.app_role)
-  OR public.has_role(auth.uid(), 'director'::public.app_role)
-  OR public.has_role(auth.uid(), 'secretariat'::public.app_role)
-  OR public.has_role(auth.uid(), 'uat_admin'::public.app_role)
-  OR public.has_role(auth.uid(), 'developer'::public.app_role)
+  EXISTS (SELECT 1 FROM public.students s WHERE s.id = subject_averages.student_id AND s.user_id = (select auth.uid()))
+  OR EXISTS (SELECT 1 FROM public.parent_student_relations psr WHERE psr.student_id = subject_averages.student_id AND psr.parent_user_id = (select auth.uid()))
+  OR public.has_role((select auth.uid()), 'teacher'::public.app_role)
+  OR public.has_role((select auth.uid()), 'homeroom_teacher'::public.app_role)
+  OR public.has_role((select auth.uid()), 'director'::public.app_role)
+  OR public.has_role((select auth.uid()), 'secretariat'::public.app_role)
+  OR public.has_role((select auth.uid()), 'uat_admin'::public.app_role)
+  OR public.has_role((select auth.uid()), 'developer'::public.app_role)
 );
 
 -- 1.2) Funcție recalc medie per (student, subject, academic_year, semester)
@@ -453,7 +453,7 @@ DECLARE
   v_summary TEXT;
   v_details JSONB;
 BEGIN
-  v_uid := auth.uid();
+  v_uid := (select auth.uid());
   IF v_uid IS NULL THEN
     RETURN COALESCE(NEW, OLD);
   END IF;

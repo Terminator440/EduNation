@@ -27,19 +27,19 @@ CREATE POLICY "features_select_all"
 CREATE POLICY "school_features_select_own_school"
   ON public.school_features FOR SELECT TO authenticated
   USING (
-    school_id IN (SELECT school_id FROM public.profiles WHERE id = auth.uid())
-    OR has_role(auth.uid(), 'uat_admin'::app_role)
-    OR has_role(auth.uid(), 'developer'::app_role)
+    school_id IN (SELECT school_id FROM public.profiles WHERE id = (select auth.uid()))
+    OR has_role((select auth.uid()), 'uat_admin'::app_role)
+    OR has_role((select auth.uid()), 'developer'::app_role)
   );
 
 -- Only staff / uat_admin can update school_features
 CREATE POLICY "school_features_update_staff"
   ON public.school_features FOR ALL TO authenticated
   USING (
-    (has_role(auth.uid(), 'director'::app_role) OR has_role(auth.uid(), 'secretariat'::app_role))
-    AND school_id IN (SELECT school_id FROM public.profiles WHERE id = auth.uid())
-    OR has_role(auth.uid(), 'uat_admin'::app_role)
-    OR has_role(auth.uid(), 'developer'::app_role)
+    (has_role((select auth.uid()), 'director'::app_role) OR has_role((select auth.uid()), 'secretariat'::app_role))
+    AND school_id IN (SELECT school_id FROM public.profiles WHERE id = (select auth.uid()))
+    OR has_role((select auth.uid()), 'uat_admin'::app_role)
+    OR has_role((select auth.uid()), 'developer'::app_role)
   );
 
 CREATE INDEX IF NOT EXISTS idx_school_features_school ON public.school_features(school_id);

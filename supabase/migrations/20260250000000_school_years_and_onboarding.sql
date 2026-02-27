@@ -45,7 +45,7 @@ BEGIN
   IF v_school_id IS NULL THEN
     RAISE EXCEPTION 'School year not found';
   END IF;
-  IF NOT (public.get_user_school_id() = v_school_id OR public.has_role(auth.uid(), 'uat_admin'::app_role) OR public.has_role(auth.uid(), 'developer'::app_role)) THEN
+  IF NOT (public.get_user_school_id() = v_school_id OR public.has_role((select auth.uid()), 'uat_admin'::app_role) OR public.has_role((select auth.uid()), 'developer'::app_role)) THEN
     RAISE EXCEPTION 'Not allowed to activate this school year';
   END IF;
   UPDATE public.school_years SET is_active = false WHERE school_id = v_school_id;
@@ -66,7 +66,7 @@ DECLARE
 BEGIN
   SELECT school_id INTO v_school_id FROM public.school_years WHERE id = p_school_year_id;
   IF v_school_id IS NULL THEN RAISE EXCEPTION 'School year not found'; END IF;
-  IF NOT (public.get_user_school_id() = v_school_id OR public.has_role(auth.uid(), 'uat_admin'::app_role) OR public.has_role(auth.uid(), 'developer'::app_role)) THEN
+  IF NOT (public.get_user_school_id() = v_school_id OR public.has_role((select auth.uid()), 'uat_admin'::app_role) OR public.has_role((select auth.uid()), 'developer'::app_role)) THEN
     RAISE EXCEPTION 'Not allowed';
   END IF;
   UPDATE public.school_years SET is_active = false WHERE id = p_school_year_id;
@@ -93,7 +93,7 @@ BEGIN
   IF v_school_id IS NULL THEN
     RETURN jsonb_build_object('success', false, 'error', 'School year not found');
   END IF;
-  IF NOT (public.get_user_school_id() = v_school_id OR public.has_role(auth.uid(), 'uat_admin'::app_role) OR public.has_role(auth.uid(), 'developer'::app_role)) THEN
+  IF NOT (public.get_user_school_id() = v_school_id OR public.has_role((select auth.uid()), 'uat_admin'::app_role) OR public.has_role((select auth.uid()), 'developer'::app_role)) THEN
     RETURN jsonb_build_object('success', false, 'error', 'Not allowed');
   END IF;
   -- Placeholder: actual promotion would map classes (e.g. 10A -> 11A) and update students.class_id

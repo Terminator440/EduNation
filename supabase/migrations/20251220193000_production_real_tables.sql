@@ -4,20 +4,20 @@
 DROP POLICY IF EXISTS "Directors can view all profiles" ON public.profiles;
 CREATE POLICY "Directors can view all profiles" ON public.profiles
   FOR SELECT USING (
-    has_role(auth.uid(), 'director'::app_role) OR has_role(auth.uid(), 'uat_admin'::app_role)
+    has_role((select auth.uid()), 'director'::app_role) OR has_role((select auth.uid()), 'uat_admin'::app_role)
   );
 
 -- 2) user_roles: allow director/uat_admin to view and manage roles (required for admin tooling)
 DROP POLICY IF EXISTS "Staff can view all roles" ON public.user_roles;
 CREATE POLICY "Staff can view all roles" ON public.user_roles
   FOR SELECT USING (
-    has_role(auth.uid(), 'director'::app_role) OR has_role(auth.uid(), 'uat_admin'::app_role)
+    has_role((select auth.uid()), 'director'::app_role) OR has_role((select auth.uid()), 'uat_admin'::app_role)
   );
 
 DROP POLICY IF EXISTS "Staff can manage roles" ON public.user_roles;
 CREATE POLICY "Staff can manage roles" ON public.user_roles
   FOR ALL USING (
-    has_role(auth.uid(), 'director'::app_role) OR has_role(auth.uid(), 'uat_admin'::app_role)
+    has_role((select auth.uid()), 'director'::app_role) OR has_role((select auth.uid()), 'uat_admin'::app_role)
   );
 
 -- 3) school_events: shared calendar events (tests/homework/events/holidays)
@@ -43,9 +43,9 @@ CREATE POLICY "Authenticated can view school events" ON public.school_events
 DROP POLICY IF EXISTS "Staff can manage school events" ON public.school_events;
 CREATE POLICY "Staff can manage school events" ON public.school_events
   FOR ALL USING (
-    has_role(auth.uid(), 'secretariat'::app_role) OR
-    has_role(auth.uid(), 'director'::app_role) OR
-    has_role(auth.uid(), 'uat_admin'::app_role)
+    has_role((select auth.uid()), 'secretariat'::app_role) OR
+    has_role((select auth.uid()), 'director'::app_role) OR
+    has_role((select auth.uid()), 'uat_admin'::app_role)
   );
 
 -- 4) lessons: minimal lessons/homework/projects (per class)
@@ -66,7 +66,7 @@ ALTER TABLE public.lessons ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Students can view lessons for own class" ON public.lessons;
 CREATE POLICY "Students can view lessons for own class" ON public.lessons
   FOR SELECT USING (
-    class_id IN (SELECT class_id FROM public.students WHERE user_id = auth.uid())
+    class_id IN (SELECT class_id FROM public.students WHERE user_id = (select auth.uid()))
   );
 
 DROP POLICY IF EXISTS "Parents can view lessons for linked classes" ON public.lessons;
@@ -76,16 +76,16 @@ CREATE POLICY "Parents can view lessons for linked classes" ON public.lessons
       SELECT s.class_id
       FROM public.parent_student_relations psr
       JOIN public.students s ON s.id = psr.student_id
-      WHERE psr.parent_user_id = auth.uid()
+      WHERE psr.parent_user_id = (select auth.uid())
     )
   );
 
 DROP POLICY IF EXISTS "Teachers can manage lessons for their class" ON public.lessons;
 CREATE POLICY "Teachers can manage lessons for their class" ON public.lessons
   FOR ALL USING (
-    class_id IN (SELECT id FROM public.classes WHERE teacher_id = auth.uid())
-    OR has_role(auth.uid(), 'secretariat'::app_role)
-    OR has_role(auth.uid(), 'director'::app_role)
+    class_id IN (SELECT id FROM public.classes WHERE teacher_id = (select auth.uid()))
+    OR has_role((select auth.uid()), 'secretariat'::app_role)
+    OR has_role((select auth.uid()), 'director'::app_role)
   );
 
 -- 5) messages: internal messaging (teacher/staff <-> student/parent)
@@ -115,30 +115,30 @@ BEGIN
     -- Full messaging schema (sender_id/recipient_id)
     DROP POLICY IF EXISTS "Participants can view messages" ON public.messages;
     CREATE POLICY "Participants can view messages" ON public.messages
-      FOR SELECT USING (sender_id = auth.uid() OR recipient_id = auth.uid());
+      FOR SELECT USING (sender_id = (select auth.uid()) OR recipient_id = (select auth.uid()));
 
     DROP POLICY IF EXISTS "Users can send messages" ON public.messages;
     CREATE POLICY "Users can send messages" ON public.messages
-      FOR INSERT WITH CHECK (sender_id = auth.uid());
+      FOR INSERT WITH CHECK (sender_id = (select auth.uid()));
 
     DROP POLICY IF EXISTS "Recipient can mark read" ON public.messages;
     CREATE POLICY "Recipient can mark read" ON public.messages
-      FOR UPDATE USING (recipient_id = auth.uid())
-      WITH CHECK (recipient_id = auth.uid());
+      FOR UPDATE USING (recipient_id = (select auth.uid()))
+      WITH CHECK (recipient_id = (select auth.uid()));
   ELSE
     -- Simplified inbox schema (user_id)
     DROP POLICY IF EXISTS "Participants can view messages" ON public.messages;
     CREATE POLICY "Participants can view messages" ON public.messages
-      FOR SELECT USING (auth.uid() = user_id);
+      FOR SELECT USING ((select auth.uid()) = user_id);
 
     DROP POLICY IF EXISTS "Users can send messages" ON public.messages;
     CREATE POLICY "Users can send messages" ON public.messages
-      FOR INSERT WITH CHECK (auth.uid() = user_id);
+      FOR INSERT WITH CHECK ((select auth.uid()) = user_id);
 
     DROP POLICY IF EXISTS "Recipient can mark read" ON public.messages;
     CREATE POLICY "Recipient can mark read" ON public.messages
-      FOR UPDATE USING (auth.uid() = user_id)
-      WITH CHECK (auth.uid() = user_id);
+      FOR UPDATE USING ((select auth.uid()) = user_id)
+      WITH CHECK ((select auth.uid()) = user_id);
   END IF;
 END
 $messages_policies$;

@@ -44,7 +44,7 @@ declare
   v_existing_count integer;
   v_class_school_id uuid;
 begin
-  v_user_id := auth.uid();
+  v_user_id := (select auth.uid());
   if v_user_id is null then
     return query select null::uuid, null::text, null::timestamptz, null::integer, null::text, 'Not authenticated';
     return;
@@ -191,8 +191,8 @@ on public.invitations
 for select
 to authenticated
 using (
-  public.has_role(auth.uid(), 'director'::public.app_role)
-  and school_id = (select p.school_id from public.profiles p where p.id = auth.uid())
+  public.has_role((select auth.uid()), 'director'::public.app_role)
+  and school_id = (select p.school_id from public.profiles p where p.id = (select auth.uid()))
 );
 
 drop policy if exists "Directors can revoke invitations for their school" on public.invitations;
@@ -201,10 +201,10 @@ on public.invitations
 for update
 to authenticated
 using (
-  public.has_role(auth.uid(), 'director'::public.app_role)
-  and school_id = (select p.school_id from public.profiles p where p.id = auth.uid())
+  public.has_role((select auth.uid()), 'director'::public.app_role)
+  and school_id = (select p.school_id from public.profiles p where p.id = (select auth.uid()))
 )
 with check (
-  public.has_role(auth.uid(), 'director'::public.app_role)
-  and school_id = (select p.school_id from public.profiles p where p.id = auth.uid())
+  public.has_role((select auth.uid()), 'director'::public.app_role)
+  and school_id = (select p.school_id from public.profiles p where p.id = (select auth.uid()))
 );

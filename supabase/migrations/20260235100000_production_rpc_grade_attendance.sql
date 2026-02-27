@@ -27,7 +27,7 @@ DECLARE
   v_grade_id UUID;
   v_row RECORD;
 BEGIN
-  v_user_id := auth.uid();
+  v_user_id := (select auth.uid());
   IF v_user_id IS NULL THEN
     RETURN jsonb_build_object('success', false, 'error', 'Not authenticated');
   END IF;
@@ -101,7 +101,7 @@ DECLARE
   v_student_id UUID;
   v_subject_id UUID;
 BEGIN
-  v_user_id := auth.uid();
+  v_user_id := (select auth.uid());
   IF v_user_id IS NULL THEN
     RETURN jsonb_build_object('success', false, 'error', 'Not authenticated');
   END IF;
@@ -157,7 +157,7 @@ DECLARE
   v_student_id UUID;
   v_subject_id UUID;
 BEGIN
-  v_user_id := auth.uid();
+  v_user_id := (select auth.uid());
   IF v_user_id IS NULL THEN
     RETURN jsonb_build_object('success', false, 'error', 'Not authenticated');
   END IF;
@@ -216,7 +216,7 @@ DECLARE
   v_existing_id UUID;
   v_status TEXT;
 BEGIN
-  v_user_id := auth.uid();
+  v_user_id := (select auth.uid());
   IF v_user_id IS NULL THEN
     RETURN jsonb_build_object('success', false, 'error', 'Not authenticated');
   END IF;
@@ -294,7 +294,7 @@ DECLARE
   v_status TEXT;
   v_existing_id UUID;
 BEGIN
-  v_user_id := auth.uid();
+  v_user_id := (select auth.uid());
   IF v_user_id IS NULL THEN
     RETURN jsonb_build_object('success', false, 'error', 'Not authenticated');
   END IF;
@@ -362,7 +362,7 @@ DECLARE
   v_school_id UUID;
   v_row RECORD;
 BEGIN
-  v_user_id := auth.uid();
+  v_user_id := (select auth.uid());
   IF v_user_id IS NULL THEN
     RETURN jsonb_build_object('success', false, 'error', 'Not authenticated');
   END IF;
@@ -462,7 +462,7 @@ GRANT EXECUTE ON FUNCTION public.mark_attendance TO authenticated;
 GRANT EXECUTE ON FUNCTION public.delete_attendance TO authenticated;
 GRANT EXECUTE ON FUNCTION public.calculate_student_average TO authenticated;
 
-COMMENT ON FUNCTION public.add_grade IS 'Insert grade; validates 1-10, teacher assignment, semester lock. created_by set to auth.uid().';
+COMMENT ON FUNCTION public.add_grade IS 'Insert grade; validates 1-10, teacher assignment, semester lock. created_by set to (select auth.uid()).';
 COMMENT ON FUNCTION public.update_grade IS 'Update grade value; sets updated_by. Permission and lock checked.';
 COMMENT ON FUNCTION public.delete_grade IS 'Soft delete grade (sets deleted_at). Logged in audit.';
 COMMENT ON FUNCTION public.mark_attendance IS 'Insert or update attendance for student/subject/date. created_by set.';

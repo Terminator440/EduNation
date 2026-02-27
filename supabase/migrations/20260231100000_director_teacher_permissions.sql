@@ -68,9 +68,9 @@ CREATE POLICY "grades_insert_strict" ON public.grades
     NOT public.is_semester_locked_for_grade(date, student_id)
     AND school_id = public.get_user_school_id()
     AND (
-      public.user_can_edit_grade(auth.uid(), student_id, subject_id, school_id)
-      OR public.has_role(auth.uid(), 'uat_admin'::public.app_role)
-      OR public.has_role(auth.uid(), 'developer'::public.app_role)
+      public.user_can_edit_grade((select auth.uid()), student_id, subject_id, school_id)
+      OR public.has_role((select auth.uid()), 'uat_admin'::public.app_role)
+      OR public.has_role((select auth.uid()), 'developer'::public.app_role)
     )
   );
 
@@ -80,18 +80,18 @@ CREATE POLICY "grades_update_strict" ON public.grades
     NOT public.is_semester_locked_for_grade(date, student_id)
     AND school_id = public.get_user_school_id()
     AND (
-      public.user_can_edit_grade(auth.uid(), student_id, subject_id, school_id)
-      OR public.has_role(auth.uid(), 'uat_admin'::public.app_role)
-      OR public.has_role(auth.uid(), 'developer'::public.app_role)
+      public.user_can_edit_grade((select auth.uid()), student_id, subject_id, school_id)
+      OR public.has_role((select auth.uid()), 'uat_admin'::public.app_role)
+      OR public.has_role((select auth.uid()), 'developer'::public.app_role)
     )
   )
   WITH CHECK (
     NOT public.is_semester_locked_for_grade(date, student_id)
     AND school_id = public.get_user_school_id()
     AND (
-      public.user_can_edit_grade(auth.uid(), student_id, subject_id, school_id)
-      OR public.has_role(auth.uid(), 'uat_admin'::public.app_role)
-      OR public.has_role(auth.uid(), 'developer'::public.app_role)
+      public.user_can_edit_grade((select auth.uid()), student_id, subject_id, school_id)
+      OR public.has_role((select auth.uid()), 'uat_admin'::public.app_role)
+      OR public.has_role((select auth.uid()), 'developer'::public.app_role)
     )
   );
 

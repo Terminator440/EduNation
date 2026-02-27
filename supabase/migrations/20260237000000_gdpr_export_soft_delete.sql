@@ -20,7 +20,7 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
-  v_uid UUID := auth.uid();
+  v_uid UUID := (select auth.uid());
   v_profile JSONB;
   v_roles JSONB;
   v_grades JSONB;
@@ -81,7 +81,7 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
-  v_uid UUID := auth.uid();
+  v_uid UUID := (select auth.uid());
 BEGIN
   IF v_uid IS NULL THEN
     RETURN jsonb_build_object('success', false, 'error', 'Not authenticated');

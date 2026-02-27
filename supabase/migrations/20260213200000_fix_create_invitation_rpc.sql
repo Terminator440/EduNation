@@ -53,7 +53,7 @@ DECLARE
   v_creator_id uuid;
   v_class_school_id uuid;
 BEGIN
-  v_creator_id := COALESCE(p_created_by, auth.uid());
+  v_creator_id := COALESCE(p_created_by, (select auth.uid()));
   v_user_id := v_creator_id;
 
   IF v_user_id IS NULL THEN

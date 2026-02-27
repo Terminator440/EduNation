@@ -17,7 +17,7 @@ DECLARE
   v_user_name TEXT;
   v_role app_role;
 BEGIN
-  v_user_id := auth.uid();
+  v_user_id := (select auth.uid());
   IF v_user_id IS NULL THEN
     RAISE EXCEPTION 'Not authenticated';
   END IF;

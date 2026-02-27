@@ -11,7 +11,7 @@ STABLE
 SECURITY DEFINER
 SET search_path = public
 AS $$
-  SELECT school_id FROM public.profiles WHERE id = auth.uid()
+  SELECT school_id FROM public.profiles WHERE id = (select auth.uid())
 $$;
 
 -- 1) Students RLS: Users can only see students from their school
@@ -20,8 +20,8 @@ CREATE POLICY "Users can view students from their school" ON public.students
   FOR SELECT
   USING (
     school_id = public.get_user_school_id() OR
-    public.has_role(auth.uid(), 'uat_admin'::app_role) OR
-    public.has_role(auth.uid(), 'developer'::app_role)
+    public.has_role((select auth.uid()), 'uat_admin'::app_role) OR
+    public.has_role((select auth.uid()), 'developer'::app_role)
   );
 
 DROP POLICY IF EXISTS "Staff can manage students from their school" ON public.students;
@@ -31,13 +31,13 @@ CREATE POLICY "Staff can manage students from their school" ON public.students
     (
       school_id = public.get_user_school_id() AND
       (
-        public.has_role(auth.uid(), 'director'::app_role) OR
-        public.has_role(auth.uid(), 'secretariat'::app_role) OR
-        public.has_role(auth.uid(), 'homeroom_teacher'::app_role)
+        public.has_role((select auth.uid()), 'director'::app_role) OR
+        public.has_role((select auth.uid()), 'secretariat'::app_role) OR
+        public.has_role((select auth.uid()), 'homeroom_teacher'::app_role)
       )
     ) OR
-    public.has_role(auth.uid(), 'uat_admin'::app_role) OR
-    public.has_role(auth.uid(), 'developer'::app_role)
+    public.has_role((select auth.uid()), 'uat_admin'::app_role) OR
+    public.has_role((select auth.uid()), 'developer'::app_role)
   );
 
 -- 2) Subjects RLS: Users can only see subjects from their school
@@ -46,8 +46,8 @@ CREATE POLICY "Users can view subjects from their school" ON public.subjects
   FOR SELECT
   USING (
     school_id = public.get_user_school_id() OR
-    public.has_role(auth.uid(), 'uat_admin'::app_role) OR
-    public.has_role(auth.uid(), 'developer'::app_role)
+    public.has_role((select auth.uid()), 'uat_admin'::app_role) OR
+    public.has_role((select auth.uid()), 'developer'::app_role)
   );
 
 DROP POLICY IF EXISTS "Staff can manage subjects from their school" ON public.subjects;
@@ -57,14 +57,14 @@ CREATE POLICY "Staff can manage subjects from their school" ON public.subjects
     (
       school_id = public.get_user_school_id() AND
       (
-        public.has_role(auth.uid(), 'director'::app_role) OR
-        public.has_role(auth.uid(), 'secretariat'::app_role) OR
-        public.has_role(auth.uid(), 'teacher'::app_role) OR
-        public.has_role(auth.uid(), 'homeroom_teacher'::app_role)
+        public.has_role((select auth.uid()), 'director'::app_role) OR
+        public.has_role((select auth.uid()), 'secretariat'::app_role) OR
+        public.has_role((select auth.uid()), 'teacher'::app_role) OR
+        public.has_role((select auth.uid()), 'homeroom_teacher'::app_role)
       )
     ) OR
-    public.has_role(auth.uid(), 'uat_admin'::app_role) OR
-    public.has_role(auth.uid(), 'developer'::app_role)
+    public.has_role((select auth.uid()), 'uat_admin'::app_role) OR
+    public.has_role((select auth.uid()), 'developer'::app_role)
   );
 
 -- 3) Grades RLS: Users can only see grades from their school
@@ -77,8 +77,8 @@ CREATE POLICY "Users can view grades from their school" ON public.grades
       school_id = public.get_user_school_id() AND
       deleted_at IS NULL
     ) OR
-    public.has_role(auth.uid(), 'uat_admin'::app_role) OR
-    public.has_role(auth.uid(), 'developer'::app_role)
+    public.has_role((select auth.uid()), 'uat_admin'::app_role) OR
+    public.has_role((select auth.uid()), 'developer'::app_role)
   );
 
 -- Update insert policy to require school_id match
@@ -87,18 +87,18 @@ CREATE POLICY "Teachers can insert grades (scoped)" ON public.grades
   FOR INSERT
   WITH CHECK (
     school_id = public.get_user_school_id() AND
-    teacher_id = auth.uid() AND
-    subject_id IN (SELECT id FROM public.subjects WHERE teacher_id = auth.uid() AND school_id = public.get_user_school_id()) AND
+    teacher_id = (select auth.uid()) AND
+    subject_id IN (SELECT id FROM public.subjects WHERE teacher_id = (select auth.uid()) AND school_id = public.get_user_school_id()) AND
     student_id IN (
       SELECT s.id
       FROM public.students s
       JOIN public.classes c ON s.class_id = c.id
-      WHERE c.teacher_id = auth.uid() AND s.school_id = public.get_user_school_id()
+      WHERE c.teacher_id = (select auth.uid()) AND s.school_id = public.get_user_school_id()
     ) OR
-    public.has_role(auth.uid(), 'director'::app_role) OR
-    public.has_role(auth.uid(), 'secretariat'::app_role) OR
-    public.has_role(auth.uid(), 'uat_admin'::app_role) OR
-    public.has_role(auth.uid(), 'developer'::app_role)
+    public.has_role((select auth.uid()), 'director'::app_role) OR
+    public.has_role((select auth.uid()), 'secretariat'::app_role) OR
+    public.has_role((select auth.uid()), 'uat_admin'::app_role) OR
+    public.has_role((select auth.uid()), 'developer'::app_role)
   );
 
 -- Update update policy
@@ -108,24 +108,24 @@ CREATE POLICY "Teachers can update grades (scoped)" ON public.grades
   USING (
     (
       school_id = public.get_user_school_id() AND
-      teacher_id = auth.uid() AND
-      subject_id IN (SELECT id FROM public.subjects WHERE teacher_id = auth.uid() AND school_id = public.get_user_school_id())
+      teacher_id = (select auth.uid()) AND
+      subject_id IN (SELECT id FROM public.subjects WHERE teacher_id = (select auth.uid()) AND school_id = public.get_user_school_id())
     ) OR
-    public.has_role(auth.uid(), 'director'::app_role) OR
-    public.has_role(auth.uid(), 'secretariat'::app_role) OR
-    public.has_role(auth.uid(), 'uat_admin'::app_role) OR
-    public.has_role(auth.uid(), 'developer'::app_role)
+    public.has_role((select auth.uid()), 'director'::app_role) OR
+    public.has_role((select auth.uid()), 'secretariat'::app_role) OR
+    public.has_role((select auth.uid()), 'uat_admin'::app_role) OR
+    public.has_role((select auth.uid()), 'developer'::app_role)
   )
   WITH CHECK (
     (
       school_id = public.get_user_school_id() AND
-      teacher_id = auth.uid() AND
-      subject_id IN (SELECT id FROM public.subjects WHERE teacher_id = auth.uid() AND school_id = public.get_user_school_id())
+      teacher_id = (select auth.uid()) AND
+      subject_id IN (SELECT id FROM public.subjects WHERE teacher_id = (select auth.uid()) AND school_id = public.get_user_school_id())
     ) OR
-    public.has_role(auth.uid(), 'director'::app_role) OR
-    public.has_role(auth.uid(), 'secretariat'::app_role) OR
-    public.has_role(auth.uid(), 'uat_admin'::app_role) OR
-    public.has_role(auth.uid(), 'developer'::app_role)
+    public.has_role((select auth.uid()), 'director'::app_role) OR
+    public.has_role((select auth.uid()), 'secretariat'::app_role) OR
+    public.has_role((select auth.uid()), 'uat_admin'::app_role) OR
+    public.has_role((select auth.uid()), 'developer'::app_role)
   );
 
 -- Update delete policy
@@ -135,13 +135,13 @@ CREATE POLICY "Teachers can delete grades (scoped)" ON public.grades
   USING (
     (
       school_id = public.get_user_school_id() AND
-      teacher_id = auth.uid() AND
-      subject_id IN (SELECT id FROM public.subjects WHERE teacher_id = auth.uid() AND school_id = public.get_user_school_id())
+      teacher_id = (select auth.uid()) AND
+      subject_id IN (SELECT id FROM public.subjects WHERE teacher_id = (select auth.uid()) AND school_id = public.get_user_school_id())
     ) OR
-    public.has_role(auth.uid(), 'director'::app_role) OR
-    public.has_role(auth.uid(), 'secretariat'::app_role) OR
-    public.has_role(auth.uid(), 'uat_admin'::app_role) OR
-    public.has_role(auth.uid(), 'developer'::app_role)
+    public.has_role((select auth.uid()), 'director'::app_role) OR
+    public.has_role((select auth.uid()), 'secretariat'::app_role) OR
+    public.has_role((select auth.uid()), 'uat_admin'::app_role) OR
+    public.has_role((select auth.uid()), 'developer'::app_role)
   );
 
 -- 4) Attendance RLS: Users can only see attendance from their school
@@ -153,8 +153,8 @@ CREATE POLICY "Users can view attendance from their school" ON public.attendance
       school_id = public.get_user_school_id() AND
       deleted_at IS NULL
     ) OR
-    public.has_role(auth.uid(), 'uat_admin'::app_role) OR
-    public.has_role(auth.uid(), 'developer'::app_role)
+    public.has_role((select auth.uid()), 'uat_admin'::app_role) OR
+    public.has_role((select auth.uid()), 'developer'::app_role)
   );
 
 -- Update insert policy
@@ -164,19 +164,19 @@ CREATE POLICY "Teachers can insert attendance (scoped)" ON public.attendance
   WITH CHECK (
     (
       school_id = public.get_user_school_id() AND
-      teacher_id = auth.uid() AND
-      subject_id IN (SELECT id FROM public.subjects WHERE teacher_id = auth.uid() AND school_id = public.get_user_school_id()) AND
+      teacher_id = (select auth.uid()) AND
+      subject_id IN (SELECT id FROM public.subjects WHERE teacher_id = (select auth.uid()) AND school_id = public.get_user_school_id()) AND
       student_id IN (
         SELECT s.id
         FROM public.students s
         JOIN public.classes c ON s.class_id = c.id
-        WHERE c.teacher_id = auth.uid() AND s.school_id = public.get_user_school_id()
+        WHERE c.teacher_id = (select auth.uid()) AND s.school_id = public.get_user_school_id()
       )
     ) OR
-    public.has_role(auth.uid(), 'director'::app_role) OR
-    public.has_role(auth.uid(), 'secretariat'::app_role) OR
-    public.has_role(auth.uid(), 'uat_admin'::app_role) OR
-    public.has_role(auth.uid(), 'developer'::app_role)
+    public.has_role((select auth.uid()), 'director'::app_role) OR
+    public.has_role((select auth.uid()), 'secretariat'::app_role) OR
+    public.has_role((select auth.uid()), 'uat_admin'::app_role) OR
+    public.has_role((select auth.uid()), 'developer'::app_role)
   );
 
 -- Update update policy
@@ -186,24 +186,24 @@ CREATE POLICY "Teachers can update attendance (scoped)" ON public.attendance
   USING (
     (
       school_id = public.get_user_school_id() AND
-      teacher_id = auth.uid() AND
-      subject_id IN (SELECT id FROM public.subjects WHERE teacher_id = auth.uid() AND school_id = public.get_user_school_id())
+      teacher_id = (select auth.uid()) AND
+      subject_id IN (SELECT id FROM public.subjects WHERE teacher_id = (select auth.uid()) AND school_id = public.get_user_school_id())
     ) OR
-    public.has_role(auth.uid(), 'director'::app_role) OR
-    public.has_role(auth.uid(), 'secretariat'::app_role) OR
-    public.has_role(auth.uid(), 'uat_admin'::app_role) OR
-    public.has_role(auth.uid(), 'developer'::app_role)
+    public.has_role((select auth.uid()), 'director'::app_role) OR
+    public.has_role((select auth.uid()), 'secretariat'::app_role) OR
+    public.has_role((select auth.uid()), 'uat_admin'::app_role) OR
+    public.has_role((select auth.uid()), 'developer'::app_role)
   )
   WITH CHECK (
     (
       school_id = public.get_user_school_id() AND
-      teacher_id = auth.uid() AND
-      subject_id IN (SELECT id FROM public.subjects WHERE teacher_id = auth.uid() AND school_id = public.get_user_school_id())
+      teacher_id = (select auth.uid()) AND
+      subject_id IN (SELECT id FROM public.subjects WHERE teacher_id = (select auth.uid()) AND school_id = public.get_user_school_id())
     ) OR
-    public.has_role(auth.uid(), 'director'::app_role) OR
-    public.has_role(auth.uid(), 'secretariat'::app_role) OR
-    public.has_role(auth.uid(), 'uat_admin'::app_role) OR
-    public.has_role(auth.uid(), 'developer'::app_role)
+    public.has_role((select auth.uid()), 'director'::app_role) OR
+    public.has_role((select auth.uid()), 'secretariat'::app_role) OR
+    public.has_role((select auth.uid()), 'uat_admin'::app_role) OR
+    public.has_role((select auth.uid()), 'developer'::app_role)
   );
 
 -- Update delete policy
@@ -213,13 +213,13 @@ CREATE POLICY "Teachers can delete attendance (scoped)" ON public.attendance
   USING (
     (
       school_id = public.get_user_school_id() AND
-      teacher_id = auth.uid() AND
-      subject_id IN (SELECT id FROM public.subjects WHERE teacher_id = auth.uid() AND school_id = public.get_user_school_id())
+      teacher_id = (select auth.uid()) AND
+      subject_id IN (SELECT id FROM public.subjects WHERE teacher_id = (select auth.uid()) AND school_id = public.get_user_school_id())
     ) OR
-    public.has_role(auth.uid(), 'director'::app_role) OR
-    public.has_role(auth.uid(), 'secretariat'::app_role) OR
-    public.has_role(auth.uid(), 'uat_admin'::app_role) OR
-    public.has_role(auth.uid(), 'developer'::app_role)
+    public.has_role((select auth.uid()), 'director'::app_role) OR
+    public.has_role((select auth.uid()), 'secretariat'::app_role) OR
+    public.has_role((select auth.uid()), 'uat_admin'::app_role) OR
+    public.has_role((select auth.uid()), 'developer'::app_role)
   );
 
 -- 5) Classes RLS: Users can only see classes from their school
@@ -228,8 +228,8 @@ CREATE POLICY "Users can view classes from their school" ON public.classes
   FOR SELECT
   USING (
     school_id = public.get_user_school_id() OR
-    public.has_role(auth.uid(), 'uat_admin'::app_role) OR
-    public.has_role(auth.uid(), 'developer'::app_role)
+    public.has_role((select auth.uid()), 'uat_admin'::app_role) OR
+    public.has_role((select auth.uid()), 'developer'::app_role)
   );
 
 DROP POLICY IF EXISTS "Staff can manage classes from their school" ON public.classes;
@@ -239,13 +239,13 @@ CREATE POLICY "Staff can manage classes from their school" ON public.classes
     (
       school_id = public.get_user_school_id() AND
       (
-        public.has_role(auth.uid(), 'director'::app_role) OR
-        public.has_role(auth.uid(), 'secretariat'::app_role) OR
-        public.has_role(auth.uid(), 'homeroom_teacher'::app_role)
+        public.has_role((select auth.uid()), 'director'::app_role) OR
+        public.has_role((select auth.uid()), 'secretariat'::app_role) OR
+        public.has_role((select auth.uid()), 'homeroom_teacher'::app_role)
       )
     ) OR
-    public.has_role(auth.uid(), 'uat_admin'::app_role) OR
-    public.has_role(auth.uid(), 'developer'::app_role)
+    public.has_role((select auth.uid()), 'uat_admin'::app_role) OR
+    public.has_role((select auth.uid()), 'developer'::app_role)
   );
 
 COMMIT;

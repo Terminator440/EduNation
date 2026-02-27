@@ -38,7 +38,7 @@ AS $$
 DECLARE
   uid uuid;
 BEGIN
-  uid := auth.uid();
+  uid := (select auth.uid());
   IF uid IS NULL THEN RETURN NEW; END IF;
 
   -- Homeroom (not original recorder) can only set status to motivated

@@ -24,25 +24,25 @@ DROP POLICY IF EXISTS notifications_insert_own ON public.notifications;
 
 -- SELECT: utilizatorul vede doar propriile notificări
 CREATE POLICY "Users view own notifications" ON public.notifications
-  FOR SELECT USING (user_id = auth.uid());
+  FOR SELECT USING (user_id = (select auth.uid()));
 
 -- UPDATE: utilizatorul poate marca doar propriile notificări ca citite
 CREATE POLICY "Users update own notifications" ON public.notifications
-  FOR UPDATE USING (user_id = auth.uid())
-  WITH CHECK (user_id = auth.uid());
+  FOR UPDATE USING (user_id = (select auth.uid()))
+  WITH CHECK (user_id = (select auth.uid()));
 
 -- INSERT: utilizatorul (rar) sau director/teacher pot insera
 -- Service role bypass-ează RLS, deci sistemul poate insera oricum
 CREATE POLICY "Users insert own notifications" ON public.notifications
-  FOR INSERT WITH CHECK (user_id = auth.uid());
+  FOR INSERT WITH CHECK (user_id = (select auth.uid()));
 
 CREATE POLICY "Staff insert notifications" ON public.notifications
   FOR INSERT WITH CHECK (
-    has_role(auth.uid(), 'director'::public.app_role)
-    OR has_role(auth.uid(), 'teacher'::public.app_role)
-    OR has_role(auth.uid(), 'homeroom_teacher'::public.app_role)
-    OR has_role(auth.uid(), 'secretariat'::public.app_role)
-    OR has_role(auth.uid(), 'uat_admin'::public.app_role)
+    has_role((select auth.uid()), 'director'::public.app_role)
+    OR has_role((select auth.uid()), 'teacher'::public.app_role)
+    OR has_role((select auth.uid()), 'homeroom_teacher'::public.app_role)
+    OR has_role((select auth.uid()), 'secretariat'::public.app_role)
+    OR has_role((select auth.uid()), 'uat_admin'::public.app_role)
   );
 
 -- Activează Realtime pentru notifications (Dashboard > Database > Replication)

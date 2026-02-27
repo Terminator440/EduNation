@@ -94,7 +94,7 @@ DECLARE
   v_student_class_id UUID;
   v_homeroom_teacher_id UUID;
 BEGIN
-  v_user_id := auth.uid();
+  v_user_id := (select auth.uid());
   
   IF v_user_id IS NULL THEN
     RAISE EXCEPTION 'User must be authenticated';
@@ -181,7 +181,7 @@ CREATE POLICY "Students can view own attendance" ON public.attendance
   FOR SELECT
   USING (
     -- Student can view their own attendance
-    auth.uid() IN (
+    (select auth.uid()) IN (
       SELECT user_id 
       FROM public.students 
       WHERE id = attendance.student_id 
@@ -191,13 +191,13 @@ CREATE POLICY "Students can view own attendance" ON public.attendance
     OR
     -- Staff (director/secretariat) can view all attendance from their school
     (
-      public.has_role(auth.uid(), 'director'::app_role) OR
-      public.has_role(auth.uid(), 'secretariat'::app_role)
+      public.has_role((select auth.uid()), 'director'::app_role) OR
+      public.has_role((select auth.uid()), 'secretariat'::app_role)
     ) AND school_id = public.get_user_school_id()
     OR
     -- UAT Admin and Developer can view all
-    public.has_role(auth.uid(), 'uat_admin'::app_role) OR
-    public.has_role(auth.uid(), 'developer'::app_role)
+    public.has_role((select auth.uid()), 'uat_admin'::app_role) OR
+    public.has_role((select auth.uid()), 'developer'::app_role)
   );
 
 -- Ensure parents can view their children's attendance
@@ -210,7 +210,7 @@ CREATE POLICY "Parents can view children attendance" ON public.attendance
       SELECT 1
       FROM public.parent_student_relations psr
       WHERE psr.student_id = attendance.student_id
-        AND psr.parent_user_id = auth.uid()
+        AND psr.parent_user_id = (select auth.uid())
     )
     AND school_id = public.get_user_school_id()
   );
@@ -226,8 +226,8 @@ CREATE POLICY "Homeroom teachers can view class attendance" ON public.attendance
       FROM public.students s
       JOIN public.classes c ON c.id = s.class_id
       WHERE s.id = attendance.student_id
-        AND c.teacher_id = auth.uid()
-        AND public.has_role(auth.uid(), 'homeroom_teacher'::app_role)
+        AND c.teacher_id = (select auth.uid())
+        AND public.has_role((select auth.uid()), 'homeroom_teacher'::app_role)
     )
     AND school_id = public.get_user_school_id()
   );
@@ -243,8 +243,8 @@ CREATE POLICY "Homeroom teachers can update attendance status" ON public.attenda
       FROM public.students s
       JOIN public.classes c ON c.id = s.class_id
       WHERE s.id = attendance.student_id
-        AND c.teacher_id = auth.uid()
-        AND public.has_role(auth.uid(), 'homeroom_teacher'::app_role)
+        AND c.teacher_id = (select auth.uid())
+        AND public.has_role((select auth.uid()), 'homeroom_teacher'::app_role)
     )
     AND school_id = public.get_user_school_id()
   )
@@ -256,8 +256,8 @@ CREATE POLICY "Homeroom teachers can update attendance status" ON public.attenda
       FROM public.students s
       JOIN public.classes c ON c.id = s.class_id
       WHERE s.id = attendance.student_id
-        AND c.teacher_id = auth.uid()
-        AND public.has_role(auth.uid(), 'homeroom_teacher'::app_role)
+        AND c.teacher_id = (select auth.uid())
+        AND public.has_role((select auth.uid()), 'homeroom_teacher'::app_role)
     )
     AND school_id = public.get_user_school_id()
   );
@@ -268,14 +268,14 @@ CREATE POLICY "Directors and secretariat can update attendance status" ON public
   FOR UPDATE
   USING (
     (
-      public.has_role(auth.uid(), 'director'::app_role) OR
-      public.has_role(auth.uid(), 'secretariat'::app_role)
+      public.has_role((select auth.uid()), 'director'::app_role) OR
+      public.has_role((select auth.uid()), 'secretariat'::app_role)
     ) AND school_id = public.get_user_school_id()
   )
   WITH CHECK (
     (
-      public.has_role(auth.uid(), 'director'::app_role) OR
-      public.has_role(auth.uid(), 'secretariat'::app_role)
+      public.has_role((select auth.uid()), 'director'::app_role) OR
+      public.has_role((select auth.uid()), 'secretariat'::app_role)
     ) AND school_id = public.get_user_school_id()
   );
 

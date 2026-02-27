@@ -24,10 +24,10 @@ BEGIN
 
   -- Link student user if not linked yet
   UPDATE public.students
-  SET user_id = auth.uid(),
+  SET user_id = (select auth.uid()),
       is_active = true
   WHERE id = act.student_id
-    AND (user_id IS NULL OR user_id = auth.uid());
+    AND (user_id IS NULL OR user_id = (select auth.uid()));
 
   IF NOT FOUND THEN
     RAISE EXCEPTION 'student_already_linked';
@@ -35,7 +35,7 @@ BEGIN
 
   UPDATE public.student_activations
   SET is_used = true,
-      used_by = auth.uid(),
+      used_by = (select auth.uid()),
       used_at = now()
   WHERE id = act.id;
 
@@ -65,12 +65,12 @@ BEGIN
   END IF;
 
   INSERT INTO public.parent_student_relations (parent_user_id, student_id, is_primary)
-  VALUES (auth.uid(), act.student_id, _is_primary)
+  VALUES ((select auth.uid()), act.student_id, _is_primary)
   RETURNING id INTO rel_id;
 
   UPDATE public.student_activations
   SET is_used = true,
-      used_by = auth.uid(),
+      used_by = (select auth.uid()),
       used_at = now()
   WHERE id = act.id;
 

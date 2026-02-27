@@ -16,9 +16,9 @@ CREATE POLICY "Staff can create announcements"
 ON public.announcements 
 FOR INSERT 
 WITH CHECK (
-  has_role(auth.uid(), 'director'::app_role) OR 
-  has_role(auth.uid(), 'secretariat'::app_role) OR 
-  has_role(auth.uid(), 'uat_admin'::app_role)
+  has_role((select auth.uid()), 'director'::app_role) OR 
+  has_role((select auth.uid()), 'secretariat'::app_role) OR 
+  has_role((select auth.uid()), 'uat_admin'::app_role)
 );
 
 -- Directors, secretariat and uat_admin can update/delete their announcements
@@ -26,10 +26,10 @@ CREATE POLICY "Staff can manage their announcements"
 ON public.announcements 
 FOR ALL 
 USING (
-  created_by = auth.uid() AND (
-    has_role(auth.uid(), 'director'::app_role) OR 
-    has_role(auth.uid(), 'secretariat'::app_role) OR 
-    has_role(auth.uid(), 'uat_admin'::app_role)
+  created_by = (select auth.uid()) AND (
+    has_role((select auth.uid()), 'director'::app_role) OR 
+    has_role((select auth.uid()), 'secretariat'::app_role) OR 
+    has_role((select auth.uid()), 'uat_admin'::app_role)
   )
 );
 

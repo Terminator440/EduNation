@@ -64,11 +64,11 @@ AS $$
 BEGIN
   IF NEW.status IN ('motivat', 'motivated', 'motivata') AND (OLD.status IS NULL OR OLD.status NOT IN ('motivat', 'motivated', 'motivata')) THEN
     IF NOT (
-      public.has_role(auth.uid(), 'director'::public.app_role)
-      OR public.has_role(auth.uid(), 'secretariat'::public.app_role)
-      OR public.has_role(auth.uid(), 'uat_admin'::public.app_role)
-      OR public.has_role(auth.uid(), 'developer'::public.app_role)
-      OR public.is_homeroom_teacher_for_student(auth.uid(), NEW.student_id)
+      public.has_role((select auth.uid()), 'director'::public.app_role)
+      OR public.has_role((select auth.uid()), 'secretariat'::public.app_role)
+      OR public.has_role((select auth.uid()), 'uat_admin'::public.app_role)
+      OR public.has_role((select auth.uid()), 'developer'::public.app_role)
+      OR public.is_homeroom_teacher_for_student((select auth.uid()), NEW.student_id)
     ) THEN
       RAISE EXCEPTION 'Doar dirigintele poate motiva absențele.'
         USING ERRCODE = 'P0001';
@@ -176,8 +176,8 @@ BEGIN
   v_user_school := public.get_user_school_id();
   SELECT school_id INTO v_school_id FROM public.students WHERE id = p_student_id;
   IF v_school_id IS NULL OR v_school_id != v_user_school THEN
-    IF NOT (public.has_role(auth.uid(), 'director'::public.app_role) OR public.has_role(auth.uid(), 'admin'::public.app_role)
-      OR public.has_role(auth.uid(), 'uat_admin'::public.app_role) OR public.has_role(auth.uid(), 'developer'::public.app_role)) THEN
+    IF NOT (public.has_role((select auth.uid()), 'director'::public.app_role) OR public.has_role((select auth.uid()), 'admin'::public.app_role)
+      OR public.has_role((select auth.uid()), 'uat_admin'::public.app_role) OR public.has_role((select auth.uid()), 'developer'::public.app_role)) THEN
       RAISE EXCEPTION 'Acces interzis la datele acestui elev.';
     END IF;
   END IF;

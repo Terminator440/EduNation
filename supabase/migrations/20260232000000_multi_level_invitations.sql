@@ -165,7 +165,7 @@ DECLARE
   v_class_school_id uuid;
   v_homeroom_class_id uuid;
 BEGIN
-  v_creator_id := COALESCE(p_created_by, auth.uid());
+  v_creator_id := COALESCE(p_created_by, (select auth.uid()));
   v_user_id := v_creator_id;
 
   IF v_user_id IS NULL THEN
@@ -334,9 +334,9 @@ DROP POLICY IF EXISTS "Homeroom teachers can manage student parent teacher invit
 CREATE POLICY "homeroom_select_own_class_invitations" ON public.invitations
   FOR SELECT
   USING (
-    public.has_role(auth.uid(), 'homeroom_teacher'::public.app_role)
+    public.has_role((select auth.uid()), 'homeroom_teacher'::public.app_role)
     AND class_id IN (
-      SELECT c.id FROM public.classes c WHERE c.teacher_id = auth.uid()
+      SELECT c.id FROM public.classes c WHERE c.teacher_id = (select auth.uid())
     )
   );
 
@@ -344,10 +344,10 @@ CREATE POLICY "homeroom_select_own_class_invitations" ON public.invitations
 CREATE POLICY "homeroom_insert_own_class_invitations" ON public.invitations
   FOR INSERT
   WITH CHECK (
-    public.has_role(auth.uid(), 'homeroom_teacher'::public.app_role)
+    public.has_role((select auth.uid()), 'homeroom_teacher'::public.app_role)
     AND role IN ('student'::public.invitation_role, 'parent'::public.invitation_role, 'teacher'::public.invitation_role)
     AND class_id IN (
-      SELECT c.id FROM public.classes c WHERE c.teacher_id = auth.uid()
+      SELECT c.id FROM public.classes c WHERE c.teacher_id = (select auth.uid())
     )
     AND school_id = public.get_user_school_id()
   );
@@ -356,15 +356,15 @@ CREATE POLICY "homeroom_insert_own_class_invitations" ON public.invitations
 CREATE POLICY "homeroom_update_own_class_invitations" ON public.invitations
   FOR UPDATE
   USING (
-    public.has_role(auth.uid(), 'homeroom_teacher'::public.app_role)
+    public.has_role((select auth.uid()), 'homeroom_teacher'::public.app_role)
     AND class_id IN (
-      SELECT c.id FROM public.classes c WHERE c.teacher_id = auth.uid()
+      SELECT c.id FROM public.classes c WHERE c.teacher_id = (select auth.uid())
     )
   )
   WITH CHECK (
-    public.has_role(auth.uid(), 'homeroom_teacher'::public.app_role)
+    public.has_role((select auth.uid()), 'homeroom_teacher'::public.app_role)
     AND class_id IN (
-      SELECT c.id FROM public.classes c WHERE c.teacher_id = auth.uid()
+      SELECT c.id FROM public.classes c WHERE c.teacher_id = (select auth.uid())
     )
   );
 
@@ -373,12 +373,12 @@ DROP POLICY IF EXISTS "Directors can manage teacher invitations" ON public.invit
 CREATE POLICY "director_manage_staff_invitations" ON public.invitations
   FOR ALL
   USING (
-    public.has_role(auth.uid(), 'director'::public.app_role)
+    public.has_role((select auth.uid()), 'director'::public.app_role)
     AND role IN ('teacher'::public.invitation_role, 'homeroom_teacher'::public.invitation_role, 'secretariat'::public.invitation_role)
     AND school_id = public.get_user_school_id()
   )
   WITH CHECK (
-    public.has_role(auth.uid(), 'director'::public.app_role)
+    public.has_role((select auth.uid()), 'director'::public.app_role)
     AND role IN ('teacher'::public.invitation_role, 'homeroom_teacher'::public.invitation_role, 'secretariat'::public.invitation_role)
     AND school_id = public.get_user_school_id()
   );
@@ -388,13 +388,13 @@ CREATE POLICY "director_manage_staff_invitations" ON public.invitations
 DROP POLICY IF EXISTS "Developers can manage all invitations" ON public.invitations;
 CREATE POLICY "Developers can manage all invitations" ON public.invitations
   FOR ALL
-  USING (public.has_role(auth.uid(), 'developer'::public.app_role));
+  USING (public.has_role((select auth.uid()), 'developer'::public.app_role));
 
 -- Utilizatorii pot vedea invitațiile create de ei
 DROP POLICY IF EXISTS "Users can see own invitations" ON public.invitations;
 CREATE POLICY "users_select_own_invitations" ON public.invitations
   FOR SELECT
-  USING (created_by_user_id = auth.uid() OR invited_by = auth.uid());
+  USING (created_by_user_id = (select auth.uid()) OR invited_by = (select auth.uid()));
 
 -- Oricine poate valida invitații (pentru signup)
 DROP POLICY IF EXISTS "Anyone can validate invitations" ON public.invitations;

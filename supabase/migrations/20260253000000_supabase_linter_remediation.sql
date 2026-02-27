@@ -9,7 +9,7 @@ ALTER TABLE public.school_years ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "school_years_select" ON public.school_years;
 CREATE POLICY "school_years_select" ON public.school_years
   FOR SELECT USING (
-    school_id IS NULL AND (public.has_role((SELECT auth.uid()), 'uat_admin'::public.app_role) OR public.has_role((SELECT auth.uid()), 'developer'::public.app_role))
+    school_id IS NULL AND (public.has_role((select auth.uid()), 'uat_admin'::public.app_role) OR public.has_role((select auth.uid()), 'developer'::public.app_role))
     OR
     (school_id IS NOT NULL AND public.get_user_school_id() = school_id)
   );
@@ -17,31 +17,31 @@ CREATE POLICY "school_years_select" ON public.school_years
 DROP POLICY IF EXISTS "school_years_insert" ON public.school_years;
 CREATE POLICY "school_years_insert" ON public.school_years
   FOR INSERT WITH CHECK (
-    (public.has_role((SELECT auth.uid()), 'uat_admin'::public.app_role) OR public.has_role((SELECT auth.uid()), 'developer'::public.app_role))
+    (public.has_role((select auth.uid()), 'uat_admin'::public.app_role) OR public.has_role((select auth.uid()), 'developer'::public.app_role))
     OR
     (school_id IS NOT NULL AND public.get_user_school_id() = school_id AND (
-      public.has_role((SELECT auth.uid()), 'director'::public.app_role) OR
-      public.has_role((SELECT auth.uid()), 'secretariat'::public.app_role)
+      public.has_role((select auth.uid()), 'director'::public.app_role) OR
+      public.has_role((select auth.uid()), 'secretariat'::public.app_role)
     ))
   );
 
 DROP POLICY IF EXISTS "school_years_update" ON public.school_years;
 CREATE POLICY "school_years_update" ON public.school_years
   FOR UPDATE USING (
-    school_id IS NULL AND (public.has_role((SELECT auth.uid()), 'uat_admin'::public.app_role) OR public.has_role((SELECT auth.uid()), 'developer'::public.app_role))
+    school_id IS NULL AND (public.has_role((select auth.uid()), 'uat_admin'::public.app_role) OR public.has_role((select auth.uid()), 'developer'::public.app_role))
     OR
     (school_id IS NOT NULL AND public.get_user_school_id() = school_id AND (
-      public.has_role((SELECT auth.uid()), 'director'::public.app_role) OR
-      public.has_role((SELECT auth.uid()), 'secretariat'::public.app_role)
+      public.has_role((select auth.uid()), 'director'::public.app_role) OR
+      public.has_role((select auth.uid()), 'secretariat'::public.app_role)
     ))
   );
 
 DROP POLICY IF EXISTS "school_years_delete" ON public.school_years;
 CREATE POLICY "school_years_delete" ON public.school_years
   FOR DELETE USING (
-    public.has_role((SELECT auth.uid()), 'uat_admin'::public.app_role) OR public.has_role((SELECT auth.uid()), 'developer'::public.app_role)
+    public.has_role((select auth.uid()), 'uat_admin'::public.app_role) OR public.has_role((select auth.uid()), 'developer'::public.app_role)
     OR
-    (school_id IS NOT NULL AND public.get_user_school_id() = school_id AND public.has_role((SELECT auth.uid()), 'director'::public.app_role))
+    (school_id IS NOT NULL AND public.get_user_school_id() = school_id AND public.has_role((select auth.uid()), 'director'::public.app_role))
   );
 
 -- =============================================================================

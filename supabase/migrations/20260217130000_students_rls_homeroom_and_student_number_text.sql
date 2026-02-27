@@ -19,10 +19,10 @@ DROP POLICY IF EXISTS "Homeroom can manage students in own class" ON public.stud
 CREATE POLICY "Homeroom can manage students in own class" ON public.students
   FOR ALL
   USING (
-    has_role(auth.uid(), 'homeroom_teacher'::public.app_role)
-    AND class_id IN (SELECT id FROM public.classes WHERE teacher_id = auth.uid())
+    has_role((select auth.uid()), 'homeroom_teacher'::public.app_role)
+    AND class_id IN (SELECT id FROM public.classes WHERE teacher_id = (select auth.uid()))
   )
   WITH CHECK (
-    has_role(auth.uid(), 'homeroom_teacher'::public.app_role)
-    AND class_id IN (SELECT id FROM public.classes WHERE teacher_id = auth.uid())
+    has_role((select auth.uid()), 'homeroom_teacher'::public.app_role)
+    AND class_id IN (SELECT id FROM public.classes WHERE teacher_id = (select auth.uid()))
   );

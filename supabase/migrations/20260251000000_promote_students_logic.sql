@@ -24,7 +24,7 @@ BEGIN
   IF v_school_id IS NULL THEN
     RETURN jsonb_build_object('success', false, 'error', 'School year not found');
   END IF;
-  IF NOT (public.get_user_school_id() = v_school_id OR public.has_role(auth.uid(), 'uat_admin'::public.app_role) OR public.has_role(auth.uid(), 'developer'::public.app_role)) THEN
+  IF NOT (public.get_user_school_id() = v_school_id OR public.has_role((select auth.uid()), 'uat_admin'::public.app_role) OR public.has_role((select auth.uid()), 'developer'::public.app_role)) THEN
     RETURN jsonb_build_object('success', false, 'error', 'Not allowed');
   END IF;
 

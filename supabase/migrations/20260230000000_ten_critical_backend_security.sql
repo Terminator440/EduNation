@@ -1,7 +1,7 @@
 -- =============================================================================
 -- Migration: 10 puncte critice pentru securizarea și finalizarea backend-ului
 --
--- 1. Strict Multi-Tenancy: RLS cu school_id = (SELECT school_id FROM profiles WHERE id = auth.uid())
+-- 1. Strict Multi-Tenancy: RLS cu school_id = (SELECT school_id FROM profiles WHERE id = (select auth.uid()))
 -- 2. Enforced School ID: students.school_id NOT NULL + FK
 -- 3. Data Constraints: CHECK note 1-10, absențe >= 0
 -- 4. Audit Log: audit_logs + trigger pe note, absențe, rol (old_data, new_data)
@@ -16,7 +16,7 @@
 BEGIN;
 
 -- =============================================================================
--- PUNCT 1: STRICT MULTI-TENANCY – get_user_school_id() = (SELECT school_id FROM profiles WHERE id = auth.uid())
+-- PUNCT 1: STRICT MULTI-TENANCY – get_user_school_id() = (SELECT school_id FROM profiles WHERE id = (select auth.uid()))
 -- Directorul nu are voie să vadă alte școli. Toate politicile folosesc această clauză.
 -- =============================================================================
 
@@ -27,7 +27,7 @@ STABLE
 SECURITY DEFINER
 SET search_path = public
 AS $$
-  SELECT school_id FROM public.profiles WHERE id = auth.uid()
+  SELECT school_id FROM public.profiles WHERE id = (select auth.uid())
 $$;
 
 COMMENT ON FUNCTION public.get_user_school_id() IS 'Strict multi-tenancy: returnează school_id-ul utilizatorului curent. Directorul vede DOAR propria școală.';
@@ -138,9 +138,9 @@ CREATE POLICY "audit_logs_select_own_school_or_admin" ON public.audit_logs
   FOR SELECT
   USING (
     school_id = public.get_user_school_id()
-    OR public.has_role(auth.uid(), 'admin'::public.app_role)
-    OR public.has_role(auth.uid(), 'uat_admin'::public.app_role)
-    OR public.has_role(auth.uid(), 'developer'::public.app_role)
+    OR public.has_role((select auth.uid()), 'admin'::public.app_role)
+    OR public.has_role((select auth.uid()), 'uat_admin'::public.app_role)
+    OR public.has_role((select auth.uid()), 'developer'::public.app_role)
   );
 
 -- Funcție generică de audit (INSERT/UPDATE/DELETE) cu old_data și new_data
@@ -182,7 +182,7 @@ BEGIN
   END IF;
 
   INSERT INTO public.audit_logs (user_id, action, table_name, record_id, old_data, new_data, school_id)
-  VALUES (auth.uid(), v_action, TG_TABLE_NAME, v_record_id, v_old, v_new, v_school_id);
+  VALUES ((select auth.uid()), v_action, TG_TABLE_NAME, v_record_id, v_old, v_new, v_school_id);
 
   IF TG_OP = 'DELETE' THEN RETURN OLD; ELSE RETURN NEW; END IF;
 END;
@@ -211,7 +211,7 @@ BEGIN
   IF TG_OP = 'UPDATE' AND (OLD.role IS DISTINCT FROM NEW.role OR OLD.active_role IS DISTINCT FROM NEW.active_role) THEN
     INSERT INTO public.audit_logs (user_id, action, table_name, record_id, old_data, new_data, school_id)
     VALUES (
-      auth.uid(),
+      (select auth.uid()),
       'UPDATE',
       'profiles',
       NEW.id,
@@ -281,13 +281,13 @@ CREATE POLICY "grades_insert_strict" ON public.grades
       EXISTS (
         SELECT 1 FROM public.teacher_assignments ta
         JOIN public.students s ON s.class_id = ta.class_id
-        WHERE ta.teacher_id = auth.uid() AND ta.subject_id = subject_id AND s.id = student_id
+        WHERE ta.teacher_id = (select auth.uid()) AND ta.subject_id = subject_id AND s.id = student_id
           AND ta.school_id = public.get_user_school_id()
       )
-      OR public.has_role(auth.uid(), 'director'::public.app_role)
-      OR public.has_role(auth.uid(), 'secretariat'::public.app_role)
-      OR public.has_role(auth.uid(), 'uat_admin'::public.app_role)
-      OR public.has_role(auth.uid(), 'developer'::public.app_role)
+      OR public.has_role((select auth.uid()), 'director'::public.app_role)
+      OR public.has_role((select auth.uid()), 'secretariat'::public.app_role)
+      OR public.has_role((select auth.uid()), 'uat_admin'::public.app_role)
+      OR public.has_role((select auth.uid()), 'developer'::public.app_role)
     )
   );
 
@@ -300,13 +300,13 @@ CREATE POLICY "grades_update_strict" ON public.grades
       EXISTS (
         SELECT 1 FROM public.teacher_assignments ta
         JOIN public.students s ON s.class_id = ta.class_id
-        WHERE ta.teacher_id = auth.uid() AND ta.subject_id = subject_id AND s.id = student_id
+        WHERE ta.teacher_id = (select auth.uid()) AND ta.subject_id = subject_id AND s.id = student_id
           AND ta.school_id = public.get_user_school_id()
       )
-      OR public.has_role(auth.uid(), 'director'::public.app_role)
-      OR public.has_role(auth.uid(), 'secretariat'::public.app_role)
-      OR public.has_role(auth.uid(), 'uat_admin'::public.app_role)
-      OR public.has_role(auth.uid(), 'developer'::public.app_role)
+      OR public.has_role((select auth.uid()), 'director'::public.app_role)
+      OR public.has_role((select auth.uid()), 'secretariat'::public.app_role)
+      OR public.has_role((select auth.uid()), 'uat_admin'::public.app_role)
+      OR public.has_role((select auth.uid()), 'developer'::public.app_role)
     )
   )
   WITH CHECK (
@@ -316,13 +316,13 @@ CREATE POLICY "grades_update_strict" ON public.grades
       EXISTS (
         SELECT 1 FROM public.teacher_assignments ta
         JOIN public.students s ON s.class_id = ta.class_id
-        WHERE ta.teacher_id = auth.uid() AND ta.subject_id = subject_id AND s.id = student_id
+        WHERE ta.teacher_id = (select auth.uid()) AND ta.subject_id = subject_id AND s.id = student_id
           AND ta.school_id = public.get_user_school_id()
       )
-      OR public.has_role(auth.uid(), 'director'::public.app_role)
-      OR public.has_role(auth.uid(), 'secretariat'::public.app_role)
-      OR public.has_role(auth.uid(), 'uat_admin'::public.app_role)
-      OR public.has_role(auth.uid(), 'developer'::public.app_role)
+      OR public.has_role((select auth.uid()), 'director'::public.app_role)
+      OR public.has_role((select auth.uid()), 'secretariat'::public.app_role)
+      OR public.has_role((select auth.uid()), 'uat_admin'::public.app_role)
+      OR public.has_role((select auth.uid()), 'developer'::public.app_role)
     )
   );
 
@@ -339,25 +339,25 @@ CREATE POLICY "students_select_strict" ON public.students
     school_id = public.get_user_school_id()
     AND (
       -- Director / secretariat: toți elevii din școală
-      public.has_role(auth.uid(), 'director'::public.app_role)
-      OR public.has_role(auth.uid(), 'secretariat'::public.app_role)
-      OR public.has_role(auth.uid(), 'homeroom_teacher'::public.app_role)
+      public.has_role((select auth.uid()), 'director'::public.app_role)
+      OR public.has_role((select auth.uid()), 'secretariat'::public.app_role)
+      OR public.has_role((select auth.uid()), 'homeroom_teacher'::public.app_role)
       -- Profesor: doar elevii din clasele în care e alocat
       OR EXISTS (
         SELECT 1 FROM public.teacher_assignments ta
-        WHERE ta.teacher_id = auth.uid() AND ta.class_id = students.class_id
+        WHERE ta.teacher_id = (select auth.uid()) AND ta.class_id = students.class_id
           AND ta.school_id = public.get_user_school_id()
       )
       -- Elev: propriul profil
-      OR user_id = auth.uid()
+      OR user_id = (select auth.uid())
       -- Părinte: copiii din parent_student_relations
       OR EXISTS (
         SELECT 1 FROM public.parent_student_relations psr
-        WHERE psr.student_id = students.id AND psr.parent_user_id = auth.uid()
+        WHERE psr.student_id = students.id AND psr.parent_user_id = (select auth.uid())
       )
     )
-    OR public.has_role(auth.uid(), 'uat_admin'::public.app_role)
-    OR public.has_role(auth.uid(), 'developer'::public.app_role)
+    OR public.has_role((select auth.uid()), 'uat_admin'::public.app_role)
+    OR public.has_role((select auth.uid()), 'developer'::public.app_role)
   );
 
 -- Grades SELECT: profesori doar pentru clasele/subject alocate (păstrăm policy existent dacă e deja granulară)
@@ -366,27 +366,27 @@ DROP POLICY IF EXISTS "grades_select_strict" ON public.grades;
 CREATE POLICY "grades_select_strict" ON public.grades
   FOR SELECT
   USING (
-    EXISTS (SELECT 1 FROM public.students s WHERE s.id = grades.student_id AND s.user_id = auth.uid() AND s.school_id = public.get_user_school_id())
+    EXISTS (SELECT 1 FROM public.students s WHERE s.id = grades.student_id AND s.user_id = (select auth.uid()) AND s.school_id = public.get_user_school_id())
     OR EXISTS (
       SELECT 1 FROM public.parent_student_relations psr
       JOIN public.students s ON s.id = psr.student_id
-      WHERE psr.student_id = grades.student_id AND psr.parent_user_id = auth.uid() AND s.school_id = public.get_user_school_id()
+      WHERE psr.student_id = grades.student_id AND psr.parent_user_id = (select auth.uid()) AND s.school_id = public.get_user_school_id()
     )
     OR (
       school_id = public.get_user_school_id()
       AND EXISTS (
         SELECT 1 FROM public.teacher_assignments ta
         JOIN public.students s ON s.class_id = ta.class_id
-        WHERE ta.teacher_id = auth.uid() AND ta.subject_id = grades.subject_id AND s.id = grades.student_id
+        WHERE ta.teacher_id = (select auth.uid()) AND ta.subject_id = grades.subject_id AND s.id = grades.student_id
           AND ta.school_id = public.get_user_school_id()
       )
     )
     OR (
       school_id = public.get_user_school_id()
-      AND (public.has_role(auth.uid(), 'director'::public.app_role) OR public.has_role(auth.uid(), 'secretariat'::public.app_role))
+      AND (public.has_role((select auth.uid()), 'director'::public.app_role) OR public.has_role((select auth.uid()), 'secretariat'::public.app_role))
     )
-    OR public.has_role(auth.uid(), 'uat_admin'::public.app_role)
-    OR public.has_role(auth.uid(), 'developer'::public.app_role)
+    OR public.has_role((select auth.uid()), 'uat_admin'::public.app_role)
+    OR public.has_role((select auth.uid()), 'developer'::public.app_role)
   );
 
 -- =============================================================================
@@ -403,21 +403,21 @@ CREATE POLICY "teacher_assignments_select_strict" ON public.teacher_assignments
   FOR SELECT
   USING (
     school_id = public.get_user_school_id()
-    OR public.has_role(auth.uid(), 'uat_admin'::public.app_role)
-    OR public.has_role(auth.uid(), 'developer'::public.app_role)
+    OR public.has_role((select auth.uid()), 'uat_admin'::public.app_role)
+    OR public.has_role((select auth.uid()), 'developer'::public.app_role)
   );
 
 CREATE POLICY "teacher_assignments_manage_strict" ON public.teacher_assignments
   FOR ALL
   USING (
-    (school_id = public.get_user_school_id() AND (public.has_role(auth.uid(), 'director'::public.app_role) OR public.has_role(auth.uid(), 'secretariat'::public.app_role)))
-    OR public.has_role(auth.uid(), 'uat_admin'::public.app_role)
-    OR public.has_role(auth.uid(), 'developer'::public.app_role)
+    (school_id = public.get_user_school_id() AND (public.has_role((select auth.uid()), 'director'::public.app_role) OR public.has_role((select auth.uid()), 'secretariat'::public.app_role)))
+    OR public.has_role((select auth.uid()), 'uat_admin'::public.app_role)
+    OR public.has_role((select auth.uid()), 'developer'::public.app_role)
   )
   WITH CHECK (
-    (school_id = public.get_user_school_id() AND (public.has_role(auth.uid(), 'director'::public.app_role) OR public.has_role(auth.uid(), 'secretariat'::public.app_role)))
-    OR public.has_role(auth.uid(), 'uat_admin'::public.app_role)
-    OR public.has_role(auth.uid(), 'developer'::public.app_role)
+    (school_id = public.get_user_school_id() AND (public.has_role((select auth.uid()), 'director'::public.app_role) OR public.has_role((select auth.uid()), 'secretariat'::public.app_role)))
+    OR public.has_role((select auth.uid()), 'uat_admin'::public.app_role)
+    OR public.has_role((select auth.uid()), 'developer'::public.app_role)
   );
 
 -- =============================================================================
@@ -497,25 +497,25 @@ CREATE POLICY "school_events_select_strict" ON public.school_events
   FOR SELECT
   USING (
     (school_id = public.get_user_school_id() AND (visibility_scope = 'school' OR (visibility_scope = 'class' AND (target_class_id IS NULL OR target_class_id IN (
-      SELECT class_id FROM public.students WHERE user_id = auth.uid()
+      SELECT class_id FROM public.students WHERE user_id = (select auth.uid())
     ) OR target_class_id IN (
-      SELECT ta.class_id FROM public.teacher_assignments ta WHERE ta.teacher_id = auth.uid() AND ta.school_id = public.get_user_school_id()
+      SELECT ta.class_id FROM public.teacher_assignments ta WHERE ta.teacher_id = (select auth.uid()) AND ta.school_id = public.get_user_school_id()
     )))))
-    OR public.has_role(auth.uid(), 'uat_admin'::public.app_role)
-    OR public.has_role(auth.uid(), 'developer'::public.app_role)
+    OR public.has_role((select auth.uid()), 'uat_admin'::public.app_role)
+    OR public.has_role((select auth.uid()), 'developer'::public.app_role)
   );
 
 CREATE POLICY "school_events_manage_strict" ON public.school_events
   FOR ALL
   USING (
-    (school_id = public.get_user_school_id() AND (public.has_role(auth.uid(), 'director'::public.app_role) OR public.has_role(auth.uid(), 'secretariat'::public.app_role) OR public.has_role(auth.uid(), 'teacher'::public.app_role) OR public.has_role(auth.uid(), 'homeroom_teacher'::public.app_role)))
-    OR public.has_role(auth.uid(), 'uat_admin'::public.app_role)
-    OR public.has_role(auth.uid(), 'developer'::public.app_role)
+    (school_id = public.get_user_school_id() AND (public.has_role((select auth.uid()), 'director'::public.app_role) OR public.has_role((select auth.uid()), 'secretariat'::public.app_role) OR public.has_role((select auth.uid()), 'teacher'::public.app_role) OR public.has_role((select auth.uid()), 'homeroom_teacher'::public.app_role)))
+    OR public.has_role((select auth.uid()), 'uat_admin'::public.app_role)
+    OR public.has_role((select auth.uid()), 'developer'::public.app_role)
   )
   WITH CHECK (
-    (school_id = public.get_user_school_id() AND (public.has_role(auth.uid(), 'director'::public.app_role) OR public.has_role(auth.uid(), 'secretariat'::public.app_role) OR public.has_role(auth.uid(), 'teacher'::public.app_role) OR public.has_role(auth.uid(), 'homeroom_teacher'::public.app_role)))
-    OR public.has_role(auth.uid(), 'uat_admin'::public.app_role)
-    OR public.has_role(auth.uid(), 'developer'::public.app_role)
+    (school_id = public.get_user_school_id() AND (public.has_role((select auth.uid()), 'director'::public.app_role) OR public.has_role((select auth.uid()), 'secretariat'::public.app_role) OR public.has_role((select auth.uid()), 'teacher'::public.app_role) OR public.has_role((select auth.uid()), 'homeroom_teacher'::public.app_role)))
+    OR public.has_role((select auth.uid()), 'uat_admin'::public.app_role)
+    OR public.has_role((select auth.uid()), 'developer'::public.app_role)
   );
 
 -- Backfill school_id și vizibilitate pe school_events

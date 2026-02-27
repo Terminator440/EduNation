@@ -50,7 +50,7 @@ DECLARE
   v_grade_id UUID;
   v_row RECORD;
 BEGIN
-  v_user_id := auth.uid();
+  v_user_id := (select auth.uid());
   IF v_user_id IS NULL THEN
     RETURN jsonb_build_object('success', false, 'error', 'Not authenticated');
   END IF;
@@ -128,7 +128,7 @@ DECLARE
   v_averages JSONB;
   v_can_see BOOLEAN := false;
 BEGIN
-  v_user_id := auth.uid();
+  v_user_id := (select auth.uid());
   IF v_user_id IS NULL THEN
     RETURN jsonb_build_object('success', false, 'error', 'Not authenticated');
   END IF;
@@ -228,7 +228,7 @@ DECLARE
   v_students JSONB;
   v_can_see BOOLEAN := false;
 BEGIN
-  v_user_id := auth.uid();
+  v_user_id := (select auth.uid());
   IF v_user_id IS NULL THEN
     RETURN jsonb_build_object('success', false, 'error', 'Not authenticated');
   END IF;

@@ -25,7 +25,7 @@ BEGIN
     CREATE POLICY messages_select_own
       ON public.messages
       FOR SELECT
-      USING (auth.uid() = user_id);
+      USING ((select auth.uid()) = user_id);
   END IF;
 END$$;
 
@@ -38,8 +38,8 @@ BEGIN
     CREATE POLICY messages_update_own
       ON public.messages
       FOR UPDATE
-      USING (auth.uid() = user_id)
-      WITH CHECK (auth.uid() = user_id);
+      USING ((select auth.uid()) = user_id)
+      WITH CHECK ((select auth.uid()) = user_id);
   END IF;
 END$$;
 
@@ -52,7 +52,7 @@ BEGIN
     CREATE POLICY messages_insert_own
       ON public.messages
       FOR INSERT
-      WITH CHECK (auth.uid() = user_id);
+      WITH CHECK ((select auth.uid()) = user_id);
   END IF;
 END$$;
 

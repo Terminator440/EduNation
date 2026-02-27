@@ -29,15 +29,15 @@ ALTER TABLE public.audit_log ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "audit_log_select_own_school_or_admin" ON public.audit_log;
 CREATE POLICY "audit_log_select_own_school_or_admin" ON public.audit_log FOR SELECT
   USING (
-    public.has_role(auth.uid(), 'director'::public.app_role)
-    OR public.has_role(auth.uid(), 'uat_admin'::public.app_role)
-    OR public.has_role(auth.uid(), 'developer'::public.app_role)
-    OR public.has_role(auth.uid(), 'secretariat'::public.app_role)
+    public.has_role((select auth.uid()), 'director'::public.app_role)
+    OR public.has_role((select auth.uid()), 'uat_admin'::public.app_role)
+    OR public.has_role((select auth.uid()), 'developer'::public.app_role)
+    OR public.has_role((select auth.uid()), 'secretariat'::public.app_role)
   );
 
 REVOKE INSERT, UPDATE, DELETE ON public.audit_log FROM authenticated;
 
-COMMENT ON TABLE public.audit_log IS 'Audit trail for grades and attendance; populated only by triggers. changed_by = auth.uid().';
+COMMENT ON TABLE public.audit_log IS 'Audit trail for grades and attendance; populated only by triggers. changed_by = (select auth.uid()).';
 
 -- Trigger function: write to audit_log on grades/attendance changes
 CREATE OR REPLACE FUNCTION public.audit_log_trigger_fn()
@@ -53,7 +53,7 @@ DECLARE
   v_new JSONB;
   v_action TEXT;
 BEGIN
-  v_uid := auth.uid();
+  v_uid := (select auth.uid());
   v_action := TG_OP;
 
   IF TG_OP = 'DELETE' THEN
@@ -94,7 +94,7 @@ CREATE TRIGGER trg_audit_log_attendance
 ALTER TABLE public.grades ADD COLUMN IF NOT EXISTS created_by UUID REFERENCES auth.users(id) ON DELETE SET NULL;
 ALTER TABLE public.grades ADD COLUMN IF NOT EXISTS updated_by UUID REFERENCES auth.users(id) ON DELETE SET NULL;
 
-COMMENT ON COLUMN public.grades.created_by IS 'User who created the grade (auth.uid() at insert).';
+COMMENT ON COLUMN public.grades.created_by IS 'User who created the grade ((select auth.uid()) at insert).';
 COMMENT ON COLUMN public.grades.updated_by IS 'User who last updated the grade.';
 
 -- =============================================================================
@@ -131,11 +131,11 @@ DROP POLICY IF EXISTS "academic_periods_manage_director" ON public.academic_peri
 CREATE POLICY "academic_periods_manage_director" ON public.academic_periods FOR ALL
   USING (
     school_id = public.get_user_school_id()
-    AND (public.has_role(auth.uid(), 'director'::public.app_role) OR public.has_role(auth.uid(), 'uat_admin'::public.app_role) OR public.has_role(auth.uid(), 'developer'::public.app_role))
+    AND (public.has_role((select auth.uid()), 'director'::public.app_role) OR public.has_role((select auth.uid()), 'uat_admin'::public.app_role) OR public.has_role((select auth.uid()), 'developer'::public.app_role))
   )
   WITH CHECK (
     school_id = public.get_user_school_id()
-    AND (public.has_role(auth.uid(), 'director'::public.app_role) OR public.has_role(auth.uid(), 'uat_admin'::public.app_role) OR public.has_role(auth.uid(), 'developer'::public.app_role))
+    AND (public.has_role((select auth.uid()), 'director'::public.app_role) OR public.has_role((select auth.uid()), 'uat_admin'::public.app_role) OR public.has_role((select auth.uid()), 'developer'::public.app_role))
   );
 
 -- =============================================================================
@@ -175,17 +175,17 @@ ALTER TABLE public.access_logs ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "login_logs_select_admin" ON public.login_logs;
 CREATE POLICY "login_logs_select_admin" ON public.login_logs FOR SELECT
   USING (
-    public.has_role(auth.uid(), 'director'::public.app_role)
-    OR public.has_role(auth.uid(), 'uat_admin'::public.app_role)
-    OR public.has_role(auth.uid(), 'developer'::public.app_role)
+    public.has_role((select auth.uid()), 'director'::public.app_role)
+    OR public.has_role((select auth.uid()), 'uat_admin'::public.app_role)
+    OR public.has_role((select auth.uid()), 'developer'::public.app_role)
   );
 
 DROP POLICY IF EXISTS "access_logs_select_admin" ON public.access_logs;
 CREATE POLICY "access_logs_select_admin" ON public.access_logs FOR SELECT
   USING (
-    public.has_role(auth.uid(), 'director'::public.app_role)
-    OR public.has_role(auth.uid(), 'uat_admin'::public.app_role)
-    OR public.has_role(auth.uid(), 'developer'::public.app_role)
+    public.has_role((select auth.uid()), 'director'::public.app_role)
+    OR public.has_role((select auth.uid()), 'uat_admin'::public.app_role)
+    OR public.has_role((select auth.uid()), 'developer'::public.app_role)
   );
 
 -- Inserts only via service/trigger (SECURITY DEFINER)

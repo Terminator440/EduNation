@@ -25,19 +25,19 @@ CREATE POLICY "Anyone can view timetable"
 CREATE POLICY "Teachers can manage own timetable entries"
   ON public.timetable_entries
   FOR ALL
-  USING (teacher_id = auth.uid());
+  USING (teacher_id = (select auth.uid()));
 
 -- Secretariat/Director can manage all timetable entries
 CREATE POLICY "Staff can manage all timetable entries"
   ON public.timetable_entries
   FOR ALL
-  USING (has_role(auth.uid(), 'secretariat'::app_role) OR has_role(auth.uid(), 'director'::app_role));
+  USING (has_role((select auth.uid()), 'secretariat'::app_role) OR has_role((select auth.uid()), 'director'::app_role));
 
 -- Developers can view all
 CREATE POLICY "Developers can view all timetable entries"
   ON public.timetable_entries
   FOR SELECT
-  USING (has_role(auth.uid(), 'developer'::app_role));
+  USING (has_role((select auth.uid()), 'developer'::app_role));
 
 
 -- Create school_events table for calendar
@@ -67,22 +67,22 @@ CREATE POLICY "Anyone can view school events"
 CREATE POLICY "Teachers can create events"
   ON public.school_events
   FOR INSERT
-  WITH CHECK (created_by = auth.uid() AND (has_role(auth.uid(), 'teacher'::app_role) OR has_role(auth.uid(), 'homeroom_teacher'::app_role)));
+  WITH CHECK (created_by = (select auth.uid()) AND (has_role((select auth.uid()), 'teacher'::app_role) OR has_role((select auth.uid()), 'homeroom_teacher'::app_role)));
 
 -- Teachers can manage their own events
 CREATE POLICY "Teachers can manage own events"
   ON public.school_events
   FOR ALL
-  USING (created_by = auth.uid());
+  USING (created_by = (select auth.uid()));
 
 -- Secretariat/Director can manage all events
 CREATE POLICY "Staff can manage all events"
   ON public.school_events
   FOR ALL
-  USING (has_role(auth.uid(), 'secretariat'::app_role) OR has_role(auth.uid(), 'director'::app_role) OR has_role(auth.uid(), 'uat_admin'::app_role));
+  USING (has_role((select auth.uid()), 'secretariat'::app_role) OR has_role((select auth.uid()), 'director'::app_role) OR has_role((select auth.uid()), 'uat_admin'::app_role));
 
 -- Developers can view all
 CREATE POLICY "Developers can view all school events"
   ON public.school_events
   FOR SELECT
-  USING (has_role(auth.uid(), 'developer'::app_role));
+  USING (has_role((select auth.uid()), 'developer'::app_role));

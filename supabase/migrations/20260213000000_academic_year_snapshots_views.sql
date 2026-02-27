@@ -22,9 +22,9 @@ ALTER TABLE public.academic_year ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Staff can manage academic_year"
   ON public.academic_year FOR ALL
   USING (
-    has_role(auth.uid(), 'director'::app_role) OR
-    has_role(auth.uid(), 'secretariat'::app_role) OR
-    has_role(auth.uid(), 'uat_admin'::app_role)
+    has_role((select auth.uid()), 'director'::app_role) OR
+    has_role((select auth.uid()), 'secretariat'::app_role) OR
+    has_role((select auth.uid()), 'uat_admin'::app_role)
   );
 
 -- 2) Link classes to academic_year (optional - classes.year can map to academic_year.year)
@@ -49,11 +49,11 @@ ALTER TABLE public.academic_year_snapshots ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Staff can view academic_year_snapshots"
   ON public.academic_year_snapshots FOR SELECT
   USING (
-    has_role(auth.uid(), 'director'::app_role) OR
-    has_role(auth.uid(), 'secretariat'::app_role) OR
-    has_role(auth.uid(), 'uat_admin'::app_role) OR
-    has_role(auth.uid(), 'homeroom_teacher'::app_role) OR
-    has_role(auth.uid(), 'teacher'::app_role)
+    has_role((select auth.uid()), 'director'::app_role) OR
+    has_role((select auth.uid()), 'secretariat'::app_role) OR
+    has_role((select auth.uid()), 'uat_admin'::app_role) OR
+    has_role((select auth.uid()), 'homeroom_teacher'::app_role) OR
+    has_role((select auth.uid()), 'teacher'::app_role)
   );
 
 CREATE POLICY "Parents can view own children snapshots"
@@ -61,14 +61,14 @@ CREATE POLICY "Parents can view own children snapshots"
   USING (
     student_id IN (
       SELECT psr.student_id FROM public.parent_student_relations psr
-      WHERE psr.parent_user_id = auth.uid()
+      WHERE psr.parent_user_id = (select auth.uid())
     )
   );
 
 CREATE POLICY "Students can view own snapshot"
   ON public.academic_year_snapshots FOR SELECT
   USING (
-    student_id IN (SELECT id FROM public.students WHERE user_id = auth.uid())
+    student_id IN (SELECT id FROM public.students WHERE user_id = (select auth.uid()))
   );
 
 -- 4) view_student_subject_average - computed from grades (excludes deleted)

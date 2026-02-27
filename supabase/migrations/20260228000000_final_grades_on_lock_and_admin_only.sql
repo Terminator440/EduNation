@@ -73,7 +73,7 @@ DECLARE
   v_final INTEGER;
   v_uid UUID;
 BEGIN
-  v_uid := COALESCE(p_calculated_by, auth.uid());
+  v_uid := COALESCE(p_calculated_by, (select auth.uid()));
 
   -- Pentru fiecare pereche (student, subject) care are note în acel semestru
   FOR v_student_id, v_subject_id IN
@@ -216,13 +216,13 @@ CREATE POLICY "Staff or admin can insert final grades" ON public.final_grades
     (
       school_id = public.get_user_school_id() AND
       (
-        public.has_role(auth.uid(), 'director'::public.app_role) OR
-        public.has_role(auth.uid(), 'secretariat'::public.app_role)
+        public.has_role((select auth.uid()), 'director'::public.app_role) OR
+        public.has_role((select auth.uid()), 'secretariat'::public.app_role)
       )
     )
     OR
-    public.has_role(auth.uid(), 'uat_admin'::public.app_role) OR
-    public.has_role(auth.uid(), 'developer'::public.app_role)
+    public.has_role((select auth.uid()), 'uat_admin'::public.app_role) OR
+    public.has_role((select auth.uid()), 'developer'::public.app_role)
   );
 
 -- UPDATE: doar administratori (director pentru școala lor, uat_admin, developer)
@@ -231,20 +231,20 @@ CREATE POLICY "Admin can update final grades" ON public.final_grades
   USING (
     (
       school_id = public.get_user_school_id() AND
-      public.has_role(auth.uid(), 'director'::public.app_role)
+      public.has_role((select auth.uid()), 'director'::public.app_role)
     )
     OR
-    public.has_role(auth.uid(), 'uat_admin'::public.app_role) OR
-    public.has_role(auth.uid(), 'developer'::public.app_role)
+    public.has_role((select auth.uid()), 'uat_admin'::public.app_role) OR
+    public.has_role((select auth.uid()), 'developer'::public.app_role)
   )
   WITH CHECK (
     (
       school_id = public.get_user_school_id() AND
-      public.has_role(auth.uid(), 'director'::public.app_role)
+      public.has_role((select auth.uid()), 'director'::public.app_role)
     )
     OR
-    public.has_role(auth.uid(), 'uat_admin'::public.app_role) OR
-    public.has_role(auth.uid(), 'developer'::public.app_role)
+    public.has_role((select auth.uid()), 'uat_admin'::public.app_role) OR
+    public.has_role((select auth.uid()), 'developer'::public.app_role)
   );
 
 -- DELETE: doar administratori (același criteriu)
@@ -253,11 +253,11 @@ CREATE POLICY "Admin can delete final grades" ON public.final_grades
   USING (
     (
       school_id = public.get_user_school_id() AND
-      public.has_role(auth.uid(), 'director'::public.app_role)
+      public.has_role((select auth.uid()), 'director'::public.app_role)
     )
     OR
-    public.has_role(auth.uid(), 'uat_admin'::public.app_role) OR
-    public.has_role(auth.uid(), 'developer'::public.app_role)
+    public.has_role((select auth.uid()), 'uat_admin'::public.app_role) OR
+    public.has_role((select auth.uid()), 'developer'::public.app_role)
   );
 
 -- Asigură că RLS e activ

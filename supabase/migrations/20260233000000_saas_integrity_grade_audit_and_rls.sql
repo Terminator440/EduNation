@@ -4,7 +4,7 @@
 -- Pilon 1 – Arhitectură Multi-Rol & Securitate
 -- - Rolurile sunt o colecție în DB (user_roles). Permisiunile se verifică în
 --   backend/RLS; Role Switcher în UI schimbă doar perspectiva ('View as').
--- - RLS: orice acțiune verifică auth.uid(), school_id, rol din user_roles și
+-- - RLS: orice acțiune verifică (select auth.uid()), school_id, rol din user_roles și
 --   (pentru profesori) asignarea la clasă/materie (teacher_assignments).
 --
 -- Pilon 2 – Integritate Date & Audit
@@ -51,8 +51,8 @@ CREATE POLICY "grade_audit_select_own_school_or_supreme" ON public.grade_audit
   FOR SELECT
   USING (
     school_id = public.get_user_school_id()
-    OR public.has_role(auth.uid(), 'uat_admin'::public.app_role)
-    OR public.has_role(auth.uid(), 'developer'::public.app_role)
+    OR public.has_role((select auth.uid()), 'uat_admin'::public.app_role)
+    OR public.has_role((select auth.uid()), 'developer'::public.app_role)
   );
 
 -- Inserări doar din trigger (SECURITY DEFINER); nu permitem INSERT direct din aplicație
@@ -74,7 +74,7 @@ DECLARE
   v_old JSONB;
   v_new JSONB;
 BEGIN
-  v_uid := auth.uid();
+  v_uid := (select auth.uid());
   v_grade_id := COALESCE(NEW.id, OLD.id);
   v_school_id := (COALESCE(to_jsonb(NEW), to_jsonb(OLD))->>'school_id')::uuid;
 
@@ -122,11 +122,11 @@ CREATE POLICY "grades_insert_strict" ON public.grades
   WITH CHECK (
     school_id = public.get_user_school_id()
     AND (
-      public.is_supreme_admin(auth.uid())
+      public.is_supreme_admin((select auth.uid()))
       OR (
         NOT public.is_semester_locked_for_grade(date, student_id)
         AND (
-          public.user_can_edit_grade(auth.uid(), student_id, subject_id, school_id)
+          public.user_can_edit_grade((select auth.uid()), student_id, subject_id, school_id)
         )
       )
     )
@@ -138,11 +138,11 @@ CREATE POLICY "grades_update_strict" ON public.grades
   USING (
     school_id = public.get_user_school_id()
     AND (
-      public.is_supreme_admin(auth.uid())
+      public.is_supreme_admin((select auth.uid()))
       OR (
         NOT public.is_semester_locked_for_grade(date, student_id)
         AND (
-          public.user_can_edit_grade(auth.uid(), student_id, subject_id, school_id)
+          public.user_can_edit_grade((select auth.uid()), student_id, subject_id, school_id)
         )
       )
     )
@@ -150,11 +150,11 @@ CREATE POLICY "grades_update_strict" ON public.grades
   WITH CHECK (
     school_id = public.get_user_school_id()
     AND (
-      public.is_supreme_admin(auth.uid())
+      public.is_supreme_admin((select auth.uid()))
       OR (
         NOT public.is_semester_locked_for_grade(date, student_id)
         AND (
-          public.user_can_edit_grade(auth.uid(), student_id, subject_id, school_id)
+          public.user_can_edit_grade((select auth.uid()), student_id, subject_id, school_id)
         )
       )
     )

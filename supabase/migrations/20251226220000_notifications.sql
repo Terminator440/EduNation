@@ -22,7 +22,7 @@ BEGIN
     CREATE POLICY notifications_select_own
       ON public.notifications
       FOR SELECT
-      USING (auth.uid() = user_id);
+      USING ((select auth.uid()) = user_id);
   END IF;
 END$$;
 
@@ -35,8 +35,8 @@ BEGIN
     CREATE POLICY notifications_update_own
       ON public.notifications
       FOR UPDATE
-      USING (auth.uid() = user_id)
-      WITH CHECK (auth.uid() = user_id);
+      USING ((select auth.uid()) = user_id)
+      WITH CHECK ((select auth.uid()) = user_id);
   END IF;
 END$$;
 
@@ -49,7 +49,7 @@ BEGIN
     CREATE POLICY notifications_insert_own
       ON public.notifications
       FOR INSERT
-      WITH CHECK (auth.uid() = user_id);
+      WITH CHECK ((select auth.uid()) = user_id);
   END IF;
 END$$;
 

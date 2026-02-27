@@ -1,5 +1,5 @@
 -- Migration: audit_log_details table + trigger on grades UPDATE
--- Stores old_value/new_value as JSONB and the user who made the change (auth.uid())
+-- Stores old_value/new_value as JSONB and the user who made the change ((select auth.uid()))
 
 BEGIN;
 
@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS public.audit_log_details (
 );
 
 COMMENT ON TABLE public.audit_log_details IS 'Stores before/after values (JSONB) for audited changes; populated by triggers.';
-COMMENT ON COLUMN public.audit_log_details.user_id IS 'User who performed the change (from auth.uid()).';
+COMMENT ON COLUMN public.audit_log_details.user_id IS 'User who performed the change (from (select auth.uid())).';
 COMMENT ON COLUMN public.audit_log_details.old_value IS 'Row state before UPDATE/DELETE (JSONB).';
 COMMENT ON COLUMN public.audit_log_details.new_value IS 'Row state after INSERT/UPDATE (JSONB).';
 
@@ -30,16 +30,16 @@ ALTER TABLE public.audit_log_details ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Users can view own audit_log_details" ON public.audit_log_details;
 CREATE POLICY "Users can view own audit_log_details"
   ON public.audit_log_details FOR SELECT
-  USING (user_id = auth.uid());
+  USING (user_id = (select auth.uid()));
 
 DROP POLICY IF EXISTS "Directors and secretariat can view all audit_log_details" ON public.audit_log_details;
 CREATE POLICY "Directors and secretariat can view all audit_log_details"
   ON public.audit_log_details FOR SELECT
   USING (
-    has_role(auth.uid(), 'director'::app_role) OR
-    has_role(auth.uid(), 'secretariat'::app_role) OR
-    has_role(auth.uid(), 'uat_admin'::app_role) OR
-    has_role(auth.uid(), 'developer'::app_role)
+    has_role((select auth.uid()), 'director'::app_role) OR
+    has_role((select auth.uid()), 'secretariat'::app_role) OR
+    has_role((select auth.uid()), 'uat_admin'::app_role) OR
+    has_role((select auth.uid()), 'developer'::app_role)
   );
 
 -- No INSERT/UPDATE/DELETE for normal users; only triggers and service role write
@@ -60,7 +60,7 @@ BEGIN
     RETURN NEW;
   END IF;
 
-  uid := auth.uid();
+  uid := (select auth.uid());
 
   INSERT INTO public.audit_log_details (user_id, entity_type, entity_id, old_value, new_value)
   VALUES (

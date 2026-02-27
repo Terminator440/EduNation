@@ -34,8 +34,8 @@ CREATE POLICY "Users can view semesters from their school" ON public.semesters
   FOR SELECT
   USING (
     school_id = public.get_user_school_id() OR
-    public.has_role(auth.uid(), 'uat_admin'::app_role) OR
-    public.has_role(auth.uid(), 'developer'::app_role)
+    public.has_role((select auth.uid()), 'uat_admin'::app_role) OR
+    public.has_role((select auth.uid()), 'developer'::app_role)
   );
 
 -- RLS: Only directors/secretariat can manage semesters
@@ -45,23 +45,23 @@ CREATE POLICY "Staff can manage semesters" ON public.semesters
     (
       school_id = public.get_user_school_id() AND
       (
-        public.has_role(auth.uid(), 'director'::app_role) OR
-        public.has_role(auth.uid(), 'secretariat'::app_role)
+        public.has_role((select auth.uid()), 'director'::app_role) OR
+        public.has_role((select auth.uid()), 'secretariat'::app_role)
       )
     ) OR
-    public.has_role(auth.uid(), 'uat_admin'::app_role) OR
-    public.has_role(auth.uid(), 'developer'::app_role)
+    public.has_role((select auth.uid()), 'uat_admin'::app_role) OR
+    public.has_role((select auth.uid()), 'developer'::app_role)
   )
   WITH CHECK (
     (
       school_id = public.get_user_school_id() AND
       (
-        public.has_role(auth.uid(), 'director'::app_role) OR
-        public.has_role(auth.uid(), 'secretariat'::app_role)
+        public.has_role((select auth.uid()), 'director'::app_role) OR
+        public.has_role((select auth.uid()), 'secretariat'::app_role)
       )
     ) OR
-    public.has_role(auth.uid(), 'uat_admin'::app_role) OR
-    public.has_role(auth.uid(), 'developer'::app_role)
+    public.has_role((select auth.uid()), 'uat_admin'::app_role) OR
+    public.has_role((select auth.uid()), 'developer'::app_role)
   );
 
 -- Trigger to update updated_at
@@ -169,23 +169,23 @@ CREATE POLICY "Teachers can insert grades for assigned classes (semester check)"
     AND
     -- Then check: teacher must be assigned to teach this subject in the student's class
     (
-      auth.uid() IN (
+      (select auth.uid()) IN (
         SELECT cs.teacher_id
         FROM public.class_subjects cs
         JOIN public.students s ON s.class_id = cs.class_id
         WHERE cs.subject_id = subject_id
           AND s.id = student_id
-          AND cs.teacher_id = auth.uid()
+          AND cs.teacher_id = (select auth.uid())
           AND cs.school_id = public.get_user_school_id()
       )
       OR
       -- Fallback: Teacher assigned directly to subject (for backward compatibility)
       (
-        auth.uid() IN (
+        (select auth.uid()) IN (
           SELECT teacher_id 
           FROM public.subjects 
           WHERE id = subject_id 
-            AND teacher_id = auth.uid()
+            AND teacher_id = (select auth.uid())
             AND school_id = public.get_user_school_id()
         )
         AND student_id IN (
@@ -200,14 +200,14 @@ CREATE POLICY "Teachers can insert grades for assigned classes (semester check)"
       -- Staff (director/secretariat) can insert grades even if semester is locked (for corrections)
       (
         (
-          public.has_role(auth.uid(), 'director'::app_role) OR
-          public.has_role(auth.uid(), 'secretariat'::app_role)
+          public.has_role((select auth.uid()), 'director'::app_role) OR
+          public.has_role((select auth.uid()), 'secretariat'::app_role)
         ) AND school_id = public.get_user_school_id()
       )
       OR
       -- UAT Admin and Developer can insert
-      public.has_role(auth.uid(), 'uat_admin'::app_role) OR
-      public.has_role(auth.uid(), 'developer'::app_role)
+      public.has_role((select auth.uid()), 'uat_admin'::app_role) OR
+      public.has_role((select auth.uid()), 'developer'::app_role)
     )
   );
 
@@ -220,23 +220,23 @@ CREATE POLICY "Teachers can update grades for assigned classes (semester check)"
     AND
     -- Then check: teacher must be assigned to teach this subject in the student's class
     (
-      auth.uid() IN (
+      (select auth.uid()) IN (
         SELECT cs.teacher_id
         FROM public.class_subjects cs
         JOIN public.students s ON s.class_id = cs.class_id
         WHERE cs.subject_id = subject_id
           AND s.id = student_id
-          AND cs.teacher_id = auth.uid()
+          AND cs.teacher_id = (select auth.uid())
           AND cs.school_id = public.get_user_school_id()
       )
       OR
       -- Fallback: Teacher assigned directly to subject (for backward compatibility)
       (
-        auth.uid() IN (
+        (select auth.uid()) IN (
           SELECT teacher_id 
           FROM public.subjects 
           WHERE id = subject_id 
-            AND teacher_id = auth.uid()
+            AND teacher_id = (select auth.uid())
             AND school_id = public.get_user_school_id()
         )
         AND student_id IN (
@@ -251,14 +251,14 @@ CREATE POLICY "Teachers can update grades for assigned classes (semester check)"
       -- Staff (director/secretariat) can update grades even if semester is locked (for corrections)
       (
         (
-          public.has_role(auth.uid(), 'director'::app_role) OR
-          public.has_role(auth.uid(), 'secretariat'::app_role)
+          public.has_role((select auth.uid()), 'director'::app_role) OR
+          public.has_role((select auth.uid()), 'secretariat'::app_role)
         ) AND school_id = public.get_user_school_id()
       )
       OR
       -- UAT Admin and Developer can update
-      public.has_role(auth.uid(), 'uat_admin'::app_role) OR
-      public.has_role(auth.uid(), 'developer'::app_role)
+      public.has_role((select auth.uid()), 'uat_admin'::app_role) OR
+      public.has_role((select auth.uid()), 'developer'::app_role)
     )
   )
   WITH CHECK (
@@ -267,23 +267,23 @@ CREATE POLICY "Teachers can update grades for assigned classes (semester check)"
     AND
     -- Then check: teacher must be assigned to teach this subject in the student's class
     (
-      auth.uid() IN (
+      (select auth.uid()) IN (
         SELECT cs.teacher_id
         FROM public.class_subjects cs
         JOIN public.students s ON s.class_id = cs.class_id
         WHERE cs.subject_id = subject_id
           AND s.id = student_id
-          AND cs.teacher_id = auth.uid()
+          AND cs.teacher_id = (select auth.uid())
           AND cs.school_id = public.get_user_school_id()
       )
       OR
       -- Fallback: Teacher assigned directly to subject (for backward compatibility)
       (
-        auth.uid() IN (
+        (select auth.uid()) IN (
           SELECT teacher_id 
           FROM public.subjects 
           WHERE id = subject_id 
-            AND teacher_id = auth.uid()
+            AND teacher_id = (select auth.uid())
             AND school_id = public.get_user_school_id()
         )
         AND student_id IN (
@@ -298,14 +298,14 @@ CREATE POLICY "Teachers can update grades for assigned classes (semester check)"
       -- Staff (director/secretariat) can update grades even if semester is locked (for corrections)
       (
         (
-          public.has_role(auth.uid(), 'director'::app_role) OR
-          public.has_role(auth.uid(), 'secretariat'::app_role)
+          public.has_role((select auth.uid()), 'director'::app_role) OR
+          public.has_role((select auth.uid()), 'secretariat'::app_role)
         ) AND school_id = public.get_user_school_id()
       )
       OR
       -- UAT Admin and Developer can update
-      public.has_role(auth.uid(), 'uat_admin'::app_role) OR
-      public.has_role(auth.uid(), 'developer'::app_role)
+      public.has_role((select auth.uid()), 'uat_admin'::app_role) OR
+      public.has_role((select auth.uid()), 'developer'::app_role)
     )
   );
 

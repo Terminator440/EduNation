@@ -85,7 +85,7 @@ DROP POLICY IF EXISTS "Teachers can view all profiles" ON public.profiles;
 DROP POLICY IF EXISTS "Users can view own profile" ON public.profiles;
 CREATE POLICY "Users can view own profile" ON public.profiles
   FOR SELECT
-  USING (id = auth.uid());
+  USING (id = (select (select auth.uid())));
 
 -- Director și admin pot face SELECT pe toate coloanele (inclusiv sensibile) pentru
 -- profilurile din școala lor (sau toate pentru admin).
@@ -93,18 +93,18 @@ DROP POLICY IF EXISTS "Directors can view profiles from their school" ON public.
 CREATE POLICY "Directors and admin can view profiles with sensitive columns" ON public.profiles
   FOR SELECT
   USING (
-    id = auth.uid()
+    id = (select auth.uid())
     OR (
       (
-        public.has_role(auth.uid(), 'director'::public.app_role) OR
-        public.has_role(auth.uid(), 'admin'::public.app_role) OR
-        public.has_role(auth.uid(), 'uat_admin'::public.app_role) OR
-        public.has_role(auth.uid(), 'developer'::public.app_role)
+        public.has_role((select auth.uid()), 'director'::public.app_role) OR
+        public.has_role((select auth.uid()), 'admin'::public.app_role) OR
+        public.has_role((select auth.uid()), 'uat_admin'::public.app_role) OR
+        public.has_role((select auth.uid()), 'developer'::public.app_role)
       )
       AND (
         school_id = public.get_user_school_id()
-        OR public.has_role(auth.uid(), 'uat_admin'::public.app_role)
-        OR public.has_role(auth.uid(), 'developer'::public.app_role)
+        OR public.has_role((select auth.uid()), 'uat_admin'::public.app_role)
+        OR public.has_role((select auth.uid()), 'developer'::public.app_role)
       )
     )
   );
@@ -127,34 +127,34 @@ DROP POLICY IF EXISTS "Directors can update profiles from their school" ON publi
 CREATE POLICY "Directors and admin can update profiles" ON public.profiles
   FOR UPDATE
   USING (
-    id = auth.uid()
+    id = (select auth.uid())
     OR (
       (
-        public.has_role(auth.uid(), 'director'::public.app_role) OR
-        public.has_role(auth.uid(), 'admin'::public.app_role) OR
-        public.has_role(auth.uid(), 'uat_admin'::public.app_role) OR
-        public.has_role(auth.uid(), 'developer'::public.app_role)
+        public.has_role((select auth.uid()), 'director'::public.app_role) OR
+        public.has_role((select auth.uid()), 'admin'::public.app_role) OR
+        public.has_role((select auth.uid()), 'uat_admin'::public.app_role) OR
+        public.has_role((select auth.uid()), 'developer'::public.app_role)
       )
       AND (
         school_id = public.get_user_school_id()
-        OR public.has_role(auth.uid(), 'uat_admin'::public.app_role)
-        OR public.has_role(auth.uid(), 'developer'::public.app_role)
+        OR public.has_role((select auth.uid()), 'uat_admin'::public.app_role)
+        OR public.has_role((select auth.uid()), 'developer'::public.app_role)
       )
     )
   )
   WITH CHECK (
-    id = auth.uid()
+    id = (select auth.uid())
     OR (
       (
-        public.has_role(auth.uid(), 'director'::public.app_role) OR
-        public.has_role(auth.uid(), 'admin'::public.app_role) OR
-        public.has_role(auth.uid(), 'uat_admin'::public.app_role) OR
-        public.has_role(auth.uid(), 'developer'::public.app_role)
+        public.has_role((select auth.uid()), 'director'::public.app_role) OR
+        public.has_role((select auth.uid()), 'admin'::public.app_role) OR
+        public.has_role((select auth.uid()), 'uat_admin'::public.app_role) OR
+        public.has_role((select auth.uid()), 'developer'::public.app_role)
       )
       AND (
         school_id = public.get_user_school_id()
-        OR public.has_role(auth.uid(), 'uat_admin'::public.app_role)
-        OR public.has_role(auth.uid(), 'developer'::public.app_role)
+        OR public.has_role((select auth.uid()), 'uat_admin'::public.app_role)
+        OR public.has_role((select auth.uid()), 'developer'::public.app_role)
       )
     )
   );

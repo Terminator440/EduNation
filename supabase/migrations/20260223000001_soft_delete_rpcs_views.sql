@@ -48,7 +48,7 @@ DECLARE
   v_user_name TEXT;
   v_role app_role;
 BEGIN
-  v_user_id := auth.uid();
+  v_user_id := (select auth.uid());
   IF v_user_id IS NULL THEN
     RAISE EXCEPTION 'Not authenticated';
   END IF;
@@ -149,7 +149,7 @@ DECLARE
   v_student_class_id UUID;
   v_homeroom_teacher_id UUID;
 BEGIN
-  v_user_id := auth.uid();
+  v_user_id := (select auth.uid());
   IF v_user_id IS NULL THEN
     RAISE EXCEPTION 'User must be authenticated';
   END IF;

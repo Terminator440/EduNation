@@ -23,41 +23,41 @@ ALTER TABLE public.announcements ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Authenticated can read announcements" ON public.announcements;
 CREATE POLICY "Authenticated can read announcements" ON public.announcements
-  FOR SELECT USING (auth.uid() IS NOT NULL);
+  FOR SELECT USING ((select auth.uid()) IS NOT NULL);
 
 DROP POLICY IF EXISTS "Staff can publish announcements" ON public.announcements;
 CREATE POLICY "Staff can publish announcements" ON public.announcements
   FOR INSERT WITH CHECK (
-    created_by = auth.uid()
+    created_by = (select auth.uid())
     AND (
-      has_role(auth.uid(), 'director'::public.app_role)
-      OR has_role(auth.uid(), 'secretariat'::public.app_role)
-      OR has_role(auth.uid(), 'uat_admin'::public.app_role)
+      has_role((select auth.uid()), 'director'::public.app_role)
+      OR has_role((select auth.uid()), 'secretariat'::public.app_role)
+      OR has_role((select auth.uid()), 'uat_admin'::public.app_role)
     )
   );
 
 DROP POLICY IF EXISTS "Staff can update announcements" ON public.announcements;
 CREATE POLICY "Staff can update announcements" ON public.announcements
   FOR UPDATE USING (
-    created_by = auth.uid()
-    OR has_role(auth.uid(), 'director'::public.app_role)
-    OR has_role(auth.uid(), 'secretariat'::public.app_role)
-    OR has_role(auth.uid(), 'uat_admin'::public.app_role)
+    created_by = (select auth.uid())
+    OR has_role((select auth.uid()), 'director'::public.app_role)
+    OR has_role((select auth.uid()), 'secretariat'::public.app_role)
+    OR has_role((select auth.uid()), 'uat_admin'::public.app_role)
   )
   WITH CHECK (
-    created_by = auth.uid()
-    OR has_role(auth.uid(), 'director'::public.app_role)
-    OR has_role(auth.uid(), 'secretariat'::public.app_role)
-    OR has_role(auth.uid(), 'uat_admin'::public.app_role)
+    created_by = (select auth.uid())
+    OR has_role((select auth.uid()), 'director'::public.app_role)
+    OR has_role((select auth.uid()), 'secretariat'::public.app_role)
+    OR has_role((select auth.uid()), 'uat_admin'::public.app_role)
   );
 
 DROP POLICY IF EXISTS "Staff can delete announcements" ON public.announcements;
 CREATE POLICY "Staff can delete announcements" ON public.announcements
   FOR DELETE USING (
-    created_by = auth.uid()
-    OR has_role(auth.uid(), 'director'::public.app_role)
-    OR has_role(auth.uid(), 'secretariat'::public.app_role)
-    OR has_role(auth.uid(), 'uat_admin'::public.app_role)
+    created_by = (select auth.uid())
+    OR has_role((select auth.uid()), 'director'::public.app_role)
+    OR has_role((select auth.uid()), 'secretariat'::public.app_role)
+    OR has_role((select auth.uid()), 'uat_admin'::public.app_role)
   );
 
 -- =============================================================================
@@ -89,21 +89,21 @@ DROP POLICY IF EXISTS "Staff can manage attendance excuse requests" ON public.at
 -- Creatorul (requested_by) vede cererea
 DROP POLICY IF EXISTS "Director views all excuse requests" ON public.attendance_excuse_requests;
 CREATE POLICY "Director views all excuse requests" ON public.attendance_excuse_requests
-  FOR SELECT USING (has_role(auth.uid(), 'director'::public.app_role));
+  FOR SELECT USING (has_role((select auth.uid()), 'director'::public.app_role));
 
 CREATE POLICY "Students and parents view own excuse requests" ON public.attendance_excuse_requests
   FOR SELECT USING (
-    requested_by = auth.uid()
+    requested_by = (select auth.uid())
     OR EXISTS (
       SELECT 1
       FROM public.attendance a
       JOIN public.students s ON s.id = a.student_id
       WHERE a.id = attendance_id
         AND (
-          s.user_id = auth.uid()
+          s.user_id = (select auth.uid())
           OR EXISTS (
             SELECT 1 FROM public.parent_student_relations psr
-            WHERE psr.parent_user_id = auth.uid() AND psr.student_id = s.id
+            WHERE psr.parent_user_id = (select auth.uid()) AND psr.student_id = s.id
           )
         )
     )
@@ -112,17 +112,17 @@ CREATE POLICY "Students and parents view own excuse requests" ON public.attendan
 -- INSERT: Elevii și părinții pot crea cereri pentru absențele elevului
 CREATE POLICY "Students and parents create excuse requests" ON public.attendance_excuse_requests
   FOR INSERT WITH CHECK (
-    requested_by = auth.uid()
+    requested_by = (select auth.uid())
     AND EXISTS (
       SELECT 1
       FROM public.attendance a
       JOIN public.students s ON s.id = a.student_id
       WHERE a.id = attendance_id
         AND (
-          s.user_id = auth.uid()
+          s.user_id = (select auth.uid())
           OR EXISTS (
             SELECT 1 FROM public.parent_student_relations psr
-            WHERE psr.parent_user_id = auth.uid() AND psr.student_id = s.id
+            WHERE psr.parent_user_id = (select auth.uid()) AND psr.student_id = s.id
           )
         )
     )
@@ -131,5 +131,5 @@ CREATE POLICY "Students and parents create excuse requests" ON public.attendance
 -- UPDATE/DELETE: Doar Directorul poate aproba/respinge cererile
 DROP POLICY IF EXISTS "Director approves excuse requests" ON public.attendance_excuse_requests;
 CREATE POLICY "Director approves excuse requests" ON public.attendance_excuse_requests
-  FOR UPDATE USING (has_role(auth.uid(), 'director'::public.app_role))
-  WITH CHECK (has_role(auth.uid(), 'director'::public.app_role));
+  FOR UPDATE USING (has_role((select auth.uid()), 'director'::public.app_role))
+  WITH CHECK (has_role((select auth.uid()), 'director'::public.app_role));

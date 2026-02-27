@@ -21,9 +21,9 @@ CREATE POLICY "Anyone can view schools"
 CREATE POLICY "Directors can manage their school"
   ON public.schools FOR ALL
   USING (
-    has_role(auth.uid(), 'director'::app_role) OR
-    has_role(auth.uid(), 'secretariat'::app_role) OR
-    has_role(auth.uid(), 'developer'::app_role)
+    has_role((select auth.uid()), 'director'::app_role) OR
+    has_role((select auth.uid()), 'secretariat'::app_role) OR
+    has_role((select auth.uid()), 'developer'::app_role)
   );
 
 -- Add school_id to classes table
@@ -105,16 +105,16 @@ $$;
 -- Developers can manage all invitations
 CREATE POLICY "Developers can manage all invitations"
   ON public.invitations FOR ALL
-  USING (has_role(auth.uid(), 'developer'::app_role));
+  USING (has_role((select auth.uid()), 'developer'::app_role));
 
 -- Directors can manage invitations for their school (teacher/homeroom_teacher only)
 CREATE POLICY "Directors can manage teacher invitations"
   ON public.invitations FOR ALL
   USING (
-    has_role(auth.uid(), 'director'::app_role) AND
+    has_role((select auth.uid()), 'director'::app_role) AND
     role IN ('teacher'::public.invitation_role, 'homeroom_teacher'::public.invitation_role) AND
     school_id IN (
-      SELECT p.school_id FROM public.profiles p WHERE p.id = auth.uid()
+      SELECT p.school_id FROM public.profiles p WHERE p.id = (select auth.uid())
     )
   );
 
@@ -122,10 +122,10 @@ CREATE POLICY "Directors can manage teacher invitations"
 CREATE POLICY "Homeroom teachers can manage student parent invitations"
   ON public.invitations FOR ALL
   USING (
-    has_role(auth.uid(), 'homeroom_teacher'::app_role) AND
+    has_role((select auth.uid()), 'homeroom_teacher'::app_role) AND
     role IN ('student'::public.invitation_role, 'parent'::public.invitation_role) AND
     class_id IN (
-      SELECT c.id FROM public.classes c WHERE c.teacher_id = auth.uid()
+      SELECT c.id FROM public.classes c WHERE c.teacher_id = (select auth.uid())
     )
   );
 
@@ -141,7 +141,7 @@ CREATE POLICY "Anyone can validate invitations"
 -- Users can see invitations they created
 CREATE POLICY "Users can see own invitations"
   ON public.invitations FOR SELECT
-  USING (created_by_user_id = auth.uid());
+  USING (created_by_user_id = (select auth.uid()));
 
 -- Function to hash invitation code
 CREATE OR REPLACE FUNCTION public.hash_invitation_code(code TEXT)
@@ -260,7 +260,7 @@ DECLARE
   v_inv_id UUID;
   v_created_by UUID;
 BEGIN
-  v_created_by := COALESCE(p_created_by, auth.uid());
+  v_created_by := COALESCE(p_created_by, (select auth.uid()));
   
   -- Validate based on role
   IF p_role IN ('student'::public.invitation_role, 'parent'::public.invitation_role) AND p_class_id IS NULL THEN

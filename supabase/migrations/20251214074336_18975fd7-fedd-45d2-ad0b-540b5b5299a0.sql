@@ -104,10 +104,10 @@ $$;
 
 -- Recreate dropped policies with new enum values
 CREATE POLICY "Teachers can view all profiles" ON public.profiles
-  FOR SELECT USING (has_role(auth.uid(), 'teacher'::app_role));
+  FOR SELECT USING (has_role((select auth.uid()), 'teacher'::app_role));
 
 CREATE POLICY "Teachers can view their classes" ON public.classes
-  FOR SELECT USING ((teacher_id = auth.uid()) OR has_role(auth.uid(), 'teacher'::app_role));
+  FOR SELECT USING ((teacher_id = (select auth.uid())) OR has_role((select auth.uid()), 'teacher'::app_role));
 
 -- Create parent_student_relations table (many-to-many)
 CREATE TABLE IF NOT EXISTS public.parent_student_relations (
@@ -123,11 +123,11 @@ ALTER TABLE public.parent_student_relations ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Parents can view their relations" ON public.parent_student_relations;
 CREATE POLICY "Parents can view their relations" ON public.parent_student_relations
-  FOR SELECT USING (parent_user_id = auth.uid());
+  FOR SELECT USING (parent_user_id = (select auth.uid()));
 
 DROP POLICY IF EXISTS "Secretariat can manage relations" ON public.parent_student_relations;
 CREATE POLICY "Secretariat can manage relations" ON public.parent_student_relations
-  FOR ALL USING (has_role(auth.uid(), 'secretariat') OR has_role(auth.uid(), 'director'));
+  FOR ALL USING (has_role((select auth.uid()), 'secretariat') OR has_role((select auth.uid()), 'director'));
 
 -- Create student_activations table for activation codes
 CREATE TABLE IF NOT EXISTS public.student_activations (
@@ -147,9 +147,9 @@ ALTER TABLE public.student_activations ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Staff can manage activations" ON public.student_activations;
 CREATE POLICY "Staff can manage activations" ON public.student_activations
   FOR ALL USING (
-    has_role(auth.uid(), 'secretariat') OR 
-    has_role(auth.uid(), 'director') OR 
-    has_role(auth.uid(), 'homeroom_teacher')
+    has_role((select auth.uid()), 'secretariat') OR 
+    has_role((select auth.uid()), 'director') OR 
+    has_role((select auth.uid()), 'homeroom_teacher')
   );
 
 DROP POLICY IF EXISTS "Anyone can view unused activations for validation" ON public.student_activations;
@@ -173,11 +173,11 @@ ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Directors can view all audit logs" ON public.audit_logs;
 CREATE POLICY "Directors can view all audit logs" ON public.audit_logs
-  FOR SELECT USING (has_role(auth.uid(), 'director'));
+  FOR SELECT USING (has_role((select auth.uid()), 'director'));
 
 DROP POLICY IF EXISTS "Users can view own audit logs" ON public.audit_logs;
 CREATE POLICY "Users can view own audit logs" ON public.audit_logs
-  FOR SELECT USING (user_id = auth.uid());
+  FOR SELECT USING (user_id = (select auth.uid()));
 
 -- Update students table to allow creation without user_id initially
 ALTER TABLE public.students ALTER COLUMN user_id DROP NOT NULL;
