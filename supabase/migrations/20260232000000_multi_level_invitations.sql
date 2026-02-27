@@ -320,7 +320,7 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION public.create_invitation IS 'Creează invitație conform ierarhiei: Dev->Director, Director->Diriginți/Profesori, Diriginți->Elevi/Părinți/Profesori (doar pentru clasa lor).';
+COMMENT ON FUNCTION public.create_invitation(public.invitation_role, uuid, uuid, uuid, text, text, integer, text, text, text, uuid, integer, integer) IS 'Creează invitație conform ierarhiei: Dev->Director, Director->Diriginți/Profesori, Diriginți->Elevi/Părinți/Profesori (doar pentru clasa lor).';
 
 -- =============================================================================
 -- 5. RLS: RESTRICȚII STRICTE PENTRU DIRIGINȚI (DOAR CLASA LOR)
@@ -406,7 +406,7 @@ CREATE POLICY "anyone_validate_invitations" ON public.invitations
     AND current_uses < max_uses
   );
 
-GRANT EXECUTE ON FUNCTION public.create_invitation TO authenticated;
-GRANT EXECUTE ON FUNCTION public.claim_invitation TO authenticated;
+GRANT EXECUTE ON FUNCTION public.create_invitation(public.invitation_role, uuid, uuid, uuid, text, text, integer, text, text, text, uuid, integer, integer) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.claim_invitation(text, uuid) TO authenticated;
 
 COMMIT;

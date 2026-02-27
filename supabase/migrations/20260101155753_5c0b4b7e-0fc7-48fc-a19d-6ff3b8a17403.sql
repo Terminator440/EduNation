@@ -1,5 +1,5 @@
 -- Create announcements table for school-wide announcements
-CREATE TABLE public.announcements (
+CREATE TABLE IF NOT EXISTS public.announcements (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   title TEXT NOT NULL,
   content TEXT NOT NULL,

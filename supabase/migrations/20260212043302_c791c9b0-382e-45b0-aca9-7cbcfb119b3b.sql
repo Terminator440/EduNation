@@ -1,6 +1,6 @@
 
 -- Create teacher_register table (condica)
-CREATE TABLE public.teacher_register (
+CREATE TABLE IF NOT EXISTS public.teacher_register (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   timetable_entry_id uuid NOT NULL REFERENCES public.timetable_entries(id) ON DELETE CASCADE,
   teacher_id uuid NOT NULL,
@@ -16,19 +16,28 @@ CREATE TABLE public.teacher_register (
 -- Enable RLS
 ALTER TABLE public.teacher_register ENABLE ROW LEVEL SECURITY;
 
--- Teachers can view their own register entries
+-- Teachers can view their own register entries (signed_by matches 20251222 schema)
+DROP POLICY IF EXISTS "Teachers can view own register entries" ON public.teacher_register;
 CREATE POLICY "Teachers can view own register entries"
 ON public.teacher_register
 FOR SELECT
-USING (teacher_id = auth.uid());
+USING (signed_by = auth.uid());
 
 -- Teachers can insert their own register entries
+DROP POLICY IF EXISTS "Teachers can sign register" ON public.teacher_register;
 CREATE POLICY "Teachers can sign register"
 ON public.teacher_register
 FOR INSERT
-WITH CHECK (teacher_id = auth.uid());
+WITH CHECK (
+  signed_by = auth.uid()
+  AND EXISTS (
+    SELECT 1 FROM public.timetable_entries te
+    WHERE te.id = timetable_entry_id AND te.teacher_id = auth.uid()
+  )
+);
 
 -- Directors can view all register entries (school oversight)
+DROP POLICY IF EXISTS "Directors can view all register entries" ON public.teacher_register;
 CREATE POLICY "Directors can view all register entries"
 ON public.teacher_register
 FOR SELECT
@@ -38,6 +47,7 @@ USING (
 );
 
 -- Developers can view all register entries
+DROP POLICY IF EXISTS "Developers can view all register entries" ON public.teacher_register;
 CREATE POLICY "Developers can view all register entries"
 ON public.teacher_register
 FOR SELECT

@@ -1,5 +1,5 @@
 -- Create schools table
-CREATE TABLE public.schools (
+CREATE TABLE IF NOT EXISTS public.schools (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   name TEXT NOT NULL,
   code TEXT UNIQUE,
@@ -40,7 +40,7 @@ EXCEPTION
 END $$;
 
 -- Create invitations table
-CREATE TABLE public.invitations (
+CREATE TABLE IF NOT EXISTS public.invitations (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   code_hash TEXT NOT NULL UNIQUE,
   role invitation_role NOT NULL,

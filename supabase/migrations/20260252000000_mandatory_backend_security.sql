@@ -158,6 +158,15 @@ CREATE POLICY "user_roles_delete_no_escalation" ON public.user_roles
 -- 3. INDEXURI – user_id, school_id, invitation_code, created_at
 -- =============================================================================
 
+-- Ensure is_used exists on invitations before creating index (invitations uses current_uses/max_uses; is_used = true when used)
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'invitations' AND column_name = 'is_used') THEN
+    ALTER TABLE public.invitations ADD COLUMN is_used BOOLEAN NOT NULL DEFAULT false;
+    UPDATE public.invitations SET is_used = (current_uses >= max_uses) WHERE true;
+  END IF;
+END $$;
+
 CREATE INDEX IF NOT EXISTS idx_profiles_school_id ON public.profiles(school_id);
 CREATE INDEX IF NOT EXISTS idx_user_roles_user_id ON public.user_roles(user_id);
 CREATE INDEX IF NOT EXISTS idx_invitations_code_hash ON public.invitations(code_hash);

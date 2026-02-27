@@ -1,5 +1,5 @@
 -- Create timetable_entries table for schedule/orar
-CREATE TABLE public.timetable_entries (
+CREATE TABLE IF NOT EXISTS public.timetable_entries (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   class_id UUID REFERENCES public.classes(id) ON DELETE CASCADE,
   subject_id UUID REFERENCES public.subjects(id) ON DELETE CASCADE,
@@ -41,7 +41,7 @@ CREATE POLICY "Developers can view all timetable entries"
 
 
 -- Create school_events table for calendar
-CREATE TABLE public.school_events (
+CREATE TABLE IF NOT EXISTS public.school_events (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   event_date DATE NOT NULL,
   event_time TEXT,

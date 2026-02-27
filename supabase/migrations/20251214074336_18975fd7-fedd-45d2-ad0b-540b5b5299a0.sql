@@ -110,7 +110,7 @@ CREATE POLICY "Teachers can view their classes" ON public.classes
   FOR SELECT USING ((teacher_id = auth.uid()) OR has_role(auth.uid(), 'teacher'::app_role));
 
 -- Create parent_student_relations table (many-to-many)
-CREATE TABLE public.parent_student_relations (
+CREATE TABLE IF NOT EXISTS public.parent_student_relations (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   parent_user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   student_id UUID NOT NULL REFERENCES public.students(id) ON DELETE CASCADE,
@@ -130,7 +130,7 @@ CREATE POLICY "Secretariat can manage relations" ON public.parent_student_relati
   FOR ALL USING (has_role(auth.uid(), 'secretariat') OR has_role(auth.uid(), 'director'));
 
 -- Create student_activations table for activation codes
-CREATE TABLE public.student_activations (
+CREATE TABLE IF NOT EXISTS public.student_activations (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   student_id UUID NOT NULL REFERENCES public.students(id) ON DELETE CASCADE,
   activation_code TEXT NOT NULL UNIQUE,
@@ -157,7 +157,7 @@ CREATE POLICY "Anyone can view unused activations for validation" ON public.stud
   FOR SELECT USING (is_used = false AND expires_at > now());
 
 -- Create audit_logs table
-CREATE TABLE public.audit_logs (
+CREATE TABLE IF NOT EXISTS public.audit_logs (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id UUID NOT NULL,
   user_name TEXT NOT NULL,

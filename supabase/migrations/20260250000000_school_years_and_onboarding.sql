@@ -7,7 +7,14 @@ ALTER TABLE public.schools
 
 COMMENT ON COLUMN public.schools.type IS 'School type: e.g. primary, secondary, high_school.';
 
--- 2) Extend school_years: add school_id and is_active (one active per school)
+-- 2) Create school_years if missing, then extend with school_id and is_active
+CREATE TABLE IF NOT EXISTS public.school_years (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name text,
+  label text,
+  created_at timestamptz DEFAULT now()
+);
+
 ALTER TABLE public.school_years
   ADD COLUMN IF NOT EXISTS school_id uuid REFERENCES public.schools(id) ON DELETE CASCADE;
 

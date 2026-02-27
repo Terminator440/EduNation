@@ -12,7 +12,11 @@ BEGIN;
 -- ============================================================================
 
 -- 1.1) Ensure grades are integers between 1-10
--- First, check if grade column is DECIMAL/NUMERIC and needs conversion
+-- First, drop views that depend on grades.grade (must drop before ALTER COLUMN)
+DROP VIEW IF EXISTS public.view_student_general_average CASCADE;
+DROP VIEW IF EXISTS public.view_student_subject_average CASCADE;
+
+-- Check if grade column is DECIMAL/NUMERIC and needs conversion
 DO $$
 BEGIN
   -- Check if grade column exists and is not integer
@@ -33,6 +37,27 @@ BEGIN
     ALTER COLUMN grade TYPE INTEGER USING ROUND(grade::numeric)::integer;
   END IF;
 END $$;
+
+-- Recreate views that depend on grades
+CREATE OR REPLACE VIEW public.view_student_subject_average AS
+SELECT
+  g.student_id,
+  g.subject_id,
+  s.name AS subject_name,
+  AVG(g.grade)::NUMERIC(4,2) AS average,
+  COUNT(*)::INTEGER AS grade_count
+FROM public.grades g
+JOIN public.subjects s ON s.id = g.subject_id
+WHERE g.deleted_at IS NULL
+GROUP BY g.student_id, g.subject_id, s.name;
+
+CREATE OR REPLACE VIEW public.view_student_general_average AS
+SELECT
+  student_id,
+  AVG(average)::NUMERIC(4,2) AS general_average,
+  COUNT(*)::INTEGER AS subject_count
+FROM public.view_student_subject_average
+GROUP BY student_id;
 
 -- Add or replace CHECK constraint for grades (1-10)
 ALTER TABLE public.grades 
@@ -403,6 +428,10 @@ DROP POLICY IF EXISTS "Users can view attendance from their school" ON public.at
 DROP POLICY IF EXISTS "Teachers can insert attendance (scoped)" ON public.attendance;
 DROP POLICY IF EXISTS "Teachers can update attendance (scoped)" ON public.attendance;
 DROP POLICY IF EXISTS "Teachers can delete attendance (scoped)" ON public.attendance;
+DROP POLICY IF EXISTS "Students can view own attendance" ON public.attendance;
+DROP POLICY IF EXISTS "Teachers can view attendance for assigned classes" ON public.attendance;
+DROP POLICY IF EXISTS "Parents can view children attendance" ON public.attendance;
+DROP POLICY IF EXISTS "Teachers can manage attendance for assigned classes" ON public.attendance;
 
 -- 4.2) SELECT: Students can only see their own attendance
 CREATE POLICY "Students can view own attendance" ON public.attendance

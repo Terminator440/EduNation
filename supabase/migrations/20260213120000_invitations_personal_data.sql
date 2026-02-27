@@ -137,6 +137,8 @@ END;
 $$;
 
 -- 3. Update claim_invitation: return first_name, last_name, student_number, email, phone for signup
+-- Drop first: return type change requires DROP before CREATE
+DROP FUNCTION IF EXISTS public.claim_invitation(text, uuid);
 CREATE OR REPLACE FUNCTION public.claim_invitation(p_code_hash text, p_user_id uuid)
 RETURNS TABLE (
   success boolean,

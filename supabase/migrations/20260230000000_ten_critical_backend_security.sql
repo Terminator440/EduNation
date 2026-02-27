@@ -107,7 +107,7 @@ END $$;
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'audit_logs') THEN
-    CREATE TABLE public.audit_logs (
+    CREATE TABLE IF NOT EXISTS public.audit_logs (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
       action TEXT NOT NULL,

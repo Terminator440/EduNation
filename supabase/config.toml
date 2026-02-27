@@ -1,5 +1,22 @@
 project_id = "xgxykobbgfwxloaphldj"
 
+# Use alternate ports (55xxx) to avoid conflicts with other Supabase projects
+[api]
+port = 55421
+
+[db]
+port = 55422
+shadow_port = 55420
+
+[db.pooler]
+port = 55429
+
+[studio]
+port = 55423
+
+[inbucket]
+port = 55424
+
 [db.seed]
 # Keep seeds enabled, but ensure the default seed file exists to avoid warnings.
 enabled = true
