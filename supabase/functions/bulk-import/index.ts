@@ -82,7 +82,8 @@ Deno.serve(async (req) => {
       .select("role")
       .eq("user_id", caller.id);
     const allowedRoles = ["director", "secretariat", "uat_admin"];
-    const hasRole = (roles?.data ?? []).some((r) => allowedRoles.includes(r.role));
+    // `roles` is already the data array from the destructured response; do not access `.data` on it.
+    const hasRole = (roles ?? []).some((r) => allowedRoles.includes(r.role));
     if (!hasRole) {
       return new Response(
         JSON.stringify({ error: "Nu aveți dreptul de a importa utilizatori în masă" }),
@@ -148,7 +149,9 @@ Deno.serve(async (req) => {
           { onConflict: "id" }
         );
         if (profileErr) {
-          results.push({ rowIndex, success: false, error: `Profil: ${profileErr.message}`, user_id: newUserId });
+          // Roll back the orphaned auth user so the row can be retried.
+          await supabaseAdmin.auth.admin.deleteUser(newUserId).catch(() => {});
+          results.push({ rowIndex, success: false, error: `Profil: ${profileErr.message}` });
           continue;
         }
 
@@ -157,7 +160,9 @@ Deno.serve(async (req) => {
           role: role === "student" ? "student" : "teacher",
         });
         if (roleErr) {
-          results.push({ rowIndex, success: false, error: `Rol: ${roleErr.message}`, user_id: newUserId });
+          await supabaseAdmin.from("profiles").delete().eq("id", newUserId);
+          await supabaseAdmin.auth.admin.deleteUser(newUserId).catch(() => {});
+          results.push({ rowIndex, success: false, error: `Rol: ${roleErr.message}` });
           continue;
         }
 
@@ -170,13 +175,22 @@ Deno.serve(async (req) => {
             is_active: true,
           });
           if (studentErr) {
-            results.push({ rowIndex, success: false, error: `Student: ${studentErr.message}`, user_id: newUserId });
+            await supabaseAdmin.from("user_roles").delete().eq("user_id", newUserId);
+            await supabaseAdmin.from("profiles").delete().eq("id", newUserId);
+            await supabaseAdmin.auth.admin.deleteUser(newUserId).catch(() => {});
+            results.push({ rowIndex, success: false, error: `Student: ${studentErr.message}` });
             continue;
           }
         }
 
         results.push({ rowIndex, success: true, user_id: newUserId });
       } catch (e) {
+        // If the auth user was created before the exception, roll it back to avoid orphans.
+        if (newUserId) {
+          await supabaseAdmin.from("user_roles").delete().eq("user_id", newUserId);
+          await supabaseAdmin.from("profiles").delete().eq("id", newUserId);
+          await supabaseAdmin.auth.admin.deleteUser(newUserId).catch(() => {});
+        }
         results.push({ rowIndex, success: false, error: String(e) });
       }
     }

@@ -36,8 +36,8 @@ const GradesTable = ({ grades }: GradesTableProps) => {
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
-            {grades.map((grade, index) => (
-              <tr key={index} className="hover:bg-secondary/30 transition-colors">
+            {grades.map((grade) => (
+              <tr key={grade.subject} className="hover:bg-secondary/30 transition-colors">
                 <td className="px-6 py-4">
                   <span className="font-medium text-foreground">{grade.subject}</span>
                 </td>

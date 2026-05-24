@@ -39,12 +39,31 @@ Deno.serve(async (req) => {
       );
     }
 
+    // NOTE (security): this endpoint is publicly callable (failed logins have no
+    // session). To prevent abuse it should ideally be wired as a Supabase Auth
+    // Hook (server-to-server) rather than called from the client. As defense in
+    // depth we validate/cap the input so the audit table cannot be flooded with
+    // oversized or malformed rows.
+    const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const normalizedEmail = String(email).trim().toLowerCase().slice(0, 320);
+    if (!EMAIL_RE.test(normalizedEmail)) {
+      return new Response(
+        JSON.stringify({ error: "invalid email" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const safeUserId = typeof user_id === "string" && UUID_RE.test(user_id) ? user_id : null;
+    const safeUserAgent =
+      typeof user_agent === "string" ? user_agent.slice(0, 512) : null;
+    const safeIp = typeof ip_address === "string" ? ip_address.slice(0, 64) : null;
+
     const { error } = await supabase.rpc("log_login", {
-      p_user_id: user_id ?? null,
-      p_email: email,
-      p_success: success,
-      p_ip_address: ip_address ?? null,
-      p_user_agent: user_agent ?? null,
+      p_user_id: safeUserId,
+      p_email: normalizedEmail,
+      p_success: Boolean(success),
+      p_ip_address: safeIp,
+      p_user_agent: safeUserAgent,
     });
 
     if (error) {

@@ -22,8 +22,9 @@ const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) => {
       navigate('/auth');
     }
 
-    if (!loading && user && allowedRoles && activeRole) {
-      if (!allowedRoles.includes(activeRole)) {
+    if (!loading && user && allowedRoles) {
+      // No active role yet resolved, or role not permitted for this route → redirect away.
+      if (!activeRole || !allowedRoles.includes(activeRole)) {
         const roleRoutes: Record<AppRole, string> = {
           student: '/dashboard',
           parent: '/parent',
@@ -34,7 +35,7 @@ const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) => {
           uat_admin: '/admin',
           developer: '/developer',
         };
-        navigate(roleRoutes[activeRole] || '/dashboard');
+        navigate(activeRole ? (roleRoutes[activeRole] || '/dashboard') : '/auth');
       }
     }
   }, [user, activeRole, loading, navigate, allowedRoles]);
@@ -49,6 +50,17 @@ const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) => {
 
   if (!user) {
     return null;
+  }
+
+  // Do not render protected children while the role guard is pending a redirect.
+  // This prevents a brief flash of role-restricted content for users whose
+  // active role is missing or not permitted on this route.
+  if (allowedRoles && (!activeRole || !allowedRoles.includes(activeRole))) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Spinner size="md" className="text-primary" />
+      </div>
+    );
   }
 
   const isAdminOrDev = activeRole && ADMIN_OR_DEV.includes(activeRole);
