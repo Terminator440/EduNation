@@ -14,6 +14,11 @@
 .DS_Store
 .env
 .env.*
+# Keep the example committed (must come AFTER .env.* so it isn't re-ignored).
+!.env.example
+# Supabase CLI local/temp state — must never be committed.
+supabase/.temp/
+supabase/.branches/
 .idea
 .vite/
 .vscode/*

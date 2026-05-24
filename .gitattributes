@@ -1,0 +1,13 @@
+# Normalize line endings to avoid the whole tree showing as modified across
+# platforms (Windows CRLF vs LF). Text files are stored with LF in the repo.
+* text=auto eol=lf
+
+# Binary / lockfiles should never be normalized.
+*.png binary
+*.ico binary
+*.svg text eol=lf
+bun.lockb binary
+*.lockb binary
+
+# Keep shell scripts LF even on Windows checkouts.
+*.sh text eol=lf
